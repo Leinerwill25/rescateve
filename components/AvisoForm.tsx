@@ -170,7 +170,6 @@ export default function AvisoForm({ onDone, onCancel }: Props) {
         <label className="form__label">Imagen (opcional · máx. {MAX_MB} MB)</label>
         <div
           className={`photo-upload${file ? " photo-upload--has-file" : ""}`}
-          onClick={() => fileRef.current?.click()}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileRef.current?.click(); }}
           role="button" tabIndex={0}
           aria-label="Seleccionar imagen para el aviso"

@@ -177,7 +177,6 @@ export default function MissingForm({ onDone }: { onDone: () => void }) {
         <label className="form__label">Foto reciente (opcional pero muy útil)</label>
         <div
           className={`photo-upload${file ? " photo-upload--has-file" : ""}`}
-          onClick={() => fileInputRef.current?.click()}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
           role="button"
           tabIndex={0}
