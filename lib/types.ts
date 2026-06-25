@@ -121,3 +121,51 @@ export const categoriaAvisoInfo = (v: string) =>
 
 export const tipoInfo = (v: string) =>
   TIPOS.find((t) => t.value === v) ?? TIPOS[TIPOS.length - 1];
+
+// ================================================================
+// TRASLADOS
+// ================================================================
+export type Traslado = {
+  id: string;
+  created_at: string;
+  tipo: string;
+  descripcion: string | null;
+  cantidad: string | null;
+  origen_ref: string | null;
+  origen_lat: number | null;
+  origen_lng: number | null;
+  destino_ref: string | null;
+  destino_lat: number | null;
+  destino_lng: number | null;
+  prioridad: "alta" | "media" | "baja";
+  contacto: string | null;
+  cuando: string | null;
+  estado: "solicitado" | "asignado" | "en_camino" | "completado";
+  operador: string | null;
+  reporter_token: string | null;
+};
+
+export const TIPOS_TRASLADO = [
+  { value: "persona",         label: "Persona / paciente",      emoji: "🧑🦽" },
+  { value: "personal_medico", label: "Personal médico",         emoji: "🩺" },
+  { value: "medicamentos",    label: "Medicamentos",            emoji: "💊" },
+  { value: "agua",            label: "Agua",                    emoji: "💧" },
+  { value: "alimentos",       label: "Alimentos",               emoji: "🍞" },
+  { value: "insumos",         label: "Insumos médicos",         emoji: "🧰" },
+  { value: "otro",            label: "Otro",                    emoji: "📦" },
+];
+
+export const tipoTrasladoInfo = (v: string) =>
+  TIPOS_TRASLADO.find((t) => t.value === v) ?? TIPOS_TRASLADO[TIPOS_TRASLADO.length - 1];
+
+// ================================================================
+// HOSPITALES
+// ================================================================
+export type PacientePublico = {
+  id: string;
+  hospital: string;
+  nombre: string;
+  edad: number | null;
+  estado: "ingresado" | "dado_de_alta" | "trasladado";
+  actualizado_at: string;
+};

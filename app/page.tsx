@@ -10,12 +10,14 @@ import AtenderModal from "@/components/AtenderModal";
 import NovedadModal from "@/components/NovedadModal";
 import EncontradoModal from "@/components/EncontradoModal";
 import AvisosView from "@/components/AvisosView";
-import { Map, AlertCircle, Search, ClipboardList, Megaphone } from "lucide-react";
+import TrasladosView from "@/components/TrasladosView";
+import HospitalesView from "@/components/HospitalesView";
+import { Map, AlertCircle, Search, ClipboardList, Megaphone, Truck } from "lucide-react";
 
 // Leaflet solo en cliente
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
-type Tab = "mapa" | "ayuda" | "desaparecidos" | "lista" | "info";
+type Tab = "mapa" | "ayuda" | "desaparecidos" | "lista" | "info" | "traslados";
 
 function timeAgo(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -32,6 +34,7 @@ export default function Home() {
   const [actualizaciones, setActualizaciones] = useState<Actualizacion[]>([]);
   const [rescatados,    setRescatados]    = useState<RescatadoPublico[]>([]);
   const [showModal,     setShowModal]     = useState(false);
+  const [buscarTab,     setBuscarTab]     = useState<"hospitales" | "reportar">("hospitales");
 
   // Modales de acción
   const [atenderModal, setAtenderModal] = useState<{
@@ -83,6 +86,7 @@ export default function Home() {
     { id: "desaparecidos", icon: <Search size={20} strokeWidth={2.25} />, label: "Buscar" },
     { id: "lista",         icon: <ClipboardList size={20} strokeWidth={2.25} />, label: "Lista", count: activas.length + buscando.length },
     { id: "info",          icon: <Megaphone size={20} strokeWidth={2.25} />, label: "Avisos" },
+    { id: "traslados",     icon: <Truck size={20} strokeWidth={2.25} />, label: "Traslados" },
   ];
 
   return (
@@ -142,9 +146,31 @@ export default function Home() {
 
         {tab === "ayuda" && <ReportForm onDone={() => setTab("mapa")} />}
 
-        {tab === "desaparecidos" && <MissingForm onDone={() => setTab("mapa")} />}
+        {tab === "desaparecidos" && (
+          <div className="buscar-wrapper">
+            <div className="tabs-sub" style={{ display: "flex", gap: "var(--s2)", marginBottom: "var(--s4)" }}>
+              <button 
+                className={`btn-subtab ${buscarTab === "hospitales" ? "active" : ""}`}
+                onClick={() => setBuscarTab("hospitales")}
+                style={{ flex: 1, padding: "var(--s2)", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: buscarTab === "hospitales" ? "var(--brand)" : "var(--surface)", color: buscarTab === "hospitales" ? "#fff" : "var(--text)", fontWeight: 600 }}
+              >
+                🏥 Pacientes (Hospital)
+              </button>
+              <button 
+                className={`btn-subtab ${buscarTab === "reportar" ? "active" : ""}`}
+                onClick={() => setBuscarTab("reportar")}
+                style={{ flex: 1, padding: "var(--s2)", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: buscarTab === "reportar" ? "var(--brand)" : "var(--surface)", color: buscarTab === "reportar" ? "#fff" : "var(--text)", fontWeight: 600 }}
+              >
+                🔎 Reportar Desaparición
+              </button>
+            </div>
+            {buscarTab === "hospitales" ? <HospitalesView /> : <MissingForm onDone={() => setTab("mapa")} />}
+          </div>
+        )}
 
         {tab === "info" && <AvisosView />}
+
+        {tab === "traslados" && <TrasladosView />}
 
         {tab === "lista" && (
           <div className="list">
