@@ -313,6 +313,12 @@ export default function Home() {
                 const novedadesDeD = actualizaciones.filter((a) => a.desaparecido_id === d.id);
                 return (
                   <article className="card" key={d.id}>
+                    {d.foto_url && (
+                      <div style={{ width: "100%", height: "220px", overflow: "hidden", borderRadius: "var(--radius-sm)", marginBottom: "var(--s3)", background: "var(--surface-2)" }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={d.foto_url} alt={`Foto de ${d.nombre}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      </div>
+                    )}
                     <div className="card__top">
                       <h3 className="card__title">
                         🔎 {d.nombre}{d.edad ? `, ${d.edad} años` : ""}
