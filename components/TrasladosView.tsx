@@ -120,18 +120,18 @@ export default function TrasladosView() {
     : traslados;
 
   return (
-    <div className="traslados-view">
-      <div className="list__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--s4)" }}>
-        <h2 className="list__section-title" style={{ margin: 0 }}>🚚 Traslados Logísticos</h2>
+    <div className="list traslados-view">
+      <div className="list__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--s4)", gap: "var(--s3)" }}>
+        <h2 className="list__section-title" style={{ margin: 0, flex: 1 }}>🚚 Traslados Logísticos</h2>
         {!showForm && (
-          <button className="btn btn--primary" onClick={() => setShowForm(true)} style={{ padding: "0 var(--s3)", height: "36px" }}>
+          <button className="btn btn--primary" onClick={() => setShowForm(true)} style={{ width: "auto", padding: "0 var(--s3)", height: "36px", minHeight: "36px", whiteSpace: "nowrap" }}>
             + Solicitar
           </button>
         )}
       </div>
 
       {showForm ? (
-        <div className="form" style={{ marginBottom: "var(--s6)" }}>
+        <div className="form" style={{ marginBottom: "var(--s6)", padding: 0 }}>
           <div className="form__header" style={{ display: "flex", justifyContent: "space-between" }}>
             <h3 className="form__title">Solicitar Traslado</h3>
             <button className="btn-close" onClick={() => setShowForm(false)} aria-label="Cerrar form">×</button>
@@ -200,8 +200,8 @@ export default function TrasladosView() {
       ) : (
         <>
           <div className="tabs-sub" style={{ display: "flex", gap: "var(--s2)", marginBottom: "var(--s4)" }}>
-            <button className={`btn-subtab ${filter === "pendientes" ? "active" : ""}`} onClick={() => setFilter("pendientes")} style={{ padding: "4px 12px", borderRadius: "100px", border: "1px solid var(--border)", background: filter === "pendientes" ? "var(--brand)" : "transparent", color: filter === "pendientes" ? "#fff" : "var(--text)" }}>Activos</button>
-            <button className={`btn-subtab ${filter === "todos" ? "active" : ""}`} onClick={() => setFilter("todos")} style={{ padding: "4px 12px", borderRadius: "100px", border: "1px solid var(--border)", background: filter === "todos" ? "var(--brand)" : "transparent", color: filter === "todos" ? "#fff" : "var(--text)" }}>Todos (Historial)</button>
+            <button className={`btn-subtab ${filter === "pendientes" ? "active" : ""}`} onClick={() => setFilter("pendientes")} style={{ flex: 1, padding: "var(--s2)", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: filter === "pendientes" ? "var(--brand)" : "var(--surface)", color: filter === "pendientes" ? "#fff" : "var(--text)", fontWeight: 600 }}>Activos</button>
+            <button className={`btn-subtab ${filter === "todos" ? "active" : ""}`} onClick={() => setFilter("todos")} style={{ flex: 1, padding: "var(--s2)", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: filter === "todos" ? "var(--brand)" : "var(--surface)", color: filter === "todos" ? "#fff" : "var(--text)", fontWeight: 600 }}>Historial</button>
           </div>
 
           <div className="traslados-list" style={{ display: "flex", flexDirection: "column", gap: "var(--s3)" }}>

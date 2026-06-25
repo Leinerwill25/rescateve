@@ -147,7 +147,7 @@ export default function Home() {
         {tab === "ayuda" && <ReportForm onDone={() => setTab("mapa")} />}
 
         {tab === "desaparecidos" && (
-          <div className="buscar-wrapper">
+          <div className="list buscar-wrapper">
             <div className="tabs-sub" style={{ display: "flex", gap: "var(--s2)", marginBottom: "var(--s4)" }}>
               <button 
                 className={`btn-subtab ${buscarTab === "hospitales" ? "active" : ""}`}
