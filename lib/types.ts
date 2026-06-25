@@ -1,0 +1,123 @@
+export type Solicitud = {
+  id: string;
+  created_at: string;
+  tipo: string;
+  descripcion: string | null;
+  latitud: number;
+  longitud: number;
+  referencia: string | null;
+  personas_afectadas: number | null;
+  prioridad: "alta" | "media" | "baja";
+  contacto: string | null;
+  estado: "pendiente" | "en_camino" | "atendido";
+  // v2: quién reporta
+  reportado_por_nombre: string | null;
+  reportado_por_contacto: string | null;
+  reporter_token: string | null;
+  // v2: ciclo de atención
+  respondido_por: string | null;
+  en_camino_at: string | null;
+  atendido_at: string | null;
+  personas_rescatadas: number | null;
+};
+
+export type Desaparecido = {
+  id: string;
+  created_at: string;
+  nombre: string;
+  edad: number | null;
+  descripcion: string | null;
+  ultima_ubicacion: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  foto_url: string | null;
+  contacto: string;
+  estado: "desaparecido" | "encontrado";
+  // v2: quién reporta
+  reportado_por_nombre: string | null;
+  reporter_token: string | null;
+  // v2: datos adicionales opcionales
+  genero: string | null;
+  estatura: string | null;
+  contextura: string | null;
+  senas_particulares: string | null;
+  condicion_medica: string | null;
+  // v2: cierre
+  encontrado_at: string | null;
+  encontrado_nota: string | null;
+};
+
+/** Novedad/pista sobre un desaparecido */
+export type Actualizacion = {
+  id: string;
+  created_at: string;
+  desaparecido_id: string;
+  texto: string;
+  autor_nombre: string | null;
+  autor_contacto: string | null;
+  latitud: number | null;
+  longitud: number | null;
+};
+
+/** Rescatado leído desde rescatados_publicos (sin cédula ni foto) */
+export type RescatadoPublico = {
+  id: string;
+  created_at: string;
+  solicitud_id: string;
+  nombre: string;
+  apellido: string | null;
+  condicion: string | null;
+};
+
+/** Input para insertar en rescatados (incluye campos sensibles que no se leen públicamente) */
+export type RescatadoInput = {
+  nombre: string;
+  apellido: string;
+  cedula: string;
+  condicion: "ileso" | "herido" | "trasladado" | "";
+};
+
+export const TIPOS: { value: string; label: string; color: string; emoji: string }[] = [
+  { value: "rescate",          label: "Rescate (personas atrapadas)",  color: "#dc2626", emoji: "🆘" },
+  { value: "paramedico",       label: "Paramédicos / heridos",         color: "#ea580c", emoji: "🚑" },
+  { value: "ambulancia",       label: "Ambulancia",                    color: "#e11d48", emoji: "🚨" },
+  { value: "proteccion_civil", label: "Protección Civil",              color: "#2563eb", emoji: "🛟" },
+  { value: "bomberos",         label: "Bomberos",                      color: "#b91c1c", emoji: "🚒" },
+  { value: "agua",             label: "Agua",                          color: "#0891b2", emoji: "💧" },
+  { value: "alimentos",        label: "Alimentos",                     color: "#16a34a", emoji: "🍞" },
+  { value: "refugio",          label: "Refugio",                       color: "#7c3aed", emoji: "⛺" },
+  { value: "otro",             label: "Otro",                          color: "#475569", emoji: "📍" },
+];
+
+/** Aviso comunitario */
+export type Aviso = {
+  id: string;
+  created_at: string;
+  categoria: string;
+  titulo: string | null;
+  descripcion: string | null;
+  contacto: string | null;
+  imagen_url: string | null;
+  fuente: string | null;
+  reporter_token: string | null;
+  verificado: boolean;
+  reportes: number;
+  oculto: boolean;
+};
+
+export const CATEGORIAS_AVISO = [
+  { value: "emergencias", label: "Contactos de emergencia", emoji: "🚨", color: "#dc2626" },
+  { value: "hospitales",  label: "Hospitales y salud",       emoji: "🏥", color: "#0891b2" },
+  { value: "acopio",      label: "Acopio y donaciones",      emoji: "📦", color: "#16a34a" },
+  { value: "refugios",    label: "Refugios",                 emoji: "⛺", color: "#7c3aed" },
+  { value: "mascotas",    label: "Mascotas",                 emoji: "🐾", color: "#d97706" },
+  { value: "familiares",  label: "Reconexión familiar",      emoji: "👨‍👩‍👧", color: "#2563eb" },
+  { value: "transporte",  label: "Transporte",               emoji: "🚗", color: "#4f46e5" },
+  { value: "otros",       label: "Otros avisos",             emoji: "ℹ️",  color: "#475569" },
+];
+
+export const categoriaAvisoInfo = (v: string) =>
+  CATEGORIAS_AVISO.find((c) => c.value === v) ?? CATEGORIAS_AVISO[CATEGORIAS_AVISO.length - 1];
+
+export const tipoInfo = (v: string) =>
+  TIPOS.find((t) => t.value === v) ?? TIPOS[TIPOS.length - 1];
