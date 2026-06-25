@@ -5,6 +5,36 @@ import { supabase } from "@/lib/supabase";
 import { getReporterToken } from "@/lib/reporter-token";
 import LocationPicker from "./LocationPicker";
 
+const MAX_MB = 10;
+const MAX_PX = 1600;
+
+async function compressImage(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > MAX_PX || height > MAX_PX) {
+        const ratio = Math.min(MAX_PX / width, MAX_PX / height);
+        width  = Math.round(width  * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width  = width;
+      canvas.height = height;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => blob ? resolve(blob) : reject(new Error("compression failed")),
+        "image/jpeg",
+        0.85
+      );
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 export default function MissingForm({ onDone }: { onDone: () => void }) {
   const [nombre,         setNombre]         = useState("");
   const [edad,           setEdad]           = useState("");
@@ -30,6 +60,21 @@ export default function MissingForm({ onDone }: { onDone: () => void }) {
   const [err,     setErr]     = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  function handleFile(selected: File | null) {
+    if (!selected) { setFile(null); setPreviewUrl(null); return; }
+    if (!selected.type.startsWith("image/")) {
+      setErr("Solo se permiten archivos de imagen.");
+      return;
+    }
+    if (selected.size > MAX_MB * 1024 * 1024) {
+      setErr(`La imagen supera los ${MAX_MB} MB.`);
+      return;
+    }
+    setErr(null);
+    setFile(selected);
+    setPreviewUrl(URL.createObjectURL(selected));
+  }
+
   async function submit() {
     setErr(null);
     if (!nombre.trim())   return setErr("El nombre completo es obligatorio para identificar a la persona.");
@@ -38,15 +83,26 @@ export default function MissingForm({ onDone }: { onDone: () => void }) {
 
     let foto_url: string | null = null;
     if (file) {
-      const ext  = file.name.split(".").pop();
-      const path = `${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("desaparecidos")
-        .upload(path, file);
-      if (!upErr) {
-        foto_url = supabase.storage.from("desaparecidos").getPublicUrl(path).data.publicUrl;
+      try {
+        const compressed = await compressImage(file);
+        const ext  = file.type === "image/png" ? "png" : "jpg";
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("desaparecidos")
+          .upload(path, compressed, { contentType: `image/${ext}` });
+        if (!upErr) {
+          foto_url = supabase.storage.from("desaparecidos").getPublicUrl(path).data.publicUrl;
+        } else {
+          console.warn("Upload failed:", upErr);
+        }
+      } catch {
+        // Fallback si falla compresión
+        const path = `${crypto.randomUUID()}`;
+        const { error: upErr } = await supabase.storage.from("desaparecidos").upload(path, file);
+        if (!upErr) {
+          foto_url = supabase.storage.from("desaparecidos").getPublicUrl(path).data.publicUrl;
+        }
       }
-      // Si falla la subida (bucket no creado), seguimos sin foto.
     }
 
     const { error } = await supabase.from("personas_desaparecidas").insert({
@@ -188,16 +244,7 @@ export default function MissingForm({ onDone }: { onDone: () => void }) {
             accept="image/*"
             aria-hidden="true"
             tabIndex={-1}
-            onChange={(e) => {
-              const selected = e.target.files?.[0] ?? null;
-              setFile(selected);
-              if (selected) {
-                const url = URL.createObjectURL(selected);
-                setPreviewUrl(url);
-              } else {
-                setPreviewUrl(null);
-              }
-            }}
+            onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
           />
           {!file ? (
             <>
