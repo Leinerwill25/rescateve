@@ -126,8 +126,8 @@ export default function HospitalesView() {
               onKeyDown={(e) => handleKeyDown(e, false)}
               style={{ flex: 1 }}
             />
-            <button className="btn btn--primary" onClick={searchByNombre} disabled={loading} style={{ padding: "0 var(--s3)" }}>
-              <Search size={18} />
+            <button className="btn btn--primary" onClick={searchByNombre} disabled={loading} style={{ width: "auto", padding: "0 var(--s4)" }}>
+              <Search size={20} />
             </button>
           </div>
           <p className="form__hint">Busca coincidencias aproximadas en las listas de hospitales.</p>
@@ -145,8 +145,8 @@ export default function HospitalesView() {
               onKeyDown={(e) => handleKeyDown(e, true)}
               style={{ flex: 1 }}
             />
-            <button className="btn btn--primary" onClick={verifyByCedula} disabled={loading} style={{ padding: "0 var(--s3)" }}>
-              <Search size={18} />
+            <button className="btn btn--primary" onClick={verifyByCedula} disabled={loading} style={{ width: "auto", padding: "0 var(--s4)" }}>
+              <Search size={20} />
             </button>
           </div>
           <p className="form__hint">Devuelve resultados solo si la cédula coincide exactamente. No mostramos listas de cédulas.</p>
