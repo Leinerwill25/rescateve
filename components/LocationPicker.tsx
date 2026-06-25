@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
+import { Search } from "lucide-react";
 
 type Props = {
   lat: number | null;
@@ -18,6 +19,9 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
   const markerRef   = useRef<any>(null);
   const [locating, setLocating] = useState(false);
   const [error, setError]       = useState<string | null>(null);
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +98,28 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
     );
   };
 
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    setError(null);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery + ", Venezuela")}&limit=1`, {
+        headers: { "Accept-Language": "es" }
+      });
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const { lat: rLat, lon: rLng } = data[0];
+        onChange(+parseFloat(rLat).toFixed(6), +parseFloat(rLng).toFixed(6));
+        setSearchQuery(""); // Limpiar tras el éxito
+      } else {
+        setError("No se encontró la ubicación. Intenta con un nombre más general.");
+      }
+    } catch (err) {
+      setError("Error buscando la ubicación. Verifica tu conexión.");
+    }
+    setSearching(false);
+  };
+
   return (
     <div>
       {/* Acción primaria: GPS */}
@@ -113,6 +139,28 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
           "📡 Usar mi ubicación actual (GPS)"
         )}
       </button>
+
+      {/* Buscador de ubicación por texto */}
+      <div style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s2)", marginBottom: "var(--s2)" }}>
+        <input 
+          type="text" 
+          className="form__input" 
+          placeholder="O busca un sector (Ej: Chacao, Caracas)" 
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSearch(); } }}
+          style={{ flex: 1, padding: "10px" }}
+        />
+        <button 
+          type="button" 
+          className="btn btn--secondary" 
+          onClick={handleSearch} 
+          disabled={searching}
+          style={{ padding: "0 var(--s3)", minHeight: "auto", height: "42px" }}
+        >
+          {searching ? <span className="spinner" style={{ width: "16px", height: "16px", borderTopColor: "var(--text)" }} /> : <Search size={18} />}
+        </button>
+      </div>
 
       {/* Confirmación de ubicación */}
       {lat != null && lng != null && (
