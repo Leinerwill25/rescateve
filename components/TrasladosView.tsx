@@ -104,7 +104,7 @@ export default function TrasladosView() {
     setOperadorModal(null);
   }
 
-  function generarDespacho(t: Traslado) {
+  async function generarDespacho(t: Traslado) {
     const i = tipoTrasladoInfo(t.tipo);
     const mapOrigen = `https://www.google.com/maps/search/?api=1&query=${t.origen_lat},${t.origen_lng}`;
     const mapDestino = `https://www.google.com/maps/search/?api=1&query=${t.destino_lat},${t.destino_lng}`;
@@ -119,8 +119,31 @@ export default function TrasladosView() {
       + `🕒 *Cuándo:* ${t.cuando}\n\n`
       + `_Si puedes tomar este servicio, avisa para coordinar._`;
 
-    navigator.clipboard.writeText(texto);
-    setAlertMessage("¡Texto de despacho copiado al portapapeles! Listo para enviar por WhatsApp.");
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(texto);
+        setAlertMessage("¡Texto de despacho copiado al portapapeles! Listo para enviar por WhatsApp.");
+      } else {
+        // Fallback for older browsers / http
+        const textArea = document.createElement("textarea");
+        textArea.value = texto;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          setAlertMessage("¡Texto de despacho copiado al portapapeles! Listo para enviar por WhatsApp.");
+        } catch (err) {
+          setAlertMessage("Tu dispositivo bloqueó el copiado automático. Por favor verifica tus permisos.");
+        }
+        document.body.removeChild(textArea);
+      }
+    } catch (err) {
+      console.error("Clipboard error:", err);
+      setAlertMessage("Tu dispositivo bloqueó el copiado automático. Por favor verifica tus permisos.");
+    }
   }
 
   const filtered = filter === "pendientes" 
