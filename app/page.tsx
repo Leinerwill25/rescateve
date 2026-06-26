@@ -12,12 +12,12 @@ import EncontradoModal from "@/components/EncontradoModal";
 import AvisosView from "@/components/AvisosView";
 import TrasladosView from "@/components/TrasladosView";
 import HospitalesView from "@/components/HospitalesView";
-import { Map, AlertCircle, Search, ClipboardList, Megaphone, Truck } from "lucide-react";
+import { Map, AlertCircle, Search, ClipboardList, Megaphone, Truck, Home as HomeIcon } from "lucide-react";
 
 // Leaflet solo en cliente
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
-type Tab = "mapa" | "ayuda" | "desaparecidos" | "lista" | "info" | "traslados";
+type Tab = "inicio" | "mapa" | "ayuda" | "desaparecidos" | "lista" | "info" | "traslados";
 
 function timeAgo(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -28,7 +28,7 @@ function timeAgo(iso: string): string {
 }
 
 export default function Home() {
-  const [tab,           setTab]           = useState<Tab>("mapa");
+  const [tab,           setTab]           = useState<Tab>("inicio");
   const [solicitudes,   setSolicitudes]   = useState<Solicitud[]>([]);
   const [desaparecidos, setDesaparecidos] = useState<Desaparecido[]>([]);
   const [actualizaciones, setActualizaciones] = useState<Actualizacion[]>([]);
@@ -89,12 +89,10 @@ export default function Home() {
   const buscando  = desaparecidos.filter((d) => d.estado !== "encontrado");
 
   const NAV_ITEMS: { id: Tab; icon: React.ReactNode; label: string; count?: number; emergency?: boolean }[] = [
+    { id: "inicio",        icon: <HomeIcon size={20} strokeWidth={2.25} />, label: "Inicio" },
     { id: "mapa",          icon: <Map size={20} strokeWidth={2.25} />, label: "Mapa" },
-    { id: "ayuda",         icon: <AlertCircle size={20} strokeWidth={2.25} />, label: "Pedir ayuda", emergency: true },
-    { id: "desaparecidos", icon: <Search size={20} strokeWidth={2.25} />, label: "Buscar" },
     { id: "lista",         icon: <ClipboardList size={20} strokeWidth={2.25} />, label: "Lista", count: activas.length + buscando.length },
     { id: "info",          icon: <Megaphone size={20} strokeWidth={2.25} />, label: "Avisos" },
-    { id: "traslados",     icon: <Truck size={20} strokeWidth={2.25} />, label: "Traslados" },
   ];
 
   return (
@@ -142,6 +140,45 @@ export default function Home() {
 
       {/* ── Contenido principal ── */}
       <main className="main-content" id="main-content">
+
+        {tab === "inicio" && (
+          <div className="home-container">
+            <h2 className="home-title">¿Qué necesitas hacer?</h2>
+            <p className="home-subtitle">Selecciona una opción para comenzar</p>
+            
+            <div className="home-grid">
+              <div className="home-card home-card--urgent" onClick={() => setTab("ayuda")}>
+                <div className="home-card__icon">🚨</div>
+                <div className="home-card__label">Pedir Ayuda<br/>(Emergencia)</div>
+              </div>
+              
+              <div className="home-card" onClick={() => setTab("desaparecidos")}>
+                <div className="home-card__icon">🔎</div>
+                <div className="home-card__label">Buscar Persona o<br/>Hospitales</div>
+              </div>
+              
+              <div className="home-card" onClick={() => { setTab("desaparecidos"); setBuscarTab("reportar"); }}>
+                <div className="home-card__icon">🗣️</div>
+                <div className="home-card__label">Reportar<br/>Desaparecido</div>
+              </div>
+
+              <div className="home-card" onClick={() => setTab("traslados")}>
+                <div className="home-card__icon">🚚</div>
+                <div className="home-card__label">Logística y<br/>Traslados</div>
+              </div>
+              
+              <div className="home-card" onClick={() => setTab("mapa")}>
+                <div className="home-card__icon">🗺️</div>
+                <div className="home-card__label">Ver Mapa de<br/>Emergencias</div>
+              </div>
+              
+              <div className="home-card" onClick={() => setTab("lista")}>
+                <div className="home-card__icon">📋</div>
+                <div className="home-card__label">Ver Lista de<br/>Casos</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {tab === "mapa" && (
           <MapView
