@@ -37,6 +37,7 @@ export default function TrasladosView() {
   // Prompt Modal
   const [operadorModal, setOperadorModal] = useState<{id: string, nuevoEstado: string} | null>(null);
   const [operadorInput, setOperadorInput] = useState("");
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   async function load() {
     const { data } = await supabase
@@ -119,7 +120,7 @@ export default function TrasladosView() {
       + `_Si puedes tomar este servicio, avisa para coordinar._`;
 
     navigator.clipboard.writeText(texto);
-    alert("¡Texto de despacho copiado al portapapeles! Listo para enviar por WhatsApp.");
+    setAlertMessage("¡Texto de despacho copiado al portapapeles! Listo para enviar por WhatsApp.");
   }
 
   const filtered = filter === "pendientes" 
@@ -313,6 +314,28 @@ export default function TrasladosView() {
             <div className="modal__footer" style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s4)" }}>
               <button className="btn btn--secondary" style={{ flex: 1 }} onClick={() => setOperadorModal(null)}>Cancelar</button>
               <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => updateEstado(operadorModal.id, operadorModal.nuevoEstado, operadorInput)}>
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ALERT */}
+      {alertMessage && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal__header">
+              <h3 className="modal__title">Aviso</h3>
+              <button className="modal__close" onClick={() => setAlertMessage(null)}>×</button>
+            </div>
+            <div className="modal__body">
+              <p style={{ color: "var(--text-muted)", fontSize: "var(--text-md)", margin: 0 }}>
+                {alertMessage}
+              </p>
+            </div>
+            <div className="modal__footer" style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--s4)" }}>
+              <button className="btn btn--primary" onClick={() => setAlertMessage(null)} style={{ padding: "0 var(--s5)" }}>
                 Aceptar
               </button>
             </div>
