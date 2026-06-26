@@ -13,6 +13,8 @@ interface OperadorData {
   telefono: string;
   modelo: string;
   placa: string;
+  unidad: string;
+  puestos: string;
   ciudad: string;
   linea: string;
   estado: string;
@@ -47,7 +49,7 @@ export default function TrasladosView() {
   
   // Prompt Modal
   const [operadorModal, setOperadorModal] = useState<{id: string, nuevoEstado: string, currentOperador?: string} | null>(null);
-  const [operadorData, setOperadorData] = useState<OperadorData>({ nombre: "", cedula: "", telefono: "", modelo: "", placa: "", ciudad: "", linea: "", estado: "" });
+  const [operadorData, setOperadorData] = useState<OperadorData>({ nombre: "", cedula: "", telefono: "", modelo: "", placa: "", unidad: "", puestos: "", ciudad: "", linea: "", estado: "" });
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   async function load() {
@@ -114,6 +116,8 @@ export default function TrasladosView() {
               telefono: parsed.telefono || "",
               modelo: parsed.modelo || "",
               placa: parsed.placa || "",
+              unidad: parsed.unidad || "",
+              puestos: parsed.puestos || "",
               ciudad: parsed.ciudad || "",
               linea: parsed.linea || "",
               estado: parsed.estado || ""
@@ -124,9 +128,9 @@ export default function TrasladosView() {
           // fallthrough
         }
         // Legacy string
-        setOperadorData({ nombre: currentOperador, cedula: "", telefono: "", modelo: "", placa: "", ciudad: "", linea: "", estado: "" });
+        setOperadorData({ nombre: currentOperador, cedula: "", telefono: "", modelo: "", placa: "", unidad: "", puestos: "", ciudad: "", linea: "", estado: "" });
       } else {
-        setOperadorData({ nombre: "", cedula: "", telefono: "", modelo: "", placa: "", ciudad: "", linea: "", estado: "" });
+        setOperadorData({ nombre: "", cedula: "", telefono: "", modelo: "", placa: "", unidad: "", puestos: "", ciudad: "", linea: "", estado: "" });
       }
       return;
     }
@@ -343,6 +347,8 @@ export default function TrasladosView() {
                                 <div><strong>Tel:</strong> {opData.telefono}</div>
                                 <div><strong>Vehículo:</strong> {opData.modelo}</div>
                                 <div><strong>Placa:</strong> {opData.placa}</div>
+                                <div><strong>Unidad:</strong> {opData.unidad}</div>
+                                <div><strong>Puestos:</strong> {opData.puestos}</div>
                                 <div><strong>Línea:</strong> {opData.linea}</div>
                                 <div><strong>Ubicación:</strong> {opData.ciudad}, {opData.estado}</div>
                               </div>
@@ -439,6 +445,17 @@ export default function TrasladosView() {
                   <div>
                     <label className="form__label">Placa</label>
                     <input type="text" className="form__input" placeholder="AB123CD" value={operadorData.placa} onChange={e => setOperadorData({...operadorData, placa: e.target.value})} />
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s3)" }}>
+                  <div>
+                    <label className="form__label">Nº de Unidad</label>
+                    <input type="text" className="form__input" placeholder="001" value={operadorData.unidad} onChange={e => setOperadorData({...operadorData, unidad: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="form__label">Puestos</label>
+                    <input type="text" className="form__input" placeholder="4" value={operadorData.puestos} onChange={e => setOperadorData({...operadorData, puestos: e.target.value})} />
                   </div>
                 </div>
 
