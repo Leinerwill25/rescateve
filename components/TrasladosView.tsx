@@ -342,9 +342,9 @@ export default function TrasladosView() {
       {operadorModal && (
         <div className="modal-overlay">
           <div className="modal">
-            <div className="modal__header">
-              <h3 className="modal__title">¿Quién toma este traslado?</h3>
-              <button className="modal__close" onClick={() => setOperadorModal(null)}>×</button>
+            <div className="modal__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 className="modal__title" style={{ margin: 0 }}>¿Quién toma este traslado?</h3>
+              <button className="modal__icon-close" onClick={() => setOperadorModal(null)}>✕</button>
             </div>
             <div className="modal__body">
               <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", marginBottom: "var(--s3)" }}>
@@ -373,9 +373,9 @@ export default function TrasladosView() {
       {alertMessage && (
         <div className="modal-overlay">
           <div className="modal">
-            <div className="modal__header">
-              <h3 className="modal__title">Aviso</h3>
-              <button className="modal__close" onClick={() => setAlertMessage(null)}>×</button>
+            <div className="modal__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--s3)" }}>
+              <h3 className="modal__title" style={{ margin: 0 }}>Aviso</h3>
+              <button className="modal__icon-close" onClick={() => setAlertMessage(null)}>✕</button>
             </div>
             <div className="modal__body">
               <p style={{ color: "var(--text-muted)", fontSize: "var(--text-md)", margin: 0 }}>
