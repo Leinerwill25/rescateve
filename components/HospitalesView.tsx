@@ -27,19 +27,15 @@ export default function HospitalesView() {
     setLoading(true);
     setSearched(true);
     
-    // Búsqueda simple (ilike) o texto completo, usando ilike para mayor flexibilidad
-    const { data, error } = await supabase
-      .from("pacientes_publico")
-      .select("*")
-      .ilike("nombre", `%${queryNombre}%`)
-      .limit(50);
-      
-    setLoading(false);
-    if (error) {
-      setErr("Error al consultar la base de datos.");
-    } else {
-      setResultsNombre(data as PacientePublico[]);
+    try {
+      const res = await fetch(`/api/hospitales/buscar?mode=nombre&q=${encodeURIComponent(queryNombre)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al consultar");
+      setResultsNombre(data.results || []);
+    } catch (e) {
+      setErr("Error al consultar la base de datos combinada.");
     }
+    setLoading(false);
   }
 
   async function verifyByCedula() {
@@ -52,16 +48,15 @@ export default function HospitalesView() {
     setSearched(true);
     setResultCedula(null);
     
-    const { data, error } = await supabase.rpc("verificar_paciente_cedula", {
-      p_cedula: queryCedula
-    });
-    
-    setLoading(false);
-    if (error) {
-      setErr("Error al verificar la cédula.");
-    } else if (data && data.length > 0) {
-      setResultCedula(data[0]);
+    try {
+      const res = await fetch(`/api/hospitales/buscar?mode=cedula&q=${encodeURIComponent(queryCedula)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al consultar");
+      if (data.result) setResultCedula(data.result);
+    } catch (e) {
+      setErr("Error al verificar la cédula en la base de datos combinada.");
     }
+    setLoading(false);
   }
 
   function handleKeyDown(e: React.KeyboardEvent, isCedula: boolean) {
