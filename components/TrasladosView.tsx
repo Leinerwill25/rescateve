@@ -339,7 +339,7 @@ export default function TrasladosView() {
                               onClick={() => setViewOperadorModal({ traslado: t, opData: opData as OperadorData })}
                             >
                               <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
-                                <span>🚚 Operador:</span> <span>{opData.nombre}</span>
+                                <span>🚚 Operador:</span> <span>{opData.nombre || "Operador Asignado"}</span>
                               </div>
                               <button className="btn" style={{ background: "transparent", border: "none", padding: "4px", marginLeft: "auto", fontSize: "14px", color: "var(--brand)", textDecoration: "underline" }}>
                                 Ver detalles
@@ -492,7 +492,7 @@ export default function TrasladosView() {
             </div>
             <div className="modal__body" style={{ color: "var(--text)" }}>
               <div style={{ background: "var(--surface-hover)", padding: "var(--s4)", borderRadius: "var(--radius)", marginBottom: "var(--s4)" }}>
-                <h4 style={{ margin: "0 0 var(--s2) 0", fontSize: "1.1rem", color: "var(--brand-dark)" }}>{viewOperadorModal.opData.nombre || viewOperadorModal.traslado.operador}</h4>
+                <h4 style={{ margin: "0 0 var(--s2) 0", fontSize: "1.1rem", color: "var(--brand-dark)" }}>{viewOperadorModal.opData.nombre || "Operador Asignado"}</h4>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px", fontSize: "var(--text-md)" }}>
                   {viewOperadorModal.opData.cedula && <div><strong>CI:</strong> {viewOperadorModal.opData.cedula}</div>}
                   {viewOperadorModal.opData.telefono && <div><strong>Teléfono:</strong> {viewOperadorModal.opData.telefono}</div>}
