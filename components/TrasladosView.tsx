@@ -404,7 +404,7 @@ export default function TrasladosView() {
 
       {/* MODAL OPERADOR */}
       {operadorModal && (
-        <div className="modal-overlay">
+        <div className="modal-backdrop">
           <div className="modal">
             <div className="modal__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 className="modal__title" style={{ margin: 0 }}>¿Quién toma este traslado?</h3>
@@ -484,7 +484,7 @@ export default function TrasladosView() {
 
       {/* MODAL VER OPERADOR */}
       {viewOperadorModal && (
-        <div className="modal-overlay">
+        <div className="modal-backdrop">
           <div className="modal">
             <div className="modal__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "var(--s3)", marginBottom: "var(--s3)" }}>
               <h3 className="modal__title" style={{ margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>🚚 Datos del Operador</h3>
@@ -534,7 +534,7 @@ export default function TrasladosView() {
 
       {/* MODAL ALERT */}
       {alertMessage && (
-        <div className="modal-overlay">
+        <div className="modal-backdrop">
           <div className="modal">
             <div className="modal__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--s3)" }}>
               <h3 className="modal__title" style={{ margin: 0 }}>Aviso</h3>
