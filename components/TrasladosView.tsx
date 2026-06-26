@@ -5,7 +5,18 @@ import { supabase } from "@/lib/supabase";
 import { Traslado, TIPOS_TRASLADO, tipoTrasladoInfo } from "@/lib/types";
 import { getReporterToken } from "@/lib/reporter-token";
 import LocationPicker from "./LocationPicker";
-import { MapPin, Navigation, MessageCircle, Truck } from "lucide-react";
+import { MapPin, Navigation, Truck, MessageCircle } from "lucide-react";
+
+interface OperadorData {
+  nombre: string;
+  cedula: string;
+  telefono: string;
+  modelo: string;
+  placa: string;
+  ciudad: string;
+  linea: string;
+  estado: string;
+}
 
 export default function TrasladosView() {
   const [traslados, setTraslados] = useState<Traslado[]>([]);
@@ -36,7 +47,7 @@ export default function TrasladosView() {
   
   // Prompt Modal
   const [operadorModal, setOperadorModal] = useState<{id: string, nuevoEstado: string, currentOperador?: string} | null>(null);
-  const [operadorInput, setOperadorInput] = useState("");
+  const [operadorData, setOperadorData] = useState<OperadorData>({ nombre: "", cedula: "", telefono: "", modelo: "", placa: "", ciudad: "", linea: "", estado: "" });
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   async function load() {
@@ -93,12 +104,35 @@ export default function TrasladosView() {
   async function updateEstado(id: string, nuevoEstado: string, operadorVal?: string, currentOperador?: string) {
     if ((nuevoEstado === "asignado" || nuevoEstado === "en_camino") && operadorVal === undefined) {
       setOperadorModal({ id, nuevoEstado, currentOperador });
-      setOperadorInput(currentOperador || "");
+      if (currentOperador) {
+        try {
+          const parsed = JSON.parse(currentOperador);
+          if (parsed && typeof parsed === 'object') {
+            setOperadorData({
+              nombre: parsed.nombre || "",
+              cedula: parsed.cedula || "",
+              telefono: parsed.telefono || "",
+              modelo: parsed.modelo || "",
+              placa: parsed.placa || "",
+              ciudad: parsed.ciudad || "",
+              linea: parsed.linea || "",
+              estado: parsed.estado || ""
+            });
+            return;
+          }
+        } catch (e) {
+          // fallthrough
+        }
+        // Legacy string
+        setOperadorData({ nombre: currentOperador, cedula: "", telefono: "", modelo: "", placa: "", ciudad: "", linea: "", estado: "" });
+      } else {
+        setOperadorData({ nombre: "", cedula: "", telefono: "", modelo: "", placa: "", ciudad: "", linea: "", estado: "" });
+      }
       return;
     }
       
     const payload: any = { estado: nuevoEstado };
-    if (operadorVal) payload.operador = operadorVal;
+    if (operadorVal !== undefined) payload.operador = operadorVal;
     
     await supabase.from("traslados").update(payload).eq("id", id);
     setOperadorModal(null);
@@ -252,6 +286,14 @@ export default function TrasladosView() {
                 const i = tipoTrasladoInfo(t.tipo);
                 const rutaUrl = `https://www.google.com/maps/dir/?api=1&origin=${t.origen_lat},${t.origen_lng}&destination=${t.destino_lat},${t.destino_lng}`;
                 
+                let opData: OperadorData | null = null;
+                if (t.operador) {
+                  try {
+                    const parsed = JSON.parse(t.operador);
+                    if (parsed && typeof parsed === 'object') opData = parsed;
+                  } catch (e) { }
+                }
+
                 return (
                   <article className="card" key={t.id} style={{ opacity: t.estado === "completado" ? 0.7 : 1 }}>
                     <div className="card__top" style={{ marginBottom: "var(--s2)" }}>
@@ -284,26 +326,47 @@ export default function TrasladosView() {
                       <div>
                         <p className="card__meta">📞 {t.contacto} · 🕒 {t.cuando}</p>
                         {t.operador ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: "var(--s2)", marginTop: "var(--s2)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius)", color: "var(--brand-dark)" }}>
-                            <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
-                              <span>🚚 Operador:</span> <span>{t.operador}</span>
+                          opData ? (
+                            <div style={{ width: "100%", background: "var(--brand-soft)", padding: "var(--s3)", borderRadius: "var(--radius)", color: "var(--brand-dark)", fontSize: "var(--text-sm)", marginTop: "var(--s2)" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--s2)", borderBottom: "1px solid rgba(0,0,0,0.1)", paddingBottom: "var(--s1)" }}>
+                                <strong style={{ fontSize: "var(--text-base)" }}>🚚 {opData.nombre}</strong>
+                                {t.estado !== "completado" && (
+                                  <button className="btn" style={{ background: "transparent", border: "none", padding: "0 4px", cursor: "pointer", fontSize: "16px" }} onClick={() => {
+                                    updateEstado(t.id, t.estado, undefined, t.operador);
+                                  }}>
+                                    ✏️
+                                  </button>
+                                )}
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                                <div><strong>CI:</strong> {opData.cedula}</div>
+                                <div><strong>Tel:</strong> {opData.telefono}</div>
+                                <div><strong>Vehículo:</strong> {opData.modelo}</div>
+                                <div><strong>Placa:</strong> {opData.placa}</div>
+                                <div><strong>Línea:</strong> {opData.linea}</div>
+                                <div><strong>Ubicación:</strong> {opData.ciudad}, {opData.estado}</div>
+                              </div>
                             </div>
-                            {t.estado !== "completado" && (
-                              <button className="btn" style={{ background: "transparent", border: "none", padding: "4px", cursor: "pointer", marginLeft: "auto", fontSize: "14px" }} onClick={() => {
-                                setOperadorModal({ id: t.id, nuevoEstado: t.estado, currentOperador: t.operador });
-                                setOperadorInput(t.operador || "");
-                              }}>
-                                ✏️
-                              </button>
-                            )}
-                          </div>
+                          ) : (
+                            <div style={{ width: "100%", display: "flex", alignItems: "center", gap: "var(--s2)", marginTop: "var(--s2)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius)", color: "var(--brand-dark)" }}>
+                              <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
+                                <span>🚚 Operador:</span> <span>{t.operador}</span>
+                              </div>
+                              {t.estado !== "completado" && (
+                                <button className="btn" style={{ background: "transparent", border: "none", padding: "4px", cursor: "pointer", marginLeft: "auto", fontSize: "14px" }} onClick={() => {
+                                  updateEstado(t.id, t.estado, undefined, t.operador);
+                                }}>
+                                  ✏️
+                                </button>
+                              )}
+                            </div>
+                          )
                         ) : (
                           t.estado !== "completado" && (
-                            <div style={{ marginTop: "var(--s2)" }}>
+                            <div style={{ marginTop: "var(--s2)", width: "100%" }}>
                               <button className="card__action card__action--secondary" onClick={() => {
-                                setOperadorModal({ id: t.id, nuevoEstado: t.estado, currentOperador: "" });
-                                setOperadorInput("");
-                              }} style={{ fontSize: "var(--text-xs)", padding: "4px 8px" }}>
+                                updateEstado(t.id, t.estado, undefined, "");
+                              }} style={{ fontSize: "var(--text-xs)", padding: "4px 8px", width: "auto" }}>
                                 + Asignar Operador
                               </button>
                             </div>
@@ -346,23 +409,61 @@ export default function TrasladosView() {
               <h3 className="modal__title" style={{ margin: 0 }}>¿Quién toma este traslado?</h3>
               <button className="modal__icon-close" onClick={() => setOperadorModal(null)}>✕</button>
             </div>
-            <div className="modal__body">
-              <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", marginBottom: "var(--s3)" }}>
-                Ejemplo: Yummy, Ridery, Paramédico Andrés, Voluntario Carlos.
+            <div className="modal__body" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+              <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", marginBottom: "var(--s4)" }}>
+                Ingresa los datos del conductor, voluntario o entidad que realizará este traslado.
               </p>
-              <input
-                type="text"
-                className="form__input"
-                placeholder="Nombre o entidad"
-                value={operadorInput}
-                onChange={(e) => setOperadorInput(e.target.value)}
-                autoFocus
-              />
+              
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "var(--s3)" }}>
+                <div>
+                  <label className="form__label">Nombre completo / Entidad</label>
+                  <input type="text" className="form__input" placeholder="Ej. Yummy, Ridery, Voluntario Carlos" value={operadorData.nombre} onChange={e => setOperadorData({...operadorData, nombre: e.target.value})} autoFocus />
+                </div>
+                
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s3)" }}>
+                  <div>
+                    <label className="form__label">Cédula</label>
+                    <input type="text" className="form__input" placeholder="V-12345678" value={operadorData.cedula} onChange={e => setOperadorData({...operadorData, cedula: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="form__label">Teléfono</label>
+                    <input type="text" className="form__input" placeholder="0414-0000000" value={operadorData.telefono} onChange={e => setOperadorData({...operadorData, telefono: e.target.value})} />
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s3)" }}>
+                  <div>
+                    <label className="form__label">Modelo del vehículo</label>
+                    <input type="text" className="form__input" placeholder="Toyota Corolla" value={operadorData.modelo} onChange={e => setOperadorData({...operadorData, modelo: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="form__label">Placa</label>
+                    <input type="text" className="form__input" placeholder="AB123CD" value={operadorData.placa} onChange={e => setOperadorData({...operadorData, placa: e.target.value})} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form__label">Línea (si aplica)</label>
+                  <input type="text" className="form__input" placeholder="Ej. Línea Los Rápidos, Yummy Rides" value={operadorData.linea} onChange={e => setOperadorData({...operadorData, linea: e.target.value})} />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s3)" }}>
+                  <div>
+                    <label className="form__label">Estado</label>
+                    <input type="text" className="form__input" placeholder="Miranda" value={operadorData.estado} onChange={e => setOperadorData({...operadorData, estado: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="form__label">Ciudad</label>
+                    <input type="text" className="form__input" placeholder="Caracas" value={operadorData.ciudad} onChange={e => setOperadorData({...operadorData, ciudad: e.target.value})} />
+                  </div>
+                </div>
+              </div>
+
             </div>
             <div className="modal__footer" style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s4)" }}>
               <button className="btn btn--secondary" style={{ flex: 1 }} onClick={() => setOperadorModal(null)}>Cancelar</button>
-              <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => updateEstado(operadorModal.id, operadorModal.nuevoEstado, operadorInput)}>
-                Aceptar
+              <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => updateEstado(operadorModal.id, operadorModal.nuevoEstado, JSON.stringify(operadorData))}>
+                Guardar Operador
               </button>
             </div>
           </div>
