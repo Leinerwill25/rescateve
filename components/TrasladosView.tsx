@@ -121,11 +121,14 @@ export default function TrasladosView() {
 
   return (
     <div className="list traslados-view">
-      <div className="list__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--s4)", gap: "var(--s3)" }}>
-        <h2 className="list__section-title" style={{ margin: 0, flex: 1 }}>🚚 Traslados Logísticos</h2>
+      <div className="list__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--s4)", gap: "var(--s3)", flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: "200px" }}>
+          <h2 className="list__section-title" style={{ margin: 0 }}>🚚 Traslados Logísticos</h2>
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", margin: "4px 0 0 0" }}>Registra o coordina vehículos para mover insumos y personas.</p>
+        </div>
         {!showForm && (
           <button className="btn btn--primary" onClick={() => setShowForm(true)} style={{ width: "auto", padding: "0 var(--s3)", height: "36px", minHeight: "36px", whiteSpace: "nowrap" }}>
-            + Solicitar
+            + Solicitar un Traslado
           </button>
         )}
       </div>
