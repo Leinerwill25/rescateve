@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
-import { Solicitud, Desaparecido, Actualizacion, RescatadoPublico, tipoInfo } from "@/lib/types";
+import { Solicitud, Desaparecido, Actualizacion, RescatadoPublico, tipoInfo, CentroAcopio, PuntoAyuda } from "@/lib/types";
 import ReportForm from "@/components/ReportForm";
 import MissingForm from "@/components/MissingForm";
 import AtenderModal from "@/components/AtenderModal";
@@ -33,6 +33,8 @@ export default function Home() {
   const [desaparecidos, setDesaparecidos] = useState<Desaparecido[]>([]);
   const [actualizaciones, setActualizaciones] = useState<Actualizacion[]>([]);
   const [rescatados,    setRescatados]    = useState<RescatadoPublico[]>([]);
+  const [centrosAcopio, setCentrosAcopio] = useState<CentroAcopio[]>([]);
+  const [puntosAyuda,   setPuntosAyuda]   = useState<PuntoAyuda[]>([]);
   const [showModal,     setShowModal]     = useState(false);
   const [buscarTab,     setBuscarTab]     = useState<"hospitales" | "reportar">("hospitales");
 
@@ -46,16 +48,22 @@ export default function Home() {
 
   // ── Carga inicial y realtime ──
   async function cargar() {
-    const [s, d, a, r] = await Promise.all([
+    const [s, d, a, r, ext] = await Promise.all([
       supabase.from("solicitudes_ayuda").select("*").order("created_at", { ascending: false }),
       supabase.from("personas_desaparecidas").select("*").order("created_at", { ascending: false }),
       supabase.from("desaparecidos_actualizaciones").select("*").order("created_at", { ascending: true }),
       supabase.from("rescatados_publicos").select("*").order("created_at", { ascending: true }),
+      fetch("/api/external-points").then(res => res.ok ? res.json() : null).catch(() => null),
     ]);
     if (s.data) setSolicitudes(s.data as Solicitud[]);
     if (d.data) setDesaparecidos(d.data as Desaparecido[]);
     if (a.data) setActualizaciones(a.data as Actualizacion[]);
     if (r.data) setRescatados(r.data as RescatadoPublico[]);
+    
+    if (ext) {
+      setCentrosAcopio(ext.centros || []);
+      setPuntosAyuda(ext.puntos || []);
+    }
   }
 
   useEffect(() => {
@@ -139,6 +147,8 @@ export default function Home() {
           <MapView
             solicitudes={solicitudes}
             desaparecidos={desaparecidos}
+            centrosAcopio={centrosAcopio}
+            puntosAyuda={puntosAyuda}
             onMarcarAtendido={marcarAtendidoLegacy}
             onAbrirAtender={(id, estado) => setAtenderModal({ id, estado })}
           />

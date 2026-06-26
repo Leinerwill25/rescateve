@@ -169,3 +169,38 @@ export type PacientePublico = {
   estado: "ingresado" | "dado_de_alta" | "trasladado";
   actualizado_at: string;
 };
+
+// ================================================================
+// EXTERNAL API (yqcwttcbweqicdyfwseb)
+// ================================================================
+export type CentroAcopio = {
+  id: string;
+  name: string;
+  organization: string | null;
+  address: string;
+  state: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  phone: string | null;
+  schedule: string | null;
+  supply_types: string[];
+  accepts_volunteers: boolean;
+  notes: string | null;
+};
+
+export type PuntoAyuda = {
+  id: string;
+  name: string;
+  address: string;
+  state: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  needs: string[];
+  status: string;
+  people_affected: number | null;
+  notes: string | null;
+  reporter_name: string | null;
+  reporter_contact: string | null;
+};

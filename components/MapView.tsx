@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
-import { Solicitud, Desaparecido, tipoInfo, TIPOS } from "@/lib/types";
+import { Solicitud, Desaparecido, tipoInfo, TIPOS, CentroAcopio, PuntoAyuda } from "@/lib/types";
 
 type Props = {
   solicitudes: Solicitud[];
   desaparecidos: Desaparecido[];
+  centrosAcopio?: CentroAcopio[];
+  puntosAyuda?: PuntoAyuda[];
   onMarcarAtendido: (id: string) => void;
   onAbrirAtender: (id: string, estado: "pendiente" | "en_camino") => void;
 };
@@ -28,6 +30,8 @@ const TIPO_COLORS: Record<string, string> = {
 export default function MapView({
   solicitudes,
   desaparecidos,
+  centrosAcopio = [],
+  puntosAyuda = [],
   onAbrirAtender,
 }: Props) {
   const mapRef  = useRef<HTMLDivElement>(null);
@@ -62,7 +66,7 @@ export default function MapView({
   useEffect(() => {
     draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [solicitudes, desaparecidos]);
+  }, [solicitudes, desaparecidos, centrosAcopio, puntosAyuda]);
 
   /** Pin normal */
   function pin(color: string, emoji: string) {
@@ -183,6 +187,45 @@ export default function MapView({
         `, { maxWidth: 260 });
         all.push([d.latitud!, d.longitud!]);
       });
+
+    centrosAcopio.forEach((c) => {
+      const m = L.current
+        .marker([c.latitude, c.longitude], { icon: pin("#10B981", "📦") })
+        .addTo(layer.current);
+      
+      const dir = `https://www.google.com/maps/dir/?api=1&destination=${c.latitude},${c.longitude}`;
+      m.bindPopup(`
+        <div class="popup-inner">
+          <p class="popup-title">📦 ${esc(c.name)}</p>
+          <p class="popup-ref">📍 ${esc(c.address)}</p>
+          ${c.supply_types?.length ? `<p class="popup-desc"><strong>Reciben:</strong> ${esc(c.supply_types.join(", "))}</p>` : ""}
+          <div class="popup-actions">
+            <a href="${dir}" target="_blank" rel="noreferrer" class="popup-action popup-action--secondary">🧭 Cómo llegar</a>
+          </div>
+        </div>
+      `, { maxWidth: 260 });
+      all.push([c.latitude, c.longitude]);
+    });
+
+    puntosAyuda.forEach((p) => {
+      const m = L.current
+        .marker([p.latitude, p.longitude], { icon: pin("#EF4444", "🆘") })
+        .addTo(layer.current);
+      
+      const dir = `https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}`;
+      m.bindPopup(`
+        <div class="popup-inner">
+          <p class="popup-title">🆘 ${esc(p.name)}</p>
+          ${p.status ? `<span class="badge badge--alta">${p.status === "urgent" ? "Urgente" : p.status}</span>` : ""}
+          <p class="popup-ref">📍 ${esc(p.address)}</p>
+          ${p.needs?.length ? `<p class="popup-desc"><strong>Necesitan:</strong> ${esc(p.needs.join(", "))}</p>` : ""}
+          <div class="popup-actions">
+            <a href="${dir}" target="_blank" rel="noreferrer" class="popup-action popup-action--secondary">🧭 Cómo llegar</a>
+          </div>
+        </div>
+      `, { maxWidth: 260 });
+      all.push([p.latitude, p.longitude]);
+    });
 
     if (all.length) {
       map.current.fitBounds(all, { padding: [40, 40], maxZoom: 15 });
