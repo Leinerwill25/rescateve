@@ -33,6 +33,10 @@ export default function TrasladosView() {
 
   // Filter
   const [filter, setFilter] = useState<"todos" | "pendientes">("pendientes");
+  
+  // Prompt Modal
+  const [operadorModal, setOperadorModal] = useState<{id: string, nuevoEstado: string} | null>(null);
+  const [operadorInput, setOperadorInput] = useState("");
 
   async function load() {
     const { data } = await supabase
@@ -85,15 +89,18 @@ export default function TrasladosView() {
     }
   }
 
-  async function updateEstado(id: string, nuevoEstado: string) {
-    const operador = nuevoEstado === "asignado" || nuevoEstado === "en_camino" 
-      ? prompt("¿Quién toma este traslado? (Ej: Yummy, Ridery, Voluntario Carlos)") 
-      : null;
+  async function updateEstado(id: string, nuevoEstado: string, operadorVal?: string) {
+    if ((nuevoEstado === "asignado" || nuevoEstado === "en_camino") && operadorVal === undefined) {
+      setOperadorModal({ id, nuevoEstado });
+      setOperadorInput("");
+      return;
+    }
       
     const payload: any = { estado: nuevoEstado };
-    if (operador) payload.operador = operador;
+    if (operadorVal) payload.operador = operadorVal;
     
     await supabase.from("traslados").update(payload).eq("id", id);
+    setOperadorModal(null);
   }
 
   function generarDespacho(t: Traslado) {
@@ -281,6 +288,38 @@ export default function TrasladosView() {
           </div>
         </>
       )}
+
+      {/* MODAL OPERADOR */}
+      {operadorModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal__header">
+              <h3 className="modal__title">¿Quién toma este traslado?</h3>
+              <button className="modal__close" onClick={() => setOperadorModal(null)}>×</button>
+            </div>
+            <div className="modal__body">
+              <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", marginBottom: "var(--s3)" }}>
+                Ejemplo: Yummy, Ridery, Paramédico Andrés, Voluntario Carlos.
+              </p>
+              <input
+                type="text"
+                className="form__input"
+                placeholder="Nombre o entidad"
+                value={operadorInput}
+                onChange={(e) => setOperadorInput(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="modal__footer" style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s4)" }}>
+              <button className="btn btn--secondary" style={{ flex: 1 }} onClick={() => setOperadorModal(null)}>Cancelar</button>
+              <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => updateEstado(operadorModal.id, operadorModal.nuevoEstado, operadorInput)}>
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
