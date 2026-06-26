@@ -51,6 +51,9 @@ export default function TrasladosView() {
   const [operadorModal, setOperadorModal] = useState<{id: string, nuevoEstado: string, currentOperador?: string} | null>(null);
   const [operadorData, setOperadorData] = useState<OperadorData>({ nombre: "", cedula: "", telefono: "", modelo: "", placa: "", unidad: "", puestos: "", ciudad: "", linea: "", estado: "" });
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  
+  // View Operador Modal
+  const [viewOperadorModal, setViewOperadorModal] = useState<{traslado: Traslado, opData: OperadorData} | null>(null);
 
   async function load() {
     const { data } = await supabase
@@ -331,40 +334,32 @@ export default function TrasladosView() {
                         <p className="card__meta">📞 {t.contacto} · 🕒 {t.cuando}</p>
                         {t.operador ? (
                           opData ? (
-                            <div style={{ width: "100%", background: "var(--brand-soft)", padding: "var(--s3)", borderRadius: "var(--radius)", color: "var(--brand-dark)", fontSize: "var(--text-sm)", marginTop: "var(--s2)" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--s2)", borderBottom: "1px solid rgba(0,0,0,0.1)", paddingBottom: "var(--s1)" }}>
-                                <strong style={{ fontSize: "var(--text-base)" }}>🚚 {opData.nombre}</strong>
-                                {t.estado !== "completado" && (
-                                  <button className="btn" style={{ background: "transparent", border: "none", padding: "0 4px", cursor: "pointer", fontSize: "16px" }} onClick={() => {
-                                    updateEstado(t.id, t.estado, undefined, t.operador);
-                                  }}>
-                                    ✏️
-                                  </button>
-                                )}
+                            <div 
+                              style={{ width: "100%", display: "flex", alignItems: "center", gap: "var(--s2)", marginTop: "var(--s2)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius)", color: "var(--brand-dark)", cursor: "pointer", transition: "background 0.2s" }}
+                              onClick={() => setViewOperadorModal({ traslado: t, opData: opData as OperadorData })}
+                            >
+                              <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
+                                <span>🚚 Operador:</span> <span>{opData.nombre}</span>
                               </div>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                                <div><strong>CI:</strong> {opData.cedula}</div>
-                                <div><strong>Tel:</strong> {opData.telefono}</div>
-                                <div><strong>Vehículo:</strong> {opData.modelo}</div>
-                                <div><strong>Placa:</strong> {opData.placa}</div>
-                                <div><strong>Unidad:</strong> {opData.unidad}</div>
-                                <div><strong>Puestos:</strong> {opData.puestos}</div>
-                                <div><strong>Línea:</strong> {opData.linea}</div>
-                                <div><strong>Ubicación:</strong> {opData.ciudad}, {opData.estado}</div>
-                              </div>
+                              <button className="btn" style={{ background: "transparent", border: "none", padding: "4px", marginLeft: "auto", fontSize: "14px", color: "var(--brand)", textDecoration: "underline" }}>
+                                Ver detalles
+                              </button>
                             </div>
                           ) : (
-                            <div style={{ width: "100%", display: "flex", alignItems: "center", gap: "var(--s2)", marginTop: "var(--s2)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius)", color: "var(--brand-dark)" }}>
+                            <div 
+                              style={{ width: "100%", display: "flex", alignItems: "center", gap: "var(--s2)", marginTop: "var(--s2)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius)", color: "var(--brand-dark)", cursor: "pointer", transition: "background 0.2s" }}
+                              onClick={() => {
+                                // For legacy strings, we just open edit directly or show a simple modal.
+                                // Let's open the view modal with pseudo data
+                                setViewOperadorModal({ traslado: t, opData: { nombre: t.operador || "", cedula: "", telefono: "", modelo: "", placa: "", unidad: "", puestos: "", ciudad: "", linea: "", estado: "" } })
+                              }}
+                            >
                               <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
                                 <span>🚚 Operador:</span> <span>{t.operador}</span>
                               </div>
-                              {t.estado !== "completado" && (
-                                <button className="btn" style={{ background: "transparent", border: "none", padding: "4px", cursor: "pointer", marginLeft: "auto", fontSize: "14px" }} onClick={() => {
-                                  updateEstado(t.id, t.estado, undefined, t.operador);
-                                }}>
-                                  ✏️
-                                </button>
-                              )}
+                              <button className="btn" style={{ background: "transparent", border: "none", padding: "4px", marginLeft: "auto", fontSize: "14px", color: "var(--brand)", textDecoration: "underline" }}>
+                                Ver detalles
+                              </button>
                             </div>
                           )
                         ) : (
@@ -482,6 +477,56 @@ export default function TrasladosView() {
               <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => updateEstado(operadorModal.id, operadorModal.nuevoEstado, JSON.stringify(operadorData))}>
                 Guardar Operador
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL VER OPERADOR */}
+      {viewOperadorModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "var(--s3)", marginBottom: "var(--s3)" }}>
+              <h3 className="modal__title" style={{ margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>🚚 Datos del Operador</h3>
+              <button className="modal__icon-close" onClick={() => setViewOperadorModal(null)}>✕</button>
+            </div>
+            <div className="modal__body" style={{ color: "var(--text)" }}>
+              <div style={{ background: "var(--surface-hover)", padding: "var(--s4)", borderRadius: "var(--radius)", marginBottom: "var(--s4)" }}>
+                <h4 style={{ margin: "0 0 var(--s2) 0", fontSize: "1.1rem", color: "var(--brand-dark)" }}>{viewOperadorModal.opData.nombre || viewOperadorModal.traslado.operador}</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px", fontSize: "var(--text-md)" }}>
+                  {viewOperadorModal.opData.cedula && <div><strong>CI:</strong> {viewOperadorModal.opData.cedula}</div>}
+                  {viewOperadorModal.opData.telefono && <div><strong>Teléfono:</strong> {viewOperadorModal.opData.telefono}</div>}
+                  {(viewOperadorModal.opData.modelo || viewOperadorModal.opData.placa) && (
+                    <div style={{ borderTop: "1px solid rgba(0,0,0,0.05)", paddingTop: "8px", marginTop: "4px" }}>
+                      <strong>Vehículo:</strong> {viewOperadorModal.opData.modelo} {viewOperadorModal.opData.placa ? `(${viewOperadorModal.opData.placa})` : ""}
+                    </div>
+                  )}
+                  {(viewOperadorModal.opData.unidad || viewOperadorModal.opData.puestos) && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+                      <div><strong>Nº Unidad:</strong> {viewOperadorModal.opData.unidad || "N/A"}</div>
+                      <div><strong>Puestos:</strong> {viewOperadorModal.opData.puestos || "N/A"}</div>
+                    </div>
+                  )}
+                  {(viewOperadorModal.opData.linea || viewOperadorModal.opData.ciudad) && (
+                    <div style={{ borderTop: "1px solid rgba(0,0,0,0.05)", paddingTop: "8px", marginTop: "4px" }}>
+                      {viewOperadorModal.opData.linea && <div><strong>Línea:</strong> {viewOperadorModal.opData.linea}</div>}
+                      {(viewOperadorModal.opData.ciudad || viewOperadorModal.opData.estado) && <div><strong>Ubicación:</strong> {viewOperadorModal.opData.ciudad}{viewOperadorModal.opData.estado ? `, ${viewOperadorModal.opData.estado}` : ""}</div>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="modal__footer" style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s2)" }}>
+              <button className="btn btn--secondary" style={{ flex: 1 }} onClick={() => setViewOperadorModal(null)}>Cerrar</button>
+              {viewOperadorModal.traslado.estado !== "completado" && (
+                <button className="btn btn--primary" style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", gap: "4px" }} onClick={() => {
+                  const t = viewOperadorModal.traslado;
+                  setViewOperadorModal(null);
+                  updateEstado(t.id, t.estado, undefined, t.operador);
+                }}>
+                  ✏️ Editar Datos
+                </button>
+              )}
             </div>
           </div>
         </div>
