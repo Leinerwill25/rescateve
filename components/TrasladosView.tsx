@@ -35,7 +35,7 @@ export default function TrasladosView() {
   const [filter, setFilter] = useState<"todos" | "pendientes">("pendientes");
   
   // Prompt Modal
-  const [operadorModal, setOperadorModal] = useState<{id: string, nuevoEstado: string} | null>(null);
+  const [operadorModal, setOperadorModal] = useState<{id: string, nuevoEstado: string, currentOperador?: string} | null>(null);
   const [operadorInput, setOperadorInput] = useState("");
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
@@ -90,10 +90,10 @@ export default function TrasladosView() {
     }
   }
 
-  async function updateEstado(id: string, nuevoEstado: string, operadorVal?: string) {
+  async function updateEstado(id: string, nuevoEstado: string, operadorVal?: string, currentOperador?: string) {
     if ((nuevoEstado === "asignado" || nuevoEstado === "en_camino") && operadorVal === undefined) {
-      setOperadorModal({ id, nuevoEstado });
-      setOperadorInput("");
+      setOperadorModal({ id, nuevoEstado, currentOperador });
+      setOperadorInput(currentOperador || "");
       return;
     }
       
@@ -283,7 +283,32 @@ export default function TrasladosView() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "var(--s2)" }}>
                       <div>
                         <p className="card__meta">📞 {t.contacto} · 🕒 {t.cuando}</p>
-                        {t.operador && <p className="card__meta" style={{ color: "var(--brand)", fontWeight: 600 }}>🚚 Operador: {t.operador}</p>}
+                        {t.operador ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "var(--s2)", marginTop: "var(--s2)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius)", color: "var(--brand-dark)" }}>
+                            <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
+                              <span>🚚 Operador:</span> <span>{t.operador}</span>
+                            </div>
+                            {t.estado !== "completado" && (
+                              <button className="btn" style={{ background: "transparent", border: "none", padding: "4px", cursor: "pointer", marginLeft: "auto", fontSize: "14px" }} onClick={() => {
+                                setOperadorModal({ id: t.id, nuevoEstado: t.estado, currentOperador: t.operador });
+                                setOperadorInput(t.operador || "");
+                              }}>
+                                ✏️
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          t.estado !== "completado" && (
+                            <div style={{ marginTop: "var(--s2)" }}>
+                              <button className="card__action card__action--secondary" onClick={() => {
+                                setOperadorModal({ id: t.id, nuevoEstado: t.estado, currentOperador: "" });
+                                setOperadorInput("");
+                              }} style={{ fontSize: "var(--text-xs)", padding: "4px 8px" }}>
+                                + Asignar Operador
+                              </button>
+                            </div>
+                          )
+                        )}
                       </div>
                       
                       {t.estado !== "completado" && (
@@ -300,8 +325,8 @@ export default function TrasladosView() {
 
                     {t.estado !== "completado" && (
                       <div style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s3)", paddingTop: "var(--s3)", borderTop: "1px solid var(--border)" }}>
-                        {t.estado === "solicitado" && <button className="card__action card__action--secondary" onClick={() => updateEstado(t.id, "asignado")}>Asignar operador</button>}
-                        {(t.estado === "solicitado" || t.estado === "asignado") && <button className="card__action card__action--secondary" onClick={() => updateEstado(t.id, "en_camino")}>En camino</button>}
+                        {t.estado === "solicitado" && <button className="card__action card__action--secondary" onClick={() => updateEstado(t.id, "asignado", undefined, t.operador)}>Asignar operador</button>}
+                        {(t.estado === "solicitado" || t.estado === "asignado") && <button className="card__action card__action--secondary" onClick={() => updateEstado(t.id, "en_camino", undefined, t.operador)}>En camino</button>}
                         {t.estado === "en_camino" && <button className="card__action card__action--primary" onClick={() => updateEstado(t.id, "completado")}>✓ Marcar Completado</button>}
                       </div>
                     )}
