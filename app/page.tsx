@@ -13,7 +13,7 @@ import AvisosView from "@/components/AvisosView";
 import TrasladosView from "@/components/TrasladosView";
 import HospitalesView from "@/components/HospitalesView";
 import GasolinaView from "@/components/GasolinaView";
-import { Map, AlertCircle, Search, ClipboardList, Megaphone, Truck, Home as HomeIcon, Fuel } from "lucide-react";
+import { Map, AlertCircle, Search, ClipboardList, Megaphone, Truck, Home as HomeIcon, Fuel, ChevronRight } from "lucide-react";
 
 // Leaflet solo en cliente
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -145,43 +145,63 @@ export default function Home() {
 
         {tab === "inicio" && (
           <div className="home-container">
-            <h2 className="home-title">¿Qué necesitas hacer?</h2>
-            <p className="home-subtitle">Selecciona una opción para comenzar</p>
+            <header className="dashboard-header">
+              <h2 className="dashboard-title">Centro de Mando</h2>
+              <p className="dashboard-subtitle">Selecciona una opción para comenzar.</p>
+            </header>
             
-            <div className="home-grid">
-              <div className="home-card home-card--urgent" onClick={() => setTab("ayuda")}>
-                <div className="home-card__icon">🚨</div>
-                <div className="home-card__label">Pedir Ayuda<br/>(Emergencia)</div>
+            {/* Hero Section para Emergencias */}
+            <div className="action-hero" onClick={() => setTab("ayuda")}>
+              <div className="action-hero__content">
+                <AlertCircle size={36} strokeWidth={2.5} color="#FFFFFF" className="hero-icon" />
+                <div className="action-hero__text">
+                  <h3 className="action-hero__title">Emergencia Inmediata</h3>
+                  <p className="action-hero__desc">Solicita rescate o atención médica urgente.</p>
+                </div>
+              </div>
+              <ChevronRight size={24} color="#FFFFFF" className="action-hero__chevron" />
+            </div>
+
+            {/* Acciones Rápidas */}
+            <h4 className="dashboard-section-title">Servicios Principales</h4>
+            <div className="action-list">
+              <div className="action-item" onClick={() => setTab("desaparecidos")}>
+                <div className="action-item__icon-wrapper"><Search size={22} strokeWidth={2.5} /></div>
+                <div className="action-item__label">Buscar Persona u Hospitales</div>
+                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
               </div>
               
-              <div className="home-card" onClick={() => setTab("desaparecidos")}>
-                <div className="home-card__icon">🔎</div>
-                <div className="home-card__label">Buscar Persona o<br/>Hospitales</div>
-              </div>
-              
-              <div className="home-card" onClick={() => { setTab("desaparecidos"); setBuscarTab("reportar"); }}>
-                <div className="home-card__icon">🗣️</div>
-                <div className="home-card__label">Reportar<br/>Desaparecido</div>
+              <div className="action-item" onClick={() => { setTab("desaparecidos"); setBuscarTab("reportar"); }}>
+                <div className="action-item__icon-wrapper"><Megaphone size={22} strokeWidth={2.5} /></div>
+                <div className="action-item__label">Reportar Desaparecido</div>
+                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
               </div>
 
-              <div className="home-card" onClick={() => setTab("traslados")}>
-                <div className="home-card__icon">🚚</div>
-                <div className="home-card__label">Logística y<br/>Traslados</div>
+              <div className="action-item" onClick={() => setTab("gasolina")}>
+                <div className="action-item__icon-wrapper"><Fuel size={22} strokeWidth={2.5} /></div>
+                <div className="action-item__label">Solicitar Combustible</div>
+                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
               </div>
-              
-              <div className="home-card" onClick={() => setTab("mapa")}>
-                <div className="home-card__icon">🗺️</div>
-                <div className="home-card__label">Ver Mapa de<br/>Emergencias</div>
+
+              <div className="action-item" onClick={() => setTab("traslados")}>
+                <div className="action-item__icon-wrapper"><Truck size={22} strokeWidth={2.5} /></div>
+                <div className="action-item__label">Logística y Traslados</div>
+                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
               </div>
-              
-              <div className="home-card" onClick={() => setTab("lista")}>
-                <div className="home-card__icon">📋</div>
-                <div className="home-card__label">Ver Lista de<br/>Casos</div>
+            </div>
+
+            {/* Accesos secundarios */}
+            <h4 className="dashboard-section-title mt-4">Accesos Directos</h4>
+            <div className="action-list">
+              <div className="action-item" onClick={() => setTab("mapa")}>
+                <div className="action-item__icon-wrapper"><Map size={22} strokeWidth={2.5} /></div>
+                <div className="action-item__label">Ver Mapa</div>
+                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
               </div>
-              
-              <div className="home-card" onClick={() => setTab("gasolina")}>
-                <div className="home-card__icon">⛽</div>
-                <div className="home-card__label">Solicitar<br/>Combustible</div>
+              <div className="action-item" onClick={() => setTab("lista")}>
+                <div className="action-item__icon-wrapper"><ClipboardList size={22} strokeWidth={2.5} /></div>
+                <div className="action-item__label">Lista de Casos</div>
+                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
               </div>
             </div>
           </div>
