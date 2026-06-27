@@ -150,7 +150,7 @@ export default function TrasladosView() {
     const mapOrigen = `https://www.google.com/maps/search/?api=1&query=${t.origen_lat},${t.origen_lng}`;
     const mapDestino = `https://www.google.com/maps/search/?api=1&query=${t.destino_lat},${t.destino_lng}`;
     
-    const texto = `🚨 *SOLICITUD DE TRASLADO* (${t.prioridad.toUpperCase()})\n\n`
+    const texto = `🚨 *SOLICITUD DE TRASLADO* (${(t.prioridad || "baja").toUpperCase()})\n\n`
       + `*Tipo:* ${i.emoji} ${i.label}\n`
       + `*Qué/Quién:* ${t.descripcion || "No especificado"}\n`
       + `*Cantidad:* ${t.cantidad || "N/A"}\n\n`
@@ -308,13 +308,13 @@ export default function TrasladosView() {
                         {i.emoji} {i.label}
                       </h3>
                       <div style={{ display: "flex", gap: "var(--s1)" }}>
-                        <span className={`badge badge--${t.prioridad}`}>{t.prioridad}</span>
+                        <span className={`badge badge--${t.prioridad || "baja"}`}>{t.prioridad || "baja"}</span>
                         <span className="badge" style={{ 
                           background: t.estado === 'completado' ? '#F0FDF4' : t.estado === 'en_camino' ? '#EFF6FF' : t.estado === 'asignado' ? '#FFFBEB' : '#FEF2F2',
                           color: t.estado === 'completado' ? '#16A34A' : t.estado === 'en_camino' ? '#1D4ED8' : t.estado === 'asignado' ? '#B45309' : '#DC2626',
                           border: "1px solid currentColor", opacity: 0.8
                         }}>
-                          {t.estado.replace("_", " ").toUpperCase()}
+                          {(t.estado || "solicitado").replace("_", " ").toUpperCase()}
                         </span>
                       </div>
                     </div>
