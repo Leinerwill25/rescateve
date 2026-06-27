@@ -56,12 +56,18 @@ export default function TrasladosView() {
   const [viewOperadorModal, setViewOperadorModal] = useState<{traslado: Traslado, opData: OperadorData} | null>(null);
 
   async function load() {
-    const { data } = await supabase
-      .from("traslados")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (data) setTraslados(data as Traslado[]);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from("traslados")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) console.error("Error cargando traslados:", error);
+      if (data) setTraslados(data as Traslado[]);
+    } catch (err) {
+      console.error("Excepción en load():", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
