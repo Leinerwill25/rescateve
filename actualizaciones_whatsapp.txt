@@ -1,0 +1,26 @@
+🚨 *NUEVAS ACTUALIZACIONES EN RESCATE VE* 🚨
+
+Hola equipo, acabamos de subir a la plataforma varias mejoras importantes, especialmente para quienes manejan la logística y traslados. ¡Aquí les dejamos el resumen para que las aprovechen al máximo!
+
+*1. 🏠 Nueva Pantalla Principal (Dashboard)*
+Ahora la plataforma es mucho más fácil de usar. Al entrar, verán una pantalla con botones gigantes preguntando "¿Qué necesitas hacer?" para dirigir a los usuarios rápidamente a donde necesitan (Buscar personas, Ver mapa, Traslados, etc.). 
+
+*2. 🚚 Mejoras en Traslados (Logística)*
+• El botón principal ahora es mucho más claro: dice *"+ Solicitar un Traslado"* y tiene una pequeña descripción.
+• *Despacho por WhatsApp:* Al hacer clic en "Despachar", el aviso de "copiado" ya no es una alerta molesta del navegador, sino una ventana moderna y elegante.
+
+*3. 📋 Asignación Avanzada de Operadores*
+Esta es la mejora más grande. Ahora cuando hagan clic en "+ Asignar Operador" o "En camino", se abrirá un formulario completo. Podrán registrar:
+• Nombre del Conductor / Entidad
+• Cédula y Teléfono de contacto
+• Datos del Vehículo (Modelo, Placa, Nº de Unidad y Puestos)
+• Línea de transporte (si aplica)
+• Ubicación (Ciudad y Estado)
+
+*4. 👁️ Visualización Limpia de Detalles*
+Las tarjetas de los traslados ya no estarán sobrecargadas. Ahora solo verán el nombre del operador asignado en la tarjeta y, si hacen clic en *"Ver detalles"*, se abrirá una ventana limpia con todos los datos del vehículo y el conductor. ¡Desde allí mismo podrán editarlos si hubo algún error!
+
+🔗 *Ingresa ahora y compruébalo:*
+[Añadir enlace de la plataforma]
+
+Seguimos trabajando para hacer la coordinación más rápida y efectiva. ¡Gracias por su esfuerzo! 🇻🇪

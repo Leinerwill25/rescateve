@@ -1,0 +1,16 @@
+[
+  {
+    "id": "f147e504-3d0b-47bd-b470-01f2025cf752",
+    "created_at": "2026-06-25T17:26:52.479739+00:00",
+    "categoria": "mascotas",
+    "titulo": "ENCONTRAMOS A TUS MASCOTAS",
+    "descripcion": null,
+    "contacto": null,
+    "imagen_url": null,
+    "fuente": null,
+    "reporter_token": "4fc1a9f8-0d5c-40df-86b9-890b4e92d69f",
+    "verificado": false,
+    "reportes": 2,
+    "oculto": false
+  }
+]

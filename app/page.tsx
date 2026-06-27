@@ -12,12 +12,13 @@ import EncontradoModal from "@/components/EncontradoModal";
 import AvisosView from "@/components/AvisosView";
 import TrasladosView from "@/components/TrasladosView";
 import HospitalesView from "@/components/HospitalesView";
-import { Map, AlertCircle, Search, ClipboardList, Megaphone, Truck, Home as HomeIcon } from "lucide-react";
+import GasolinaView from "@/components/GasolinaView";
+import { Map, AlertCircle, Search, ClipboardList, Megaphone, Truck, Home as HomeIcon, Fuel } from "lucide-react";
 
 // Leaflet solo en cliente
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
-type Tab = "inicio" | "mapa" | "ayuda" | "desaparecidos" | "lista" | "info" | "traslados";
+type Tab = "inicio" | "mapa" | "ayuda" | "desaparecidos" | "lista" | "info" | "traslados" | "gasolina";
 
 function timeAgo(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -91,6 +92,7 @@ export default function Home() {
   const NAV_ITEMS: { id: Tab; icon: React.ReactNode; label: string; count?: number; emergency?: boolean }[] = [
     { id: "inicio",        icon: <HomeIcon size={20} strokeWidth={2.25} />, label: "Inicio" },
     { id: "mapa",          icon: <Map size={20} strokeWidth={2.25} />, label: "Mapa" },
+    { id: "gasolina",      icon: <Fuel size={20} strokeWidth={2.25} />, label: "Combustible" },
     { id: "lista",         icon: <ClipboardList size={20} strokeWidth={2.25} />, label: "Lista", count: activas.length + buscando.length },
     { id: "info",          icon: <Megaphone size={20} strokeWidth={2.25} />, label: "Avisos" },
   ];
@@ -176,6 +178,11 @@ export default function Home() {
                 <div className="home-card__icon">📋</div>
                 <div className="home-card__label">Ver Lista de<br/>Casos</div>
               </div>
+              
+              <div className="home-card" onClick={() => setTab("gasolina")}>
+                <div className="home-card__icon">⛽</div>
+                <div className="home-card__label">Solicitar<br/>Combustible</div>
+              </div>
             </div>
           </div>
         )}
@@ -218,6 +225,8 @@ export default function Home() {
         {tab === "info" && <AvisosView />}
 
         {tab === "traslados" && <TrasladosView />}
+
+        {tab === "gasolina" && <GasolinaView />}
 
         {tab === "lista" && (
           <div className="list">

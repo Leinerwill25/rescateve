@@ -204,3 +204,29 @@ export type PuntoAyuda = {
   reporter_name: string | null;
   reporter_contact: string | null;
 };
+
+// ================================================================
+// GASOLINA
+// ================================================================
+export type SolicitudGasolina = {
+  id: string;
+  created_at: string;
+  nombre: string;
+  apellido: string;
+  cedula: string;
+  placa: string;
+  marca: string;
+  modelo: string;
+  motivo: string;
+  telefono: string;
+  litros: number;
+  estado: "pendiente" | "suministrado";
+};
+
+export type Rate = {
+  code: string;
+  rate: number;
+  curr_date: string;
+  curr_time: string;
+  rate_datetime: string;
+};

@@ -148,6 +148,29 @@ ALTER TABLE public.collection_centers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.help_points ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.help_point_visits ENABLE ROW LEVEL SECURITY;
 
+-- ================================================================
+-- TABLA: solicitudes_gasolina
+-- ================================================================
+CREATE TABLE IF NOT EXISTS public.solicitudes_gasolina (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    nombre TEXT NOT NULL,
+    apellido TEXT NOT NULL,
+    cedula TEXT NOT NULL,
+    placa TEXT NOT NULL,
+    marca TEXT NOT NULL,
+    modelo TEXT NOT NULL,
+    motivo TEXT NOT NULL,
+    telefono TEXT NOT NULL,
+    litros NUMERIC NOT NULL,
+    estado TEXT CHECK (estado IN ('pendiente', 'suministrado')) NOT NULL DEFAULT 'pendiente'
+);
+
+ALTER TABLE public.solicitudes_gasolina ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can insert solicitudes gasolina" ON public.solicitudes_gasolina AS PERMISSIVE FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "Anyone can read solicitudes gasolina" ON public.solicitudes_gasolina AS PERMISSIVE FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Anyone can update solicitudes gasolina" ON public.solicitudes_gasolina AS PERMISSIVE FOR UPDATE TO anon, authenticated USING (true);
+
 -- ==================== POLICIES ====================
 CREATE POLICY "Admins can delete reports" ON public.center_reports AS PERMISSIVE FOR DELETE TO authenticated USING (has_role(auth.uid(), 'admin'::app_role));
 CREATE POLICY "Admins can update reports" ON public.center_reports AS PERMISSIVE FOR UPDATE TO authenticated USING (has_role(auth.uid(), 'admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
