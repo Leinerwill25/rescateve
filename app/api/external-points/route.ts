@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 const URL = "https://yqcwttcbweqicdyfwseb.supabase.co/rest/v1";
 const API_KEY = "sb_publishable_AtK5TeQlbB7N4M2o_YcaaQ_3ly_BeAQ";
 const CACHE_TTL = 3 * 60 * 1000; // 3 minutes

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 // In-memory cache for Lovable API
 let lovableCache: any[] | null = null;
 let lastFetchTime = 0;
