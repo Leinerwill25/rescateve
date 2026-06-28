@@ -201,7 +201,7 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
         <ShieldAlert size={48} color="var(--emergency)" />
         <h2 style={{ marginTop: "16px", color: "var(--text)" }}>Acceso Denegado</h2>
         <p style={{ color: "var(--text-muted)" }}>No tiene sesión activa o perfil configurado.</p>
-        <button onClick={() => router.push("/login")} style={styles.btnReingresar}>
+        <button onClick={handleLogout} style={styles.btnReingresar}>
           Ir a Iniciar Sesión
         </button>
       </div>
