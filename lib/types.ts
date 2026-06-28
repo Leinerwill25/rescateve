@@ -220,7 +220,14 @@ export type SolicitudGasolina = {
   motivo: string;
   telefono: string;
   litros: number;
-  estado: "pendiente" | "suministrado";
+  estado: "pendiente" | "suministrado" | "pendiente_autorizacion" | "rechazado";
+  traslado_id?: string | null;
+  tipo_vehiculo?: "moto" | "carro" | "autobus" | null;
+  banco?: string | null;
+  order_id?: string | null;
+  quote_id?: string | null;
+  payout_status?: "pendiente" | "exitoso" | "fallido" | null;
+  payout_error?: string | null;
 };
 
 export type Rate = {

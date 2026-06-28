@@ -69,7 +69,9 @@ export default function TrasladosView() {
     modelo: "",
     motivo: "",
     telefono: "",
-    litros: ""
+    litros: "",
+    tipo_vehiculo: "carro",
+    banco: "0102"
   });
   const [gasError, setGasError] = useState("");
   const [gasSuccess, setGasSuccess] = useState(false);
@@ -114,6 +116,16 @@ export default function TrasladosView() {
     const parsedNombre = nameParts[0] || "";
     const parsedApellido = nameParts.slice(1).join(" ") || "";
 
+    // Auto-detectar tipo de vehículo
+    let detectedType = "carro";
+    const puestos = parseInt(opData.puestos) || 0;
+    const modeloUpper = (opData.modelo || "").toUpperCase();
+    if (modeloUpper.includes("BUS") || modeloUpper.includes("MINIBUS") || modeloUpper.includes("ENCAVA") || puestos > 9) {
+      detectedType = "autobus";
+    } else if (modeloUpper.includes("MOTO") || modeloUpper.includes("MOTOCICLETA") || modeloUpper.includes("SCOOTER")) {
+      detectedType = "moto";
+    }
+
     setGasForm({
       nombre: parsedNombre,
       apellido: parsedApellido,
@@ -123,7 +135,9 @@ export default function TrasladosView() {
       modelo: opData.modelo || "",
       motivo: `Combustible para traslado logístico #${t.id.slice(0, 8)}: ${t.descripcion || ""}`,
       telefono: opData.telefono || t.contacto || "",
-      litros: ""
+      litros: "",
+      tipo_vehiculo: detectedType,
+      banco: "0102"
     });
     setGasError("");
     setGasSuccess(false);
@@ -136,9 +150,9 @@ export default function TrasladosView() {
     setGasSuccess(false);
     setGasLoading(true);
 
-    const { nombre, apellido, cedula, placa, marca, modelo, motivo, telefono, litros } = gasForm;
+    const { nombre, apellido, cedula, placa, marca, modelo, motivo, telefono, litros, tipo_vehiculo, banco } = gasForm;
 
-    if (!nombre || !apellido || !cedula || !placa || !marca || !modelo || !motivo || !telefono || !litros) {
+    if (!nombre || !apellido || !cedula || !placa || !marca || !modelo || !motivo || !telefono || !litros || !tipo_vehiculo || !banco) {
       setGasError("Todos los campos son obligatorios.");
       setGasLoading(false);
       return;
@@ -152,27 +166,56 @@ export default function TrasladosView() {
     }
 
     try {
+      // Validar acumulados por cédula
+      const { data: previous, error: errAccum } = await supabase
+        .from("solicitudes_gasolina")
+        .select("litros")
+        .eq("cedula", cedula.trim())
+        .not("estado", "eq", "rechazado");
+
+      if (errAccum) throw errAccum;
+
+      const accumulated = (previous || []).reduce((acc, curr) => acc + (parseFloat(curr.litros) || 0), 0);
+      const limit = tipo_vehiculo === "moto" ? 40 : tipo_vehiculo === "carro" ? 60 : 120;
+
+      let targetEstado = "pendiente";
+      let exceedsLimit = false;
+
+      if (accumulated + litrosNum > limit) {
+        targetEstado = "pendiente_autorizacion";
+        exceedsLimit = true;
+      }
+
       const { error } = await supabase.from("solicitudes_gasolina").insert({
         nombre,
         apellido,
-        cedula,
+        cedula: cedula.trim(),
         placa,
         marca,
         modelo,
         motivo,
         telefono,
         litros: litrosNum,
-        estado: "pendiente"
+        tipo_vehiculo,
+        banco,
+        traslado_id: gasolinaModal?.id,
+        estado: targetEstado
       });
 
       if (error) throw error;
 
       setGasSuccess(true);
+      if (exceedsLimit) {
+        setGasError(`⚠️ La recarga acumulada (${accumulated + litrosNum}L) supera el límite de ${limit}L para ${tipo_vehiculo === "moto" ? "motos" : tipo_vehiculo === "carro" ? "carros" : "autobuses"}. Se registró como 'Pendiente de Autorización'.`);
+      }
+
       setTimeout(() => {
         setGasolinaModal(null);
         setGasSuccess(false);
+        setGasError("");
         loadGasolinaData();
-      }, 1500);
+      }, exceedsLimit ? 5000 : 1500);
+
     } catch (err: any) {
       setGasError(err.message || "Error al enviar la solicitud.");
     } finally {
@@ -181,15 +224,41 @@ export default function TrasladosView() {
   }
 
   async function marcarGasolinaSuministrado(id: string) {
-    if (!confirm("¿Confirmas que ya se suministró la gasolina a este vehículo?")) return;
+    if (!confirm("¿Confirmas que ya se suministró la gasolina y deseas procesar el Pago Móvil en tiempo real por Muney?")) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/combustible/pagar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ solicitudId: id })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        alert(`Error al procesar el pago: ${data.error}`);
+      } else {
+        alert("✅ ¡Pago Móvil procesado con éxito en tiempo real por Muney!");
+      }
+      loadGasolinaData();
+    } catch (error: any) {
+      alert(`Error de red: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function autorizarGasolina(id: string) {
+    if (!confirm("¿Confirmas que deseas autorizar esta recarga de combustible que supera el límite?")) return;
     try {
       await supabase
         .from("solicitudes_gasolina")
-        .update({ estado: "suministrado" })
+        .update({ estado: "pendiente" })
         .eq("id", id);
       loadGasolinaData();
     } catch (error) {
-      console.error("Error al actualizar estado de gasolina:", error);
+      console.error("Error al autorizar gasolina:", error);
     }
   }
 
@@ -443,18 +512,34 @@ export default function TrasladosView() {
                   const costoUSD = s.litros * 0.5;
                   const costoBs = usdRate ? (costoUSD * usdRate).toFixed(2) : null;
 
+                  let badgeBg = "#FFFBEB";
+                  let badgeColor = "#D97706";
+                  let badgeText = "⏳ Pendiente Pago";
+                  if (s.estado === "suministrado") {
+                    badgeBg = "#F0FDF4";
+                    badgeColor = "#16A34A";
+                    badgeText = "✅ Suministrado";
+                  } else if (s.estado === "pendiente_autorizacion") {
+                    badgeBg = "#FEF2F2";
+                    badgeColor = "#EF4444";
+                    badgeText = "⚠️ Pendiente Autorización";
+                  }
+
+                  const vehiculoIcon = s.tipo_vehiculo === "moto" ? "🏍️" : s.tipo_vehiculo === "autobus" ? "🚌" : "🚗";
+                  const vehiculoLabel = s.tipo_vehiculo === "moto" ? "Moto" : s.tipo_vehiculo === "autobus" ? "Autobús" : "Carro";
+
                   return (
                     <article className="card" key={s.id} style={{ opacity: s.estado === "suministrado" ? 0.7 : 1 }}>
                       <div className="card__top" style={{ marginBottom: "var(--s2)" }}>
                         <h3 className="card__title">
-                          🚗 {s.marca} {s.modelo} <span style={{ color: "var(--text-muted)", fontSize: "0.85em", fontWeight: 400 }}>({s.placa})</span>
+                          {vehiculoIcon} {s.marca} {s.modelo} <span style={{ color: "var(--text-muted)", fontSize: "0.85em", fontWeight: 400 }}>({s.placa}) - {vehiculoLabel}</span>
                         </h3>
                         <span className="badge" style={{ 
-                          background: s.estado === "suministrado" ? "#F0FDF4" : "#FFFBEB", 
-                          color: s.estado === "suministrado" ? "#16A34A" : "#D97706",
-                          border: `1px solid ${s.estado === "suministrado" ? 'rgba(22,163,74,.2)' : 'rgba(217,119,6,.2)'}`
+                          background: badgeBg, 
+                          color: badgeColor,
+                          border: `1px solid ${badgeColor}33`
                         }}>
-                          {s.estado === "suministrado" ? "✅ Suministrado" : "⏳ Pendiente"}
+                          {badgeText}
                         </span>
                       </div>
                       
@@ -463,6 +548,11 @@ export default function TrasladosView() {
                           <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "0 0 2px" }}>Solicitante</p>
                           <p style={{ fontSize: "var(--text-sm)", fontWeight: 600, margin: 0 }}>{s.nombre} {s.apellido}</p>
                           <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: 0 }}>C.I: {s.cedula} | 📞 {s.telefono}</p>
+                          {s.banco && (
+                            <p style={{ fontSize: "11px", color: "var(--brand)", marginTop: "4px", fontWeight: 600 }}>
+                              🏦 Banco Receptor: {s.banco}
+                            </p>
+                          )}
                         </div>
                         <div style={{ textAlign: "right" }}>
                           <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "0 0 2px" }}>Combustible</p>
@@ -478,13 +568,41 @@ export default function TrasladosView() {
                         <p style={{ fontSize: "var(--text-sm)", margin: 0, fontStyle: "italic" }}>"{s.motivo}"</p>
                       </div>
 
+                      {s.payout_status && (
+                        <div style={{ 
+                          fontSize: "var(--text-xs)", 
+                          padding: "8px", 
+                          borderRadius: "var(--radius-sm)", 
+                          background: s.payout_status === "exitoso" ? "#EBFDF5" : s.payout_status === "fallido" ? "#FEF2F2" : "var(--surface-2)", 
+                          border: `1px solid ${s.payout_status === "exitoso" ? "#A7F3D0" : s.payout_status === "fallido" ? "#FCA5A5" : "var(--border)"}`, 
+                          marginBottom: "var(--s3)",
+                          color: s.payout_status === "exitoso" ? "#065F46" : s.payout_status === "fallido" ? "#991B1B" : "var(--text)"
+                        }}>
+                          <strong>Estado de Pago (Muney):</strong> {
+                            s.payout_status === "exitoso" ? "💰 Pago Móvil transferido exitosamente en tiempo real" :
+                            s.payout_status === "fallido" ? `❌ Falló: ${s.payout_error}` :
+                            "⏳ Procesando..."
+                          }
+                        </div>
+                      )}
+
+                      {s.estado === "pendiente_autorizacion" && (
+                        <button 
+                          className="btn btn--primary" 
+                          style={{ width: "100%", padding: "var(--s2)", minHeight: "36px", height: "36px", background: "var(--brand-dark)" }}
+                          onClick={() => autorizarGasolina(s.id)}
+                        >
+                          ✓ Autorizar Recarga (Exceso de límite)
+                        </button>
+                      )}
+
                       {s.estado === "pendiente" && (
                         <button 
                           className="btn btn--primary" 
                           style={{ width: "100%", padding: "var(--s2)", minHeight: "36px", height: "36px" }}
                           onClick={() => marcarGasolinaSuministrado(s.id)}
                         >
-                          ✓ Marcar como Suministrado
+                          ✓ Procesar Pago Móvil en Tiempo Real
                         </button>
                       )}
                     </article>
@@ -830,6 +948,32 @@ export default function TrasladosView() {
                     <label className="form__label" style={{ fontSize: "10px" }}>Modelo</label>
                     <input type="text" className="form__input" style={{ fontSize: "var(--text-xs)", height: "32px" }} value={gasForm.modelo} onChange={e => setGasForm({...gasForm, modelo: e.target.value})} required />
                   </div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s2)", marginBottom: "var(--s3)" }}>
+                <div>
+                  <label className="form__label">Tipo de Vehículo</label>
+                  <select className="form__input" style={{ height: "40px" }} value={gasForm.tipo_vehiculo} onChange={e => setGasForm({...gasForm, tipo_vehiculo: e.target.value})} required>
+                    <option value="moto">🏍️ Moto (Límite 40L)</option>
+                    <option value="carro">🚗 Carro (Límite 60L)</option>
+                    <option value="autobus">🚌 Autobús (Límite 120L)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="form__label">Banco Pago Móvil</label>
+                  <select className="form__input" style={{ height: "40px" }} value={gasForm.banco} onChange={e => setGasForm({...gasForm, banco: e.target.value})} required>
+                    <option value="0102">0102 - Banco de Venezuela</option>
+                    <option value="0105">0105 - Banco Mercantil</option>
+                    <option value="0108">0108 - Banco Provincial (BBVA)</option>
+                    <option value="0134">0134 - Banesco</option>
+                    <option value="0172">0172 - Bancamiga</option>
+                    <option value="0114">0114 - Bancaribe</option>
+                    <option value="0115">0115 - Banco Exterior</option>
+                    <option value="0151">0151 - Fondo Común</option>
+                    <option value="0163">0163 - Banco del Tesoro</option>
+                    <option value="0175">0175 - Banco Bicentenario</option>
+                  </select>
                 </div>
               </div>
 
