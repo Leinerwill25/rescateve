@@ -51,7 +51,7 @@ export default function RecursosPage() {
   const [editDept, setEditDept] = useState<Departamento | null>(null);
   const [editTrans, setEditTrans] = useState<Transporte | null>(null);
   const [editMedico, setEditMedico] = useState<PersonalMedico | null>(null);
-  const [editAcopio, setEditAcopio] = useState<CentroAcopioOperativo | null>(null);
+  const [editAcopio, setEditAcopio] = useState<(CentroAcopioOperativo & { crear_usuario?: boolean; email?: string; password?: string; }) | null>(null);
 
   // Manejo de Inventario (sub-nivel)
   const [selectedAcopioInv, setSelectedAcopioInv] = useState<CentroAcopioOperativo | null>(null);
@@ -272,25 +272,68 @@ export default function RecursosPage() {
   // CRUD CENTROS DE ACOPIO
   // -------------------------------------------------------------
   const openCrearAcopio = () => {
-    setEditAcopio({ id: "nuevo", perfil_id: "", nombre: "", direccion: "", latitud: null, longitud: null, contacto: "", fuente: "manual", activo: true });
+    setEditAcopio({ 
+      id: "nuevo", 
+      perfil_id: "", 
+      nombre: "", 
+      direccion: "", 
+      latitud: null, 
+      longitud: null, 
+      contacto: "", 
+      fuente: "manual", 
+      activo: true,
+      crear_usuario: false,
+      email: "",
+      password: ""
+    });
   };
 
   const handleGuardarAcopio = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editAcopio) return;
 
-    const payload = {
-      perfil_id: editAcopio.perfil_id || null,
-      nombre: editAcopio.nombre,
-      direccion: editAcopio.direccion || null,
-      latitud: editAcopio.latitud,
-      longitud: editAcopio.longitud,
-      contacto: editAcopio.contacto || null,
-      fuente: editAcopio.fuente || "manual",
-      activo: editAcopio.activo
-    };
+    let targetPerfilId = editAcopio.perfil_id || null;
 
     try {
+      if (editAcopio.id === "nuevo" && editAcopio.crear_usuario) {
+        if (!editAcopio.email || !editAcopio.password) {
+          alert("Por favor ingrese correo y contraseña para el nuevo usuario.");
+          return;
+        }
+        if (editAcopio.password.length < 6) {
+          alert("La contraseña debe tener al menos 6 caracteres.");
+          return;
+        }
+
+        const res = await fetch("/api/usuarios/crear", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: editAcopio.email.trim(),
+            password: editAcopio.password,
+            nombre: editAcopio.nombre.trim(),
+            rol: "acopio"
+          })
+        });
+
+        const resData = await res.json();
+        if (!res.ok) {
+          throw new Error(resData.error || "Fallo al crear usuario en Supabase");
+        }
+        targetPerfilId = resData.userId;
+      }
+
+      const payload = {
+        perfil_id: targetPerfilId,
+        nombre: editAcopio.nombre,
+        direccion: editAcopio.direccion || null,
+        latitud: editAcopio.latitud,
+        longitud: editAcopio.longitud,
+        contacto: editAcopio.contacto || null,
+        fuente: editAcopio.fuente || "manual",
+        activo: editAcopio.activo
+      };
+
       if (editAcopio.id === "nuevo") {
         const { error } = await supabase.from("centros_acopio").insert(payload);
         if (error) throw error;
@@ -1056,19 +1099,62 @@ export default function RecursosPage() {
                  <input type="text" value={editAcopio.contacto || ""} onChange={(e) => setEditAcopio({ ...editAcopio, contacto: e.target.value })} style={styles.input} />
                </div>
                
-               <div style={styles.formField}>
-                 <label style={styles.label}>Usuario Asociado (Login)</label>
-                 <select 
-                   value={editAcopio.perfil_id || ""} 
-                   onChange={(e) => setEditAcopio({ ...editAcopio, perfil_id: e.target.value })}
-                   style={styles.select}
-                 >
-                   <option value="">-- No vincular cuenta --</option>
-                   {perfiles.filter(p => p.rol === "acopio").map(p => (
-                     <option key={p.id} value={p.id}>{p.nombre} ({p.rol})</option>
-                   ))}
-                 </select>
-               </div>
+               {editAcopio.id === "nuevo" ? (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "10px 0" }}>
+                      <input 
+                        type="checkbox" 
+                        id="crear_usuario"
+                        checked={editAcopio.crear_usuario || false} 
+                        onChange={(e) => setEditAcopio({ ...editAcopio, crear_usuario: e.target.checked })} 
+                      />
+                      <label htmlFor="crear_usuario" style={{ fontWeight: 600, fontSize: "12px", cursor: "pointer", color: "var(--text)" }}>
+                        🔐 Crear usuario de acceso para este Centro de Acopio
+                      </label>
+                    </div>
+
+                    {editAcopio.crear_usuario && (
+                      <div style={{ background: "var(--surface-hover)", padding: "12px", borderRadius: "6px", border: "1px solid var(--border)", marginBottom: "15px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <div style={styles.formField}>
+                          <label style={{ ...styles.label, fontSize: "10px" }}>Correo Electrónico</label>
+                          <input 
+                            type="email" 
+                            value={editAcopio.email || ""} 
+                            onChange={(e) => setEditAcopio({ ...editAcopio, email: e.target.value })} 
+                            placeholder="operador@test.com" 
+                            required={editAcopio.crear_usuario}
+                            style={styles.input} 
+                          />
+                        </div>
+                        <div style={styles.formField}>
+                          <label style={{ ...styles.label, fontSize: "10px" }}>Contraseña (Mín. 6 car.)</label>
+                          <input 
+                            type="password" 
+                            value={editAcopio.password || ""} 
+                            onChange={(e) => setEditAcopio({ ...editAcopio, password: e.target.value })} 
+                            placeholder="******" 
+                            required={editAcopio.crear_usuario}
+                            style={styles.input} 
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={styles.formField}>
+                    <label style={styles.label}>Usuario Asociado (Login)</label>
+                    <select 
+                      value={editAcopio.perfil_id || ""} 
+                      onChange={(e) => setEditAcopio({ ...editAcopio, perfil_id: e.target.value })}
+                      style={styles.select}
+                    >
+                      <option value="">-- No vincular cuenta --</option>
+                      {perfiles.filter(p => p.rol === "acopio").map(p => (
+                        <option key={p.id} value={p.id}>{p.nombre} ({p.rol})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               <div style={styles.formField}>
                 <label style={styles.checkboxLabel}>
                   <input type="checkbox" checked={editAcopio.activo} onChange={(e) => setEditAcopio({ ...editAcopio, activo: e.target.checked })} />
