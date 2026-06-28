@@ -22,23 +22,7 @@ import {
   Package
 } from "lucide-react";
 
-interface AuthContextType {
-  session: any;
-  perfil: Perfil | null;
-  loading: boolean;
-  actualizarPerfil: () => Promise<void>;
-}
-
-const OperationsAuthContext = createContext<AuthContextType>({
-  session: null,
-  perfil: null,
-  loading: true,
-  actualizarPerfil: async () => {},
-});
-
-export function useOperationsAuth() {
-  return useContext(OperationsAuthContext);
-}
+import { OperationsAuthContext } from "./AuthContext";
 
 export default function OperationsLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -65,9 +49,25 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
       if (data) {
         setPerfil(data as Perfil);
       } else {
-        // No hay perfil creado
-        console.warn("No se encontró perfil para este usuario.");
-        setPerfil(null);
+        // No hay perfil creado: auto-creación automática para sanar perfiles huérfanos
+        console.warn("No se encontró perfil para este usuario. Creando perfil huérfano por defecto...");
+        const { data: newProfile, error: errCreate } = await supabase
+          .from("perfiles")
+          .insert({
+            id: userId,
+            nombre: "Usuario Autoregistrado",
+            rol: "transportista",
+            activo: true
+          })
+          .select()
+          .maybeSingle();
+
+        if (!errCreate && newProfile) {
+          setPerfil(newProfile as Perfil);
+        } else {
+          console.error("No se pudo auto-crear el perfil:", errCreate);
+          setPerfil(null);
+        }
       }
     } catch (err) {
       console.error("Error al cargar perfil:", err);

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Ticket, PersonalMedico } from "@/lib/types-operations";
-import { useOperationsAuth } from "../layout";
+import { useOperationsAuth } from "../AuthContext";
 import { 
   Stethoscope, 
   MapPin, 

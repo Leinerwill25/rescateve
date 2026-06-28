@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useOperationsAuth } from "./layout";
+import { useOperationsAuth } from "./AuthContext";
 
 export default function OperationsPage() {
   const router = useRouter();
