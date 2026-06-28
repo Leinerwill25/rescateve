@@ -357,9 +357,15 @@ export default function TrasladosView() {
     const payload: any = { estado: nuevoEstado };
     if (operadorVal !== undefined) payload.operador = operadorVal;
     
-    await supabase.from("traslados").update(payload).eq("id", id);
-    load();
-    setOperadorModal(null);
+    try {
+      const { error } = await supabase.from("traslados").update(payload).eq("id", id);
+      if (error) throw error;
+      load();
+      setOperadorModal(null);
+    } catch (err: any) {
+      console.error("Error al actualizar estado del traslado:", err);
+      alert(`Error al actualizar estado del traslado: ${err.message || err}`);
+    }
   }
 
   async function generarDespacho(t: Traslado) {
