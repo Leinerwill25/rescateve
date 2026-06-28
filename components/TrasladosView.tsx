@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Traslado, TIPOS_TRASLADO, tipoTrasladoInfo } from "@/lib/types";
+import { ratesClient } from "@/lib/rates-client";
+import { Traslado, TIPOS_TRASLADO, tipoTrasladoInfo, SolicitudGasolina } from "@/lib/types";
 import { getReporterToken } from "@/lib/reporter-token";
 import LocationPicker from "./LocationPicker";
 import { MapPin, Navigation, Truck, MessageCircle } from "lucide-react";
@@ -45,7 +46,7 @@ export default function TrasladosView() {
   const [err, setErr] = useState<string | null>(null);
 
   // Filter
-  const [filter, setFilter] = useState<"todos" | "pendientes">("pendientes");
+  const [filter, setFilter] = useState<"todos" | "pendientes" | "gasolina">("pendientes");
   
   // Prompt Modal
   const [operadorModal, setOperadorModal] = useState<{id: string, nuevoEstado: string, currentOperador?: string} | null>(null);
@@ -54,6 +55,143 @@ export default function TrasladosView() {
   
   // View Operador Modal
   const [viewOperadorModal, setViewOperadorModal] = useState<{traslado: Traslado, opData: OperadorData} | null>(null);
+
+  // Gasolina integration states
+  const [gasolinaSolicitudes, setGasolinaSolicitudes] = useState<SolicitudGasolina[]>([]);
+  const [usdRate, setUsdRate] = useState<number | null>(null);
+  const [gasolinaModal, setGasolinaModal] = useState<Traslado | null>(null);
+  const [gasForm, setGasForm] = useState({
+    nombre: "",
+    apellido: "",
+    cedula: "",
+    placa: "",
+    marca: "",
+    modelo: "",
+    motivo: "",
+    telefono: "",
+    litros: ""
+  });
+  const [gasError, setGasError] = useState("");
+  const [gasSuccess, setGasSuccess] = useState(false);
+  const [gasLoading, setGasLoading] = useState(false);
+
+  async function loadGasolinaData() {
+    try {
+      if (ratesClient) {
+        const { data: ratesData } = await ratesClient
+          .from("rates")
+          .select("*")
+          .eq("code", "USD")
+          .order("rate_datetime", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (ratesData) setUsdRate(ratesData.rate);
+      }
+      
+      const { data, error } = await supabase
+        .from("solicitudes_gasolina")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (!error && data) {
+        setGasolinaSolicitudes(data as SolicitudGasolina[]);
+      }
+    } catch (e) {
+      console.error("Error cargando datos de gasolina:", e);
+    }
+  }
+
+  function openGasolinaModal(t: Traslado) {
+    let opData: any = {};
+    if (t.operador) {
+      try {
+        const parsed = JSON.parse(t.operador);
+        if (parsed && typeof parsed === 'object') opData = parsed;
+      } catch (e) {}
+    }
+    
+    const nombreCompleto = opData.nombre || "";
+    const nameParts = nombreCompleto.trim().split(/\s+/);
+    const parsedNombre = nameParts[0] || "";
+    const parsedApellido = nameParts.slice(1).join(" ") || "";
+
+    setGasForm({
+      nombre: parsedNombre,
+      apellido: parsedApellido,
+      cedula: opData.cedula || "",
+      placa: opData.placa || "",
+      marca: "",
+      modelo: opData.modelo || "",
+      motivo: `Combustible para traslado logístico #${t.id.slice(0, 8)}: ${t.descripcion || ""}`,
+      telefono: opData.telefono || t.contacto || "",
+      litros: ""
+    });
+    setGasError("");
+    setGasSuccess(false);
+    setGasolinaModal(t);
+  }
+
+  async function submitGasolina(e: React.FormEvent) {
+    e.preventDefault();
+    setGasError("");
+    setGasSuccess(false);
+    setGasLoading(true);
+
+    const { nombre, apellido, cedula, placa, marca, modelo, motivo, telefono, litros } = gasForm;
+
+    if (!nombre || !apellido || !cedula || !placa || !marca || !modelo || !motivo || !telefono || !litros) {
+      setGasError("Todos los campos son obligatorios.");
+      setGasLoading(false);
+      return;
+    }
+
+    const litrosNum = parseFloat(litros);
+    if (isNaN(litrosNum) || litrosNum <= 0) {
+      setGasError("La cantidad de litros debe ser un número válido mayor a 0.");
+      setGasLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("solicitudes_gasolina").insert({
+        nombre,
+        apellido,
+        cedula,
+        placa,
+        marca,
+        modelo,
+        motivo,
+        telefono,
+        litros: litrosNum,
+        estado: "pendiente"
+      });
+
+      if (error) throw error;
+
+      setGasSuccess(true);
+      setTimeout(() => {
+        setGasolinaModal(null);
+        setGasSuccess(false);
+        loadGasolinaData();
+      }, 1500);
+    } catch (err: any) {
+      setGasError(err.message || "Error al enviar la solicitud.");
+    } finally {
+      setGasLoading(false);
+    }
+  }
+
+  async function marcarGasolinaSuministrado(id: string) {
+    if (!confirm("¿Confirmas que ya se suministró la gasolina a este vehículo?")) return;
+    try {
+      await supabase
+        .from("solicitudes_gasolina")
+        .update({ estado: "suministrado" })
+        .eq("id", id);
+      loadGasolinaData();
+    } catch (error) {
+      console.error("Error al actualizar estado de gasolina:", error);
+    }
+  }
 
   async function load() {
     try {
@@ -72,9 +210,11 @@ export default function TrasladosView() {
 
   useEffect(() => {
     load();
+    loadGasolinaData();
     const ch = supabase
       .channel("traslados_feed")
       .on("postgres_changes", { event: "*", schema: "public", table: "traslados" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "solicitudes_gasolina" }, loadGasolinaData)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
@@ -282,132 +422,202 @@ export default function TrasladosView() {
         </div>
       ) : (
         <>
-          <div className="tabs-sub" style={{ display: "flex", gap: "var(--s2)", marginBottom: "var(--s4)" }}>
-            <button className={`btn-subtab ${filter === "pendientes" ? "active" : ""}`} onClick={() => setFilter("pendientes")} style={{ flex: 1, padding: "var(--s2)", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: filter === "pendientes" ? "var(--brand)" : "var(--surface)", color: filter === "pendientes" ? "#fff" : "var(--text)", fontWeight: 600 }}>Activos</button>
-            <button className={`btn-subtab ${filter === "todos" ? "active" : ""}`} onClick={() => setFilter("todos")} style={{ flex: 1, padding: "var(--s2)", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: filter === "todos" ? "var(--brand)" : "var(--surface)", color: filter === "todos" ? "#fff" : "var(--text)", fontWeight: 600 }}>Historial</button>
+          <div className="tabs-sub" style={{ display: "flex", gap: "var(--s2)", marginBottom: "var(--s4)", flexWrap: "wrap" }}>
+            <button className={`btn-subtab ${filter === "pendientes" ? "active" : ""}`} onClick={() => setFilter("pendientes")} style={{ flex: 1, minWidth: "100px", padding: "var(--s2)", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: filter === "pendientes" ? "var(--brand)" : "var(--surface)", color: filter === "pendientes" ? "#fff" : "var(--text)", fontWeight: 600 }}>Activos</button>
+            <button className={`btn-subtab ${filter === "todos" ? "active" : ""}`} onClick={() => setFilter("todos")} style={{ flex: 1, minWidth: "100px", padding: "var(--s2)", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: filter === "todos" ? "var(--brand)" : "var(--surface)", color: filter === "todos" ? "#fff" : "var(--text)", fontWeight: 600 }}>Historial</button>
+            <button className={`btn-subtab ${filter === "gasolina" ? "active" : ""}`} onClick={() => setFilter("gasolina")} style={{ flex: 1, minWidth: "100px", padding: "var(--s2)", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: filter === "gasolina" ? "var(--brand)" : "var(--surface)", color: filter === "gasolina" ? "#fff" : "var(--text)", fontWeight: 600 }}>⛽ Combustible</button>
           </div>
 
-          <div className="traslados-list" style={{ display: "flex", flexDirection: "column", gap: "var(--s3)" }}>
-            {loading ? (
-              <p className="text-muted">Cargando traslados...</p>
-            ) : filtered.length === 0 ? (
-              <div className="empty" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-                <Truck size={40} color="var(--border-dark)" style={{ marginBottom: "var(--s2)" }} />
-                <p className="empty__title">No hay traslados {filter === "pendientes" ? "activos" : ""}</p>
-                <p className="empty__desc">Puedes solicitar logística de transporte para enviar o recoger insumos, medicamentos o voluntarios.</p>
-              </div>
-            ) : (
-              filtered.map(t => {
-                const i = tipoTrasladoInfo(t.tipo);
-                const rutaUrl = `https://www.google.com/maps/dir/?api=1&origin=${t.origen_lat},${t.origen_lng}&destination=${t.destino_lat},${t.destino_lng}`;
-                
-                let opData: OperadorData | null = null;
-                if (t.operador) {
-                  try {
-                    const parsed = JSON.parse(t.operador);
-                    if (parsed && typeof parsed === 'object') opData = parsed;
-                  } catch (e) { }
-                }
+          {filter === "gasolina" ? (
+            <div className="gasolina-list" style={{ display: "flex", flexDirection: "column", gap: "var(--s3)" }}>
+              {loading && gasolinaSolicitudes.length === 0 ? (
+                <p className="text-muted">Cargando solicitudes de combustible...</p>
+              ) : gasolinaSolicitudes.length === 0 ? (
+                <div className="empty" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+                  <div style={{ fontSize: "40px", marginBottom: "var(--s2)" }}>⛽</div>
+                  <p className="empty__title">Sin solicitudes registradas</p>
+                  <p className="empty__desc">Aún no hay solicitudes de llenado de combustible.</p>
+                </div>
+              ) : (
+                gasolinaSolicitudes.map((s) => {
+                  const costoUSD = s.litros * 0.5;
+                  const costoBs = usdRate ? (costoUSD * usdRate).toFixed(2) : null;
 
-                return (
-                  <article className="card" key={t.id} style={{ opacity: (t.estado === "completado" || t.estado === "solventado_externo") ? 0.7 : 1 }}>
-                    <div className="card__top" style={{ marginBottom: "var(--s2)" }}>
-                      <h3 className="card__title">
-                        {i.emoji} {i.label}
-                      </h3>
-                      <div style={{ display: "flex", gap: "var(--s1)" }}>
-                        <span className={`badge badge--${t.prioridad || "baja"}`}>{t.prioridad || "baja"}</span>
+                  return (
+                    <article className="card" key={s.id} style={{ opacity: s.estado === "suministrado" ? 0.7 : 1 }}>
+                      <div className="card__top" style={{ marginBottom: "var(--s2)" }}>
+                        <h3 className="card__title">
+                          🚗 {s.marca} {s.modelo} <span style={{ color: "var(--text-muted)", fontSize: "0.85em", fontWeight: 400 }}>({s.placa})</span>
+                        </h3>
                         <span className="badge" style={{ 
-                          background: t.estado === 'completado' ? '#F0FDF4' : t.estado === 'solventado_externo' ? '#F3F4F6' : t.estado === 'en_camino' ? '#EFF6FF' : t.estado === 'asignado' ? '#FFFBEB' : '#FEF2F2',
-                          color: t.estado === 'completado' ? '#16A34A' : t.estado === 'solventado_externo' ? '#4B5563' : t.estado === 'en_camino' ? '#1D4ED8' : t.estado === 'asignado' ? '#B45309' : '#DC2626',
-                          border: "1px solid currentColor", opacity: 0.8
+                          background: s.estado === "suministrado" ? "#F0FDF4" : "#FFFBEB", 
+                          color: s.estado === "suministrado" ? "#16A34A" : "#D97706",
+                          border: `1px solid ${s.estado === "suministrado" ? 'rgba(22,163,74,.2)' : 'rgba(217,119,6,.2)'}`
                         }}>
-                          {(t.estado || "solicitado").replace("_", " ").toUpperCase()}
+                          {s.estado === "suministrado" ? "✅ Suministrado" : "⏳ Pendiente"}
                         </span>
                       </div>
-                    </div>
-
-                    <p className="card__meta" style={{ color: "var(--text)", fontWeight: 500 }}>{t.descripcion} {t.cantidad ? `(${t.cantidad})` : ""}</p>
-                    
-                    <div style={{ margin: "var(--s3) 0", display: "grid", gridTemplateColumns: "24px 1fr", gap: "4px", fontSize: "var(--text-sm)" }}>
-                      <div style={{ color: "#3B82F6", display: "flex", justifyContent: "center" }}><MapPin size={16} /></div>
-                      <div><strong style={{ color: "#1E3A8A" }}>Origen:</strong> {t.origen_ref}</div>
                       
-                      <div style={{ color: "#22C55E", display: "flex", justifyContent: "center" }}><MapPin size={16} /></div>
-                      <div><strong style={{ color: "#166534" }}>Destino:</strong> {t.destino_ref}</div>
-                    </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s2)", margin: "var(--s3) 0" }}>
+                        <div>
+                          <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "0 0 2px" }}>Solicitante</p>
+                          <p style={{ fontSize: "var(--text-sm)", fontWeight: 600, margin: 0 }}>{s.nombre} {s.apellido}</p>
+                          <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: 0 }}>C.I: {s.cedula} | 📞 {s.telefono}</p>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "0 0 2px" }}>Combustible</p>
+                          <p style={{ fontSize: "var(--text-sm)", fontWeight: 700, margin: 0 }}>{s.litros} Litros</p>
+                          <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", margin: 0 }}>
+                            <strong>${costoUSD.toFixed(2)}</strong> {costoBs && <>| <strong>{costoBs} Bs</strong></>}
+                          </p>
+                        </div>
+                      </div>
 
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "var(--s2)" }}>
-                      <div>
-                        <p className="card__meta">📞 {t.contacto} · 🕒 {t.cuando}</p>
-                        {t.operador ? (
-                          opData ? (
-                            <div 
-                              style={{ width: "100%", display: "flex", alignItems: "center", gap: "var(--s2)", marginTop: "var(--s2)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius)", color: "var(--brand-dark)", cursor: "pointer", transition: "background 0.2s" }}
-                              onClick={() => setViewOperadorModal({ traslado: t, opData: opData as OperadorData })}
-                            >
-                              <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
-                                <span>🚚 Operador:</span> <span>{opData.nombre || "Operador Asignado"}</span>
+                      <div style={{ background: "var(--surface-2)", padding: "var(--s2)", borderRadius: "var(--radius-sm)", marginBottom: "var(--s3)" }}>
+                        <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "0 0 4px", fontWeight: 600 }}>Motivo del Apoyo:</p>
+                        <p style={{ fontSize: "var(--text-sm)", margin: 0, fontStyle: "italic" }}>"{s.motivo}"</p>
+                      </div>
+
+                      {s.estado === "pendiente" && (
+                        <button 
+                          className="btn btn--primary" 
+                          style={{ width: "100%", padding: "var(--s2)", minHeight: "36px", height: "36px" }}
+                          onClick={() => marcarGasolinaSuministrado(s.id)}
+                        >
+                          ✓ Marcar como Suministrado
+                        </button>
+                      )}
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          ) : (
+            <div className="traslados-list" style={{ display: "flex", flexDirection: "column", gap: "var(--s3)" }}>
+              {loading ? (
+                <p className="text-muted">Cargando traslados...</p>
+              ) : filtered.length === 0 ? (
+                <div className="empty" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+                  <Truck size={40} color="var(--border-dark)" style={{ marginBottom: "var(--s2)" }} />
+                  <p className="empty__title">No hay traslados {filter === "pendientes" ? "activos" : ""}</p>
+                  <p className="empty__desc">Puedes solicitar logística de transporte para enviar o recoger insumos, medicamentos o voluntarios.</p>
+                </div>
+              ) : (
+                filtered.map(t => {
+                  const i = tipoTrasladoInfo(t.tipo);
+                  const rutaUrl = `https://www.google.com/maps/dir/?api=1&origin=${t.origen_lat},${t.origen_lng}&destination=${t.destino_lat},${t.destino_lng}`;
+                  
+                  let opData: OperadorData | null = null;
+                  if (t.operador) {
+                    try {
+                      const parsed = JSON.parse(t.operador);
+                      if (parsed && typeof parsed === 'object') opData = parsed;
+                    } catch (e) { }
+                  }
+
+                  return (
+                    <article className="card" key={t.id} style={{ opacity: (t.estado === "completado" || t.estado === "solventado_externo") ? 0.7 : 1 }}>
+                      <div className="card__top" style={{ marginBottom: "var(--s2)" }}>
+                        <h3 className="card__title">
+                          {i.emoji} {i.label}
+                        </h3>
+                        <div style={{ display: "flex", gap: "var(--s1)" }}>
+                          <span className={`badge badge--${t.prioridad || "baja"}`}>{t.prioridad || "baja"}</span>
+                          <span className="badge" style={{ 
+                            background: t.estado === 'completado' ? '#F0FDF4' : t.estado === 'solventado_externo' ? '#F3F4F6' : t.estado === 'en_camino' ? '#EFF6FF' : t.estado === 'asignado' ? '#FFFBEB' : '#FEF2F2',
+                            color: t.estado === 'completado' ? '#16A34A' : t.estado === 'solventado_externo' ? '#4B5563' : t.estado === 'en_camino' ? '#1D4ED8' : t.estado === 'asignado' ? '#B45309' : '#DC2626',
+                            border: "1px solid currentColor", opacity: 0.8
+                          }}>
+                            {(t.estado || "solicitado").replace("_", " ").toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="card__meta" style={{ color: "var(--text)", fontWeight: 500 }}>{t.descripcion} {t.cantidad ? `(${t.cantidad})` : ""}</p>
+                      
+                      <div style={{ margin: "var(--s3) 0", display: "grid", gridTemplateColumns: "24px 1fr", gap: "4px", fontSize: "var(--text-sm)" }}>
+                        <div style={{ color: "#3B82F6", display: "flex", justifyContent: "center" }}><MapPin size={16} /></div>
+                        <div><strong style={{ color: "#1E3A8A" }}>Origen:</strong> {t.origen_ref}</div>
+                        
+                        <div style={{ color: "#22C55E", display: "flex", justifyContent: "center" }}><MapPin size={16} /></div>
+                        <div><strong style={{ color: "#166534" }}>Destino:</strong> {t.destino_ref}</div>
+                      </div>
+
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "var(--s2)" }}>
+                        <div>
+                          <p className="card__meta">📞 {t.contacto} · 🕒 {t.cuando}</p>
+                          {t.operador ? (
+                            opData ? (
+                              <div 
+                                style={{ width: "100%", display: "flex", alignItems: "center", gap: "var(--s2)", marginTop: "var(--s2)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius)", color: "var(--brand-dark)", cursor: "pointer", transition: "background 0.2s" }}
+                                onClick={() => setViewOperadorModal({ traslado: t, opData: opData as OperadorData })}
+                              >
+                                <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
+                                  <span>🚚 Operador:</span> <span>{opData.nombre || "Operador Asignado"}</span>
+                                </div>
+                                <button className="btn" style={{ background: "transparent", border: "none", padding: "4px", marginLeft: "auto", fontSize: "14px", color: "var(--brand)", textDecoration: "underline" }}>
+                                  Ver detalles
+                                </button>
                               </div>
-                              <button className="btn" style={{ background: "transparent", border: "none", padding: "4px", marginLeft: "auto", fontSize: "14px", color: "var(--brand)", textDecoration: "underline" }}>
-                                Ver detalles
-                              </button>
-                            </div>
+                            ) : (
+                              <div 
+                                style={{ width: "100%", display: "flex", alignItems: "center", gap: "var(--s2)", marginTop: "var(--s2)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius)", color: "var(--brand-dark)", cursor: "pointer", transition: "background 0.2s" }}
+                                onClick={() => {
+                                  setViewOperadorModal({ traslado: t, opData: { nombre: t.operador || "", cedula: "", telefono: "", modelo: "", placa: "", unidad: "", puestos: "", ciudad: "", linea: "", estado: "" } })
+                                }}
+                              >
+                                <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
+                                  <span>🚚 Operador:</span> <span>{t.operador}</span>
+                                </div>
+                                <button className="btn" style={{ background: "transparent", border: "none", padding: "4px", marginLeft: "auto", fontSize: "14px", color: "var(--brand)", textDecoration: "underline" }}>
+                                  Ver detalles
+                                </button>
+                              </div>
+                            )
                           ) : (
-                            <div 
-                              style={{ width: "100%", display: "flex", alignItems: "center", gap: "var(--s2)", marginTop: "var(--s2)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius)", color: "var(--brand-dark)", cursor: "pointer", transition: "background 0.2s" }}
-                              onClick={() => {
-                                // For legacy strings, we just open edit directly or show a simple modal.
-                                // Let's open the view modal with pseudo data
-                                setViewOperadorModal({ traslado: t, opData: { nombre: t.operador || "", cedula: "", telefono: "", modelo: "", placa: "", unidad: "", puestos: "", ciudad: "", linea: "", estado: "" } })
-                              }}
-                            >
-                              <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
-                                <span>🚚 Operador:</span> <span>{t.operador}</span>
+                            t.estado !== "completado" && t.estado !== "solventado_externo" && (
+                              <div style={{ marginTop: "var(--s2)", width: "100%" }}>
+                                <button className="card__action card__action--secondary" onClick={() => {
+                                  updateEstado(t.id, t.estado, undefined, "");
+                                }} style={{ fontSize: "var(--text-xs)", padding: "4px 8px", width: "auto" }}>
+                                  + Asignar Operador
+                                </button>
                               </div>
-                              <button className="btn" style={{ background: "transparent", border: "none", padding: "4px", marginLeft: "auto", fontSize: "14px", color: "var(--brand)", textDecoration: "underline" }}>
-                                Ver detalles
-                              </button>
-                            </div>
-                          )
-                        ) : (
-                          t.estado !== "completado" && t.estado !== "solventado_externo" && (
-                            <div style={{ marginTop: "var(--s2)", width: "100%" }}>
-                              <button className="card__action card__action--secondary" onClick={() => {
-                                updateEstado(t.id, t.estado, undefined, "");
-                              }} style={{ fontSize: "var(--text-xs)", padding: "4px 8px", width: "auto" }}>
-                                + Asignar Operador
-                              </button>
-                            </div>
-                          )
+                            )
+                          )}
+                        </div>
+                        
+                        {t.estado !== "completado" && t.estado !== "solventado_externo" && (
+                          <div style={{ display: "flex", gap: "var(--s2)", width: "100%", marginTop: "var(--s2)" }}>
+                            <button className="btn btn--secondary" onClick={() => generarDespacho(t)} style={{ flex: 1, padding: "var(--s2)" }} title="Armar texto WhatsApp">
+                              <MessageCircle size={16} style={{ marginRight: "4px" }} /> Despachar
+                            </button>
+                            <a href={rutaUrl} target="_blank" rel="noreferrer" className="btn btn--primary" style={{ flex: 1, padding: "var(--s2)", textDecoration: "none", display: "flex", justifyContent: "center" }}>
+                              <Navigation size={16} style={{ marginRight: "4px" }} /> Ruta
+                            </a>
+                          </div>
                         )}
                       </div>
-                      
-                      {t.estado !== "completado" && t.estado !== "solventado_externo" && (
-                        <div style={{ display: "flex", gap: "var(--s2)", width: "100%", marginTop: "var(--s2)" }}>
-                          <button className="btn btn--secondary" onClick={() => generarDespacho(t)} style={{ flex: 1, padding: "var(--s2)" }} title="Armar texto WhatsApp">
-                            <MessageCircle size={16} style={{ marginRight: "4px" }} /> Despachar
-                          </button>
-                          <a href={rutaUrl} target="_blank" rel="noreferrer" className="btn btn--primary" style={{ flex: 1, padding: "var(--s2)", textDecoration: "none", display: "flex", justifyContent: "center" }}>
-                            <Navigation size={16} style={{ marginRight: "4px" }} /> Ruta
-                          </a>
+
+                       {t.estado !== "completado" && t.estado !== "solventado_externo" && (
+                        <div style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s3)", paddingTop: "var(--s3)", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+                          {t.estado === "solicitado" && <button className="card__action card__action--secondary" onClick={() => updateEstado(t.id, "asignado", undefined, t.operador)}>Asignar operador</button>}
+                          {(t.estado === "solicitado" || t.estado === "asignado") && <button className="card__action card__action--secondary" onClick={() => updateEstado(t.id, "en_camino", undefined, t.operador)}>En camino</button>}
+                          {t.estado === "en_camino" && <button className="card__action card__action--primary" onClick={() => updateEstado(t.id, "completado")}>✓ Marcar Completado</button>}
+                          {t.operador && (
+                            <button className="card__action card__action--secondary" onClick={() => openGasolinaModal(t)} style={{ borderColor: "var(--brand)", color: "var(--brand)" }}>
+                              ⛽ Solicitar Combustible
+                            </button>
+                          )}
+                          <button className="card__action card__action--danger" onClick={() => updateEstado(t.id, "solventado_externo")}>✖ Solventado por fuera</button>
                         </div>
                       )}
-                    </div>
-
-                     {t.estado !== "completado" && t.estado !== "solventado_externo" && (
-                      <div style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s3)", paddingTop: "var(--s3)", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
-                        {t.estado === "solicitado" && <button className="card__action card__action--secondary" onClick={() => updateEstado(t.id, "asignado", undefined, t.operador)}>Asignar operador</button>}
-                        {(t.estado === "solicitado" || t.estado === "asignado") && <button className="card__action card__action--secondary" onClick={() => updateEstado(t.id, "en_camino", undefined, t.operador)}>En camino</button>}
-                        {t.estado === "en_camino" && <button className="card__action card__action--primary" onClick={() => updateEstado(t.id, "completado")}>✓ Marcar Completado</button>}
-                        <button className="card__action card__action--danger" onClick={() => updateEstado(t.id, "solventado_externo")}>✖ Solventado por fuera</button>
-                      </div>
-                    )}
-                  </article>
-                );
-              })
-            )}
-          </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -559,6 +769,96 @@ export default function TrasladosView() {
                 Aceptar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL GASOLINA */}
+      {gasolinaModal && (
+        <div className="modal-backdrop">
+          <div className="modal" style={{ maxWidth: "500px" }}>
+            <div className="modal__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 className="modal__title" style={{ margin: 0 }}>⛽ Solicitar Combustible</h3>
+              <button className="modal__icon-close" onClick={() => setGasolinaModal(null)}>✕</button>
+            </div>
+            <form onSubmit={submitGasolina} className="modal__body" style={{ maxHeight: "75vh", overflowY: "auto" }}>
+              {gasError && (
+                <div className="form__error" style={{ marginBottom: "var(--s3)" }}>
+                  ⚠️ {gasError}
+                </div>
+              )}
+              {gasSuccess && (
+                <div className="form__success" style={{ marginBottom: "var(--s3)", background: "#D1FAE5", color: "#047857", padding: "var(--s2)", borderRadius: "var(--radius)" }}>
+                  ✅ Solicitud enviada con éxito.
+                </div>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s2)", marginBottom: "var(--s3)" }}>
+                <div>
+                  <label className="form__label">Nombre</label>
+                  <input type="text" className="form__input" value={gasForm.nombre} onChange={e => setGasForm({...gasForm, nombre: e.target.value})} required />
+                </div>
+                <div>
+                  <label className="form__label">Apellido</label>
+                  <input type="text" className="form__input" value={gasForm.apellido} onChange={e => setGasForm({...gasForm, apellido: e.target.value})} required />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s2)", marginBottom: "var(--s3)" }}>
+                <div>
+                  <label className="form__label">Cédula</label>
+                  <input type="text" className="form__input" value={gasForm.cedula} onChange={e => setGasForm({...gasForm, cedula: e.target.value})} required />
+                </div>
+                <div>
+                  <label className="form__label">Teléfono</label>
+                  <input type="text" className="form__input" value={gasForm.telefono} onChange={e => setGasForm({...gasForm, telefono: e.target.value})} required />
+                </div>
+              </div>
+
+              <div style={{ background: "var(--surface-2)", padding: "var(--s3)", borderRadius: "var(--radius)", marginBottom: "var(--s3)", border: "1px solid var(--border)" }}>
+                <p style={{ margin: "0 0 var(--s2)", fontWeight: 600, fontSize: "var(--text-xs)" }}>🚗 Datos del Vehículo</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--s2)" }}>
+                  <div>
+                    <label className="form__label" style={{ fontSize: "10px" }}>Placa</label>
+                    <input type="text" className="form__input" style={{ fontSize: "var(--text-xs)", height: "32px" }} value={gasForm.placa} onChange={e => setGasForm({...gasForm, placa: e.target.value})} required />
+                  </div>
+                  <div>
+                    <label className="form__label" style={{ fontSize: "10px" }}>Marca</label>
+                    <input type="text" className="form__input" style={{ fontSize: "var(--text-xs)", height: "32px" }} value={gasForm.marca} onChange={e => setGasForm({...gasForm, marca: e.target.value})} placeholder="Ej. Ford" required />
+                  </div>
+                  <div>
+                    <label className="form__label" style={{ fontSize: "10px" }}>Modelo</label>
+                    <input type="text" className="form__input" style={{ fontSize: "var(--text-xs)", height: "32px" }} value={gasForm.modelo} onChange={e => setGasForm({...gasForm, modelo: e.target.value})} required />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form__field" style={{ marginBottom: "var(--s3)" }}>
+                <label className="form__label">Motivo</label>
+                <textarea className="form__textarea" rows={2} value={gasForm.motivo} onChange={e => setGasForm({...gasForm, motivo: e.target.value})} required />
+              </div>
+
+              <div className="form__field" style={{ marginBottom: "var(--s4)" }}>
+                <label className="form__label">Litros a cargar</label>
+                <div style={{ display: "flex", gap: "var(--s2)", alignItems: "center" }}>
+                  <input type="number" className="form__input" value={gasForm.litros} onChange={e => setGasForm({...gasForm, litros: e.target.value})} min="1" step="0.1" required />
+                  <span style={{ fontWeight: 600 }}>L</span>
+                </div>
+                {gasForm.litros && !isNaN(parseFloat(gasForm.litros)) && (
+                  <div style={{ marginTop: "var(--s2)", fontSize: "var(--text-xs)", color: "var(--text)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius-sm)" }}>
+                    Costo estimado: <strong>${(parseFloat(gasForm.litros) * 0.5).toFixed(2)} USD</strong> 
+                    {usdRate && <> / <strong style={{ color: "var(--brand)" }}>{(parseFloat(gasForm.litros) * 0.5 * usdRate).toFixed(2)} Bs</strong></>}
+                  </div>
+                )}
+              </div>
+
+              <div className="modal__footer" style={{ display: "flex", gap: "var(--s2)" }}>
+                <button type="button" className="btn btn--secondary" style={{ flex: 1 }} onClick={() => setGasolinaModal(null)}>Cancelar</button>
+                <button type="submit" className="btn btn--primary" style={{ flex: 1 }} disabled={gasLoading}>
+                  {gasLoading ? "Registrando..." : "Enviar Solicitud"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
