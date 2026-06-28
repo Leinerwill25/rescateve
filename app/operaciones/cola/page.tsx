@@ -455,30 +455,27 @@ export default function ColaValidacionPage() {
             </div>
 
             <div style={styles.formField}>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.label}>Latitud Origen</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={manualLat}
-                    onChange={(e) => setManualLat(e.target.value)}
-                    placeholder="10.48"
-                    style={styles.input}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.label}>Longitud Origen</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={manualLng}
-                    onChange={(e) => setManualLng(e.target.value)}
-                    placeholder="-66.86"
-                    style={styles.input}
-                  />
-                </div>
-              </div>
+              <label style={styles.label}>Latitud Origen</label>
+              <input
+                type="number"
+                step="any"
+                value={manualLat}
+                onChange={(e) => setManualLat(e.target.value)}
+                placeholder="10.48"
+                style={styles.input}
+              />
+            </div>
+
+            <div style={styles.formField}>
+              <label style={styles.label}>Longitud Origen</label>
+              <input
+                type="number"
+                step="any"
+                value={manualLng}
+                onChange={(e) => setManualLng(e.target.value)}
+                placeholder="-66.86"
+                style={styles.input}
+              />
             </div>
 
             <div style={styles.formField}>
@@ -493,30 +490,27 @@ export default function ColaValidacionPage() {
             </div>
 
             <div style={styles.formField}>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.label}>Latitud Destino</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={manualDestLat}
-                    onChange={(e) => setManualDestLat(e.target.value)}
-                    placeholder="10.49"
-                    style={styles.input}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.label}>Longitud Destino</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={manualDestLng}
-                    onChange={(e) => setManualDestLng(e.target.value)}
-                    placeholder="-66.85"
-                    style={styles.input}
-                  />
-                </div>
-              </div>
+              <label style={styles.label}>Latitud Destino</label>
+              <input
+                type="number"
+                step="any"
+                value={manualDestLat}
+                onChange={(e) => setManualDestLat(e.target.value)}
+                placeholder="10.49"
+                style={styles.input}
+              />
+            </div>
+
+            <div style={styles.formField}>
+              <label style={styles.label}>Longitud Destino</label>
+              <input
+                type="number"
+                step="any"
+                value={manualDestLng}
+                onChange={(e) => setManualDestLng(e.target.value)}
+                placeholder="-66.85"
+                style={styles.input}
+              />
             </div>
 
             <div style={styles.formField}>
@@ -842,6 +836,8 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid var(--border)",
     outline: "none",
     background: "var(--surface-2)",
+    width: "100%",
+    boxSizing: "border-box" as const,
   },
   textarea: {
     padding: "var(--s2) var(--s3)",
@@ -852,6 +848,8 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--surface-2)",
     resize: "vertical",
     height: "90px",
+    width: "100%",
+    boxSizing: "border-box" as const,
   },
   select: {
     padding: "var(--s2) var(--s3)",
@@ -861,6 +859,8 @@ const styles: Record<string, React.CSSProperties> = {
     outline: "none",
     background: "var(--surface-2)",
     height: "38px",
+    width: "100%",
+    boxSizing: "border-box" as const,
   },
   formActions: {
     display: "flex",
