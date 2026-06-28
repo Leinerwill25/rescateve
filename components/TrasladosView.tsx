@@ -197,7 +197,7 @@ export default function TrasladosView() {
 
   const filtered = filter === "pendientes" 
     ? traslados.filter(t => t.estado === "solicitado" || t.estado === "asignado" || t.estado === "en_camino")
-    : traslados;
+    : traslados.filter(t => t.estado === "completado" || t.estado === "solventado_externo");
 
   return (
     <div className="list traslados-view">
@@ -310,7 +310,7 @@ export default function TrasladosView() {
                 }
 
                 return (
-                  <article className="card" key={t.id} style={{ opacity: t.estado === "completado" ? 0.7 : 1 }}>
+                  <article className="card" key={t.id} style={{ opacity: (t.estado === "completado" || t.estado === "solventado_externo") ? 0.7 : 1 }}>
                     <div className="card__top" style={{ marginBottom: "var(--s2)" }}>
                       <h3 className="card__title">
                         {i.emoji} {i.label}
@@ -318,8 +318,8 @@ export default function TrasladosView() {
                       <div style={{ display: "flex", gap: "var(--s1)" }}>
                         <span className={`badge badge--${t.prioridad || "baja"}`}>{t.prioridad || "baja"}</span>
                         <span className="badge" style={{ 
-                          background: t.estado === 'completado' ? '#F0FDF4' : t.estado === 'en_camino' ? '#EFF6FF' : t.estado === 'asignado' ? '#FFFBEB' : '#FEF2F2',
-                          color: t.estado === 'completado' ? '#16A34A' : t.estado === 'en_camino' ? '#1D4ED8' : t.estado === 'asignado' ? '#B45309' : '#DC2626',
+                          background: t.estado === 'completado' ? '#F0FDF4' : t.estado === 'solventado_externo' ? '#F3F4F6' : t.estado === 'en_camino' ? '#EFF6FF' : t.estado === 'asignado' ? '#FFFBEB' : '#FEF2F2',
+                          color: t.estado === 'completado' ? '#16A34A' : t.estado === 'solventado_externo' ? '#4B5563' : t.estado === 'en_camino' ? '#1D4ED8' : t.estado === 'asignado' ? '#B45309' : '#DC2626',
                           border: "1px solid currentColor", opacity: 0.8
                         }}>
                           {(t.estado || "solicitado").replace("_", " ").toUpperCase()}
@@ -371,7 +371,7 @@ export default function TrasladosView() {
                             </div>
                           )
                         ) : (
-                          t.estado !== "completado" && (
+                          t.estado !== "completado" && t.estado !== "solventado_externo" && (
                             <div style={{ marginTop: "var(--s2)", width: "100%" }}>
                               <button className="card__action card__action--secondary" onClick={() => {
                                 updateEstado(t.id, t.estado, undefined, "");
@@ -383,7 +383,7 @@ export default function TrasladosView() {
                         )}
                       </div>
                       
-                      {t.estado !== "completado" && (
+                      {t.estado !== "completado" && t.estado !== "solventado_externo" && (
                         <div style={{ display: "flex", gap: "var(--s2)", width: "100%", marginTop: "var(--s2)" }}>
                           <button className="btn btn--secondary" onClick={() => generarDespacho(t)} style={{ flex: 1, padding: "var(--s2)" }} title="Armar texto WhatsApp">
                             <MessageCircle size={16} style={{ marginRight: "4px" }} /> Despachar
@@ -395,11 +395,12 @@ export default function TrasladosView() {
                       )}
                     </div>
 
-                    {t.estado !== "completado" && (
-                      <div style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s3)", paddingTop: "var(--s3)", borderTop: "1px solid var(--border)" }}>
+                     {t.estado !== "completado" && t.estado !== "solventado_externo" && (
+                      <div style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s3)", paddingTop: "var(--s3)", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
                         {t.estado === "solicitado" && <button className="card__action card__action--secondary" onClick={() => updateEstado(t.id, "asignado", undefined, t.operador)}>Asignar operador</button>}
                         {(t.estado === "solicitado" || t.estado === "asignado") && <button className="card__action card__action--secondary" onClick={() => updateEstado(t.id, "en_camino", undefined, t.operador)}>En camino</button>}
                         {t.estado === "en_camino" && <button className="card__action card__action--primary" onClick={() => updateEstado(t.id, "completado")}>✓ Marcar Completado</button>}
+                        <button className="card__action card__action--danger" onClick={() => updateEstado(t.id, "solventado_externo")}>✖ Solventado por fuera</button>
                       </div>
                     )}
                   </article>
@@ -526,7 +527,7 @@ export default function TrasladosView() {
             </div>
             <div className="modal__footer" style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s2)" }}>
               <button className="btn btn--secondary" style={{ flex: 1 }} onClick={() => setViewOperadorModal(null)}>Cerrar</button>
-              {viewOperadorModal.traslado.estado !== "completado" && (
+              {viewOperadorModal.traslado.estado !== "completado" && viewOperadorModal.traslado.estado !== "solventado_externo" && (
                 <button className="btn btn--primary" style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", gap: "4px" }} onClick={() => {
                   const t = viewOperadorModal.traslado;
                   setViewOperadorModal(null);

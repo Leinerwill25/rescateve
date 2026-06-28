@@ -1110,6 +1110,16 @@ body {
 }
 .card__action--secondary:hover { background: var(--border); }
 
+.card__action--danger {
+  background: var(--emergency-soft);
+  color: var(--emergency);
+  border: 1px solid var(--emergency);
+}
+.card__action--danger:hover {
+  background: var(--emergency);
+  color: #fff;
+}
+
 /* Badges */
 .badge {
   display: inline-flex;

@@ -140,7 +140,7 @@ export type Traslado = {
   prioridad: "alta" | "media" | "baja";
   contacto: string | null;
   cuando: string | null;
-  estado: "solicitado" | "asignado" | "en_camino" | "completado";
+  estado: "solicitado" | "asignado" | "en_camino" | "completado" | "solventado_externo";
   operador: string | null;
   reporter_token: string | null;
 };
