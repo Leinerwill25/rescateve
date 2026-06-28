@@ -324,41 +324,51 @@ export default function ColaValidacionPage() {
     }
   };
 
-  // 7. IMPORTAR SOLICITUDES PUBLICAS
+  // 7. IMPORTAR SOLICITUDES PUBLICAS Y TRASLADOS PENDIENTES
   const handleImportarPublicas = async () => {
     try {
-      // 1. Obtener solicitudes_ayuda públicas
+      let creadas = 0;
+
+      // 1. Obtener solicitudes_ayuda públicas (Emergencias del mapa)
       const { data: publicas, error: pubErr } = await supabase
         .from("solicitudes_ayuda")
         .select("*");
-
       if (pubErr) throw pubErr;
-      if (!publicas || publicas.length === 0) {
-        alert("No hay solicitudes públicas creadas en la aplicación.");
-        return;
-      }
 
-      // 2. Obtener solicitudes ya importadas
+      // 2. Obtener traslados públicos activos ('solicitado')
+      const { data: traslados, error: trasErr } = await supabase
+        .from("traslados")
+        .select("*")
+        .eq("estado", "solicitado");
+      if (trasErr) throw trasErr;
+
+      // 3. Obtener tickets ya importados en la tabla central
       const { data: importadas, error: impErr } = await supabase
         .from("tickets")
-        .select("fuente_id")
-        .eq("fuente", "publico");
-
+        .select("fuente, fuente_id");
       if (impErr) throw impErr;
-      const idsImportados = new Set((importadas || []).map(i => i.fuente_id));
 
-      // 3. Filtrar las no importadas
-      const pendientes = publicas.filter(p => !idsImportados.has(p.id));
+      const idsImportadosPublico = new Set(
+        (importadas || []).filter(i => i.fuente === "publico").map(i => i.fuente_id)
+      );
+      const idsImportadosTraslado = new Set(
+        (importadas || []).filter(i => i.fuente === "traslado").map(i => i.fuente_id)
+      );
 
-      if (pendientes.length === 0) {
-        alert("Todas las solicitudes públicas ya han sido importadas.");
+      // 4. Filtrar pendientes de solicitudes_ayuda
+      const pubPendientes = (publicas || []).filter(p => !idsImportadosPublico.has(p.id));
+
+      // 5. Filtrar pendientes de traslados
+      const trasPendientes = (traslados || []).filter(t => !idsImportadosTraslado.has(t.id));
+
+      if (pubPendientes.length === 0 && trasPendientes.length === 0) {
+        alert("Todas las solicitudes públicas y traslados activos ya han sido importados.");
         return;
       }
 
-      // 4. Insertar las nuevas en tickets
-      let creadas = 0;
-      for (const p of pendientes) {
-        const descCompleta = `[Solicitud Pública de ${p.tipo.toUpperCase()}] ${p.descripcion || "(Sin descripción)"}`;
+      // 6. Insertar solicitudes de ayuda públicas
+      for (const p of pubPendientes) {
+        const descCompleta = `[Solicitud Pública: ${p.tipo.toUpperCase()}] ${p.descripcion || "(Sin descripción)"}`;
         const { error: insErr } = await supabase.from("tickets").insert({
           fuente: "publico",
           fuente_id: p.id,
@@ -374,7 +384,34 @@ export default function ColaValidacionPage() {
         if (!insErr) creadas++;
       }
 
-      alert(`Sincronización completada. ${creadas} solicitudes públicas importadas.`);
+      // 7. Insertar traslados logísticos pendientes
+      for (const t of trasPendientes) {
+        const catSugerida = (t.tipo === "insumos") ? "insumo_basico" : (t.tipo === "personal_medico") ? "traslado_personal" : "otro";
+        const depsSugeridos = (t.tipo === "insumos") ? ["acopio", "transporte_carga"] : (t.tipo === "personal_medico") ? ["personal_medico"] : ["otro"];
+        const descCompleta = `[Traslado Público: ${t.tipo === 'insumos' ? 'Insumos' : t.tipo === 'personal_medico' ? 'Personal Médico' : 'Otro'}] ${t.descripcion || "(Sin descripción)"}`;
+
+        const { error: insErr } = await supabase.from("tickets").insert({
+          fuente: "traslado",
+          fuente_id: t.id,
+          descripcion: descCompleta,
+          categoria_sugerida: catSugerida,
+          departamentos_sugeridos: depsSugeridos,
+          contacto_solicitante: t.contacto || null,
+          origen_ref: t.origen_ref || "Ubicación en mapa",
+          origen_lat: t.origen_lat,
+          origen_lng: t.origen_lng,
+          destino_ref: t.destino_ref,
+          destino_lat: t.destino_lat,
+          destino_lng: t.destino_lng,
+          prioridad: t.prioridad || "media",
+          estado: "en_validacion",
+          requiere_revision: true
+        });
+
+        if (!insErr) creadas++;
+      }
+
+      alert(`Sincronización completada. Se importaron ${creadas} solicitudes públicas y traslados.`);
       cargarTickets();
     } catch (err: any) {
       alert(`Error al importar: ${err.message}`);
