@@ -12,13 +12,12 @@ import EncontradoModal from "@/components/EncontradoModal";
 import AvisosView from "@/components/AvisosView";
 import TrasladosView from "@/components/TrasladosView";
 import HospitalesView from "@/components/HospitalesView";
-import GasolinaView from "@/components/GasolinaView";
 import { Map, AlertCircle, Search, ClipboardList, Megaphone, Truck, Home as HomeIcon, Fuel, ChevronRight } from "lucide-react";
 
 // Leaflet solo en cliente
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
-type Tab = "inicio" | "mapa" | "ayuda" | "desaparecidos" | "lista" | "info" | "traslados" | "gasolina";
+type Tab = "inicio" | "mapa" | "ayuda" | "desaparecidos" | "lista" | "info" | "traslados";
 
 function timeAgo(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -92,7 +91,6 @@ export default function Home() {
   const NAV_ITEMS: { id: Tab; icon: React.ReactNode; label: string; count?: number; emergency?: boolean }[] = [
     { id: "inicio",        icon: <HomeIcon size={20} strokeWidth={2.25} />, label: "Inicio" },
     { id: "mapa",          icon: <Map size={20} strokeWidth={2.25} />, label: "Mapa" },
-    { id: "gasolina",      icon: <Fuel size={20} strokeWidth={2.25} />, label: "Combustible" },
     { id: "lista",         icon: <ClipboardList size={20} strokeWidth={2.25} />, label: "Lista", count: activas.length + buscando.length },
     { id: "info",          icon: <Megaphone size={20} strokeWidth={2.25} />, label: "Avisos" },
   ];
@@ -177,12 +175,6 @@ export default function Home() {
                 <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
               </div>
 
-              <div className="action-item" onClick={() => setTab("gasolina")}>
-                <div className="action-item__icon-wrapper"><Fuel size={22} strokeWidth={2.5} /></div>
-                <div className="action-item__label">Solicitar Combustible</div>
-                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
-              </div>
-
               <div className="action-item" onClick={() => setTab("traslados")}>
                 <div className="action-item__icon-wrapper"><Truck size={22} strokeWidth={2.5} /></div>
                 <div className="action-item__label">Logística y Traslados</div>
@@ -245,8 +237,6 @@ export default function Home() {
         {tab === "info" && <AvisosView />}
 
         {tab === "traslados" && <TrasladosView />}
-
-        {tab === "gasolina" && <GasolinaView />}
 
         {tab === "lista" && (
           <div className="list">
