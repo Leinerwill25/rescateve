@@ -109,6 +109,7 @@ export default function TrasladosView() {
       setShowForm(false);
       // Reset form
       setDescripcion(""); setCantidad(""); setContacto(""); setOrigenRef(""); setDestinoRef("");
+      load();
     }
   }
 
@@ -148,6 +149,7 @@ export default function TrasladosView() {
     if (operadorVal !== undefined) payload.operador = operadorVal;
     
     await supabase.from("traslados").update(payload).eq("id", id);
+    load();
     setOperadorModal(null);
   }
 
