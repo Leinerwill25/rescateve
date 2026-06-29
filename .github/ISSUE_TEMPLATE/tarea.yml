@@ -1,0 +1,51 @@
+name: Tarea
+description: Tarea de desarrollo (backlog Rescate VE)
+title: "[ID] "
+labels: ["tarea"]
+body:
+  - type: input
+    id: task-id
+    attributes:
+      label: ID
+      description: Identificador del backlog
+      placeholder: INF-1 / SEC-2 / WAL-3 / API-1 ...
+    validations:
+      required: true
+  - type: dropdown
+    id: prioridad
+    attributes:
+      label: Prioridad
+      options:
+        - "P0 — bloqueante, esta semana"
+        - "P1 — importante"
+        - "P2 — cuando haya espacio"
+    validations:
+      required: true
+  - type: dropdown
+    id: responsable
+    attributes:
+      label: Responsable
+      options: [Frontend, Backend, QA, UX/UI, PM]
+    validations:
+      required: true
+  - type: dropdown
+    id: modulo
+    attributes:
+      label: Módulo
+      options: [Seguridad, Wallet, APIs, QA, UX, Infra, Docs]
+    validations:
+      required: true
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Descripción
+      description: Qué hay que hacer.
+    validations:
+      required: true
+  - type: textarea
+    id: criterio
+    attributes:
+      label: Criterio de "hecho"
+      description: Cuándo se considera completa (medible).
+    validations:
+      required: true
