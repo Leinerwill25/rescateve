@@ -1,7 +1,11 @@
 const fs = require('fs');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
-const env = fs.readFileSync('.env.local', 'utf8');
+// Directorio raiz del proyecto (scripts/js/ -> ../../)
+const PROJECT_ROOT = path.resolve(__dirname, '../../');
+
+const env = fs.readFileSync(path.join(PROJECT_ROOT, '.env.local'), 'utf8');
 const urlMatch = env.match(/NEXT_PUBLIC_SUPABASE_URL=(.+)/);
 const keyMatch = env.match(/SUPABASE_SERVICE_ROLE_KEY=(.+)/) || env.match(/NEXT_PUBLIC_SUPABASE_ANON_KEY=(.+)/);
 
