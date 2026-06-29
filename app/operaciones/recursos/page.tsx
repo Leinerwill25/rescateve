@@ -64,6 +64,50 @@ export default function RecursosPage() {
   const [newPerfilOrg, setNewPerfilOrg] = useState("");
   const [newPerfilTel, setNewPerfilTel] = useState("");
 
+  // Modal de Alerta / Confirmación personalizado
+  const [customModal, setCustomModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    type: "alert" | "confirm";
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null>(null);
+
+  const showCustomAlert = (message: string, title: string = "Notificación") => {
+    return new Promise<void>((resolve) => {
+      setCustomModal({
+        show: true,
+        title,
+        message,
+        type: "alert",
+        onConfirm: () => {
+          setCustomModal(null);
+          resolve();
+        }
+      });
+    });
+  };
+
+  const showCustomConfirm = (message: string, title: string = "Confirmación") => {
+    return new Promise<boolean>((resolve) => {
+      setCustomModal({
+        show: true,
+        title,
+        message,
+        type: "confirm",
+        onConfirm: () => {
+          setCustomModal(null);
+          resolve(true);
+        },
+        onCancel: () => {
+          setCustomModal(null);
+          resolve(false);
+        }
+      });
+    });
+  };
+
   const cargarDatos = async () => {
     setLoading(true);
     try {
@@ -117,10 +161,10 @@ export default function RecursosPage() {
       setNewPerfilRol("transportista");
       setNewPerfilOrg("");
       setNewPerfilTel("");
-      alert("Perfil asociado con éxito.");
+      showCustomAlert("Perfil asociado con éxito.");
       cargarDatos();
     } catch (err: any) {
-      alert(`Error al asociar perfil. Verifique que el UUID de usuario sea correcto y exista en Supabase Auth: ${err.message}`);
+      showCustomAlert(`Error al asociar perfil. Verifique que el UUID de usuario sea correcto y exista en Supabase Auth: ${err.message}`);
     }
   };
 
@@ -144,7 +188,7 @@ export default function RecursosPage() {
       setEditPerfil(null);
       cargarDatos();
     } catch (err: any) {
-      alert(`Error al actualizar perfil: ${err.message}`);
+      showCustomAlert(`Error al actualizar perfil: ${err.message}`);
     }
   };
 
@@ -179,7 +223,7 @@ export default function RecursosPage() {
       setEditDept(null);
       cargarDatos();
     } catch (err: any) {
-      alert(`Error al guardar departamento: ${err.message}`);
+      showCustomAlert(`Error al guardar departamento: ${err.message}`);
     }
   };
 
@@ -217,7 +261,7 @@ export default function RecursosPage() {
       setEditTrans(null);
       cargarDatos();
     } catch (err: any) {
-      alert(`Error al guardar transporte: ${err.message}`);
+      showCustomAlert(`Error al guardar transporte: ${err.message}`);
     }
   };
 
@@ -254,7 +298,7 @@ export default function RecursosPage() {
       setEditMedico(null);
       cargarDatos();
     } catch (err: any) {
-      alert(`Error al guardar médico: ${err.message}`);
+      showCustomAlert(`Error al guardar médico: ${err.message}`);
     }
   };
 
@@ -262,11 +306,11 @@ export default function RecursosPage() {
     try {
       const res = await syncMedicosSafeCare();
       if (res.success) {
-        alert(`Sincronización SafeCare completada. ${res.count} médicos cargados o actualizados.`);
+        showCustomAlert(`Sincronización SafeCare completada. ${res.count} médicos cargados o actualizados.`);
         cargarDatos();
       }
     } catch (err: any) {
-      alert(`Error de sincronización SafeCare: ${err.message}`);
+      showCustomAlert(`Error de sincronización SafeCare: ${err.message}`);
     }
   };
 
@@ -299,11 +343,11 @@ export default function RecursosPage() {
     try {
       if (editAcopio.id === "nuevo" && editAcopio.crear_usuario) {
         if (!editAcopio.email || !editAcopio.password) {
-          alert("Por favor ingrese correo y contraseña para el nuevo usuario.");
+          showCustomAlert("Por favor ingrese correo y contraseña para el nuevo usuario.");
           return;
         }
         if (editAcopio.password.length < 6) {
-          alert("La contraseña debe tener al menos 6 caracteres.");
+          showCustomAlert("La contraseña debe tener al menos 6 caracteres.");
           return;
         }
 
@@ -346,7 +390,7 @@ export default function RecursosPage() {
       setEditAcopio(null);
       cargarDatos();
     } catch (err: any) {
-      alert(`Error al guardar centro de acopio: ${err.message}`);
+      showCustomAlert(`Error al guardar centro de acopio: ${err.message}`);
     }
   };
 
@@ -357,11 +401,11 @@ export default function RecursosPage() {
     try {
       const res = await syncInventarioConAPI(centroId);
       if (res.success) {
-        alert(`Inventario inicial sincronizado. ${res.count} items de insumos agregados/actualizados.`);
+        showCustomAlert(`Inventario inicial sincronizado. ${res.count} items de insumos agregados/actualizados.`);
         cargarDatos();
       }
     } catch (err: any) {
-      alert(`Error de sincronización de inventario: ${err.message}`);
+      showCustomAlert(`Error de sincronización de inventario: ${err.message}`);
     }
   };
 
@@ -392,18 +436,18 @@ export default function RecursosPage() {
       setEditInv(null);
       cargarDatos();
     } catch (err: any) {
-      alert(`Error al guardar item de inventario: ${err.message}`);
+      showCustomAlert(`Error al guardar item de inventario: ${err.message}`);
     }
   };
 
   const handleDeleteInv = async (id: string) => {
-    if (!confirm("¿Seguro de eliminar este insumo del inventario?")) return;
+    if (!(await showCustomConfirm("¿Seguro de eliminar este insumo del inventario?"))) return;
     try {
       const { error } = await supabase.from("inventario_acopio").delete().eq("id", id);
       if (error) throw error;
       cargarDatos();
     } catch (err: any) {
-      alert(`Error al eliminar insumo: ${err.message}`);
+      showCustomAlert(`Error al eliminar insumo: ${err.message}`);
     }
   };
 
@@ -1219,6 +1263,50 @@ export default function RecursosPage() {
               <button type="submit" style={styles.btnPrimary}>Guardar Insumo</button>
             </div>
           </form>
+        </div>
+      )}
+      {/* Modal de Alerta / Confirmación Personalizado */}
+      {customModal && customModal.show && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }}>
+            <div style={styles.modalHeader}>
+              <h3 style={{ margin: 0 }}>{customModal.title}</h3>
+              <button 
+                type="button" 
+                style={styles.closeBtn} 
+                onClick={() => {
+                  if (customModal.onCancel) customModal.onCancel();
+                  else customModal.onConfirm();
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={styles.modalBody}>
+              <p style={{ margin: 0, fontSize: "14px", color: "var(--text)" }}>{customModal.message}</p>
+            </div>
+            <div style={styles.modalActions}>
+              {customModal.type === "confirm" && (
+                <button 
+                  type="button" 
+                  style={styles.btnSecondary} 
+                  onClick={() => {
+                    if (customModal.onCancel) customModal.onCancel();
+                    else customModal.onConfirm();
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+              <button 
+                type="button" 
+                style={styles.btnPrimary} 
+                onClick={customModal.onConfirm}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

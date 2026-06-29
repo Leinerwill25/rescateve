@@ -29,6 +29,50 @@ export default function ReglasClasificacionPage() {
   const [activa, setActiva] = useState(true);
   const [notas, setNotas] = useState("");
 
+  // Modal de Alerta / Confirmación personalizado
+  const [customModal, setCustomModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    type: "alert" | "confirm";
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null>(null);
+
+  const showCustomAlert = (message: string, title: string = "Notificación") => {
+    return new Promise<void>((resolve) => {
+      setCustomModal({
+        show: true,
+        title,
+        message,
+        type: "alert",
+        onConfirm: () => {
+          setCustomModal(null);
+          resolve();
+        }
+      });
+    });
+  };
+
+  const showCustomConfirm = (message: string, title: string = "Confirmación") => {
+    return new Promise<boolean>((resolve) => {
+      setCustomModal({
+        show: true,
+        title,
+        message,
+        type: "confirm",
+        onConfirm: () => {
+          setCustomModal(null);
+          resolve(true);
+        },
+        onCancel: () => {
+          setCustomModal(null);
+          resolve(false);
+        }
+      });
+    });
+  };
+
   const CATEGORIAS = [
     { value: "insumo_medico", label: "Insumos Médicos" },
     { value: "insumo_basico", label: "Insumos Básicos" },
@@ -119,12 +163,12 @@ export default function ReglasClasificacionPage() {
       .filter(k => k.length > 0);
 
     if (keywords.length === 0) {
-      alert("Por favor ingrese al menos una palabra clave.");
+      showCustomAlert("Por favor ingrese al menos una palabra clave.");
       return;
     }
 
     if (finalDeps.length === 0) {
-      alert("Por favor seleccione al menos un departamento a activar.");
+      showCustomAlert("Por favor seleccione al menos un departamento a activar.");
       return;
     }
 
@@ -155,12 +199,12 @@ export default function ReglasClasificacionPage() {
       setEditingRegla(null);
       cargarReglas();
     } catch (err: any) {
-      alert(`Error al guardar regla: ${err.message}`);
+      showCustomAlert(`Error al guardar regla: ${err.message}`);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Está seguro de eliminar esta regla de clasificación?")) return;
+    if (!(await showCustomConfirm("¿Está seguro de eliminar esta regla de clasificación?"))) return;
 
     try {
       const { error } = await supabase
@@ -170,7 +214,7 @@ export default function ReglasClasificacionPage() {
       if (error) throw error;
       cargarReglas();
     } catch (err: any) {
-      alert(`Error al eliminar regla: ${err.message}`);
+      showCustomAlert(`Error al eliminar regla: ${err.message}`);
     }
   };
 
@@ -183,7 +227,7 @@ export default function ReglasClasificacionPage() {
       if (error) throw error;
       cargarReglas();
     } catch (err: any) {
-      alert(`Error al cambiar estado: ${err.message}`);
+      showCustomAlert(`Error al cambiar estado: ${err.message}`);
     }
   };
 
@@ -382,6 +426,50 @@ export default function ReglasClasificacionPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+      {/* Modal de Alerta / Confirmación Personalizado */}
+      {customModal && customModal.show && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }}>
+            <div style={styles.modalHeader}>
+              <h3 style={{ margin: 0 }}>{customModal.title}</h3>
+              <button 
+                type="button" 
+                style={styles.closeBtn} 
+                onClick={() => {
+                  if (customModal.onCancel) customModal.onCancel();
+                  else customModal.onConfirm();
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={styles.modalBody}>
+              <p style={{ margin: 0, fontSize: "14px", color: "var(--text)" }}>{customModal.message}</p>
+            </div>
+            <div style={styles.modalActions}>
+              {customModal.type === "confirm" && (
+                <button 
+                  type="button" 
+                  style={styles.btnSecondary} 
+                  onClick={() => {
+                    if (customModal.onCancel) customModal.onCancel();
+                    else customModal.onConfirm();
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+              <button 
+                type="button" 
+                style={styles.btnPrimary} 
+                onClick={customModal.onConfirm}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

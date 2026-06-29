@@ -55,6 +55,71 @@ export default function ColaValidacionPage() {
   const [hijosCount, setHijosCount] = useState(2);
   const [hijosDesc, setHijosDesc] = useState<string[]>(["", ""]);
 
+  // Modal de Alerta / Confirmación / Prompt personalizado
+  const [customModal, setCustomModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    type: "alert" | "confirm" | "prompt";
+    defaultValue?: string;
+    onConfirm: (val?: string | null) => void;
+    onCancel?: () => void;
+  } | null>(null);
+
+  const showCustomAlert = (message: string, title: string = "Notificación") => {
+    return new Promise<void>((resolve) => {
+      setCustomModal({
+        show: true,
+        title,
+        message,
+        type: "alert",
+        onConfirm: () => {
+          setCustomModal(null);
+          resolve();
+        }
+      });
+    });
+  };
+
+  const showCustomConfirm = (message: string, title: string = "Confirmación") => {
+    return new Promise<boolean>((resolve) => {
+      setCustomModal({
+        show: true,
+        title,
+        message,
+        type: "confirm",
+        onConfirm: () => {
+          setCustomModal(null);
+          resolve(true);
+        },
+        onCancel: () => {
+          setCustomModal(null);
+          resolve(false);
+        }
+      });
+    });
+  };
+
+  const showCustomPrompt = (message: string, defaultValue: string = "", title: string = "Entrada de datos") => {
+    return new Promise<string | null>((resolve) => {
+      setCustomModal({
+        show: true,
+        title,
+        message,
+        type: "prompt",
+        defaultValue,
+        onConfirm: (val) => {
+          setCustomModal(null);
+          resolve(val);
+        },
+        onCancel: () => {
+          setCustomModal(null);
+          resolve(null);
+        }
+      });
+    });
+  };
+
   // Opciones estáticas
   const CATEGORIAS = [
     { value: "insumo_medico", label: "Insumos Médicos" },
@@ -150,7 +215,7 @@ export default function ColaValidacionPage() {
       if (rpcErr) throw rpcErr;
       cargarTickets();
     } catch (err: any) {
-      alert(`Error al aprobar ticket: ${err.message}`);
+      showCustomAlert(`Error al aprobar ticket: ${err.message}`);
     }
   };
 
@@ -182,7 +247,7 @@ export default function ColaValidacionPage() {
       setReclasificarTicket(null);
       cargarTickets();
     } catch (err: any) {
-      alert(`Error al reclasificar: ${err.message}`);
+      showCustomAlert(`Error al reclasificar: ${err.message}`);
     }
   };
 
@@ -261,13 +326,13 @@ export default function ColaValidacionPage() {
       setDividirTicket(null);
       cargarTickets();
     } catch (err: any) {
-      alert(`Error al dividir ticket: ${err.message}`);
+      showCustomAlert(`Error al dividir ticket: ${err.message}`);
     }
   };
 
   // 4. RECHAZAR / DESCARTAR
   const handleRechazar = async (ticketId: string) => {
-    const notas = prompt("Ingrese el motivo del descarte:");
+    const notas = await showCustomPrompt("Ingrese el motivo del descarte:", "", "Descartar Ticket");
     if (notas === null) return; // canceló
 
     try {
@@ -350,7 +415,7 @@ export default function ColaValidacionPage() {
       
       cargarTickets();
     } catch (err: any) {
-      alert(`Error al crear ticket: ${err.message}`);
+      showCustomAlert(`Error al crear ticket: ${err.message}`);
     }
   };
 
@@ -359,11 +424,11 @@ export default function ColaValidacionPage() {
     try {
       const res = await pullNecesidades();
       if (res.success) {
-        alert(`Sincronización simulada. ${res.count} nuevos tickets agregados a la cola.`);
+        showCustomAlert(`Sincronización simulada. ${res.count} nuevos tickets agregados a la cola.`);
         cargarTickets();
       }
     } catch (err: any) {
-      alert(`Error en simulación: ${err.message}`);
+      showCustomAlert(`Error en simulación: ${err.message}`);
     }
   };
 
@@ -405,7 +470,7 @@ export default function ColaValidacionPage() {
       const trasPendientes = (traslados || []).filter(t => !idsImportadosTraslado.has(t.id));
 
       if (pubPendientes.length === 0 && trasPendientes.length === 0) {
-        alert("Todas las solicitudes públicas y traslados activos ya han sido importados.");
+        showCustomAlert("Todas las solicitudes públicas y traslados activos ya han sido importados.");
         return;
       }
 
@@ -454,10 +519,10 @@ export default function ColaValidacionPage() {
         if (!insErr) creadas++;
       }
 
-      alert(`Sincronización completada. Se importaron ${creadas} solicitudes públicas y traslados.`);
+      showCustomAlert(`Sincronización completada. Se importaron ${creadas} solicitudes públicas y traslados.`);
       cargarTickets();
     } catch (err: any) {
-      alert(`Error al importar: ${err.message}`);
+      showCustomAlert(`Error al importar: ${err.message}`);
     }
   };
 
@@ -974,6 +1039,72 @@ export default function ColaValidacionPage() {
             <div style={styles.modalActions}>
               <button style={styles.btnSecondary} onClick={() => setDividirTicket(null)}>Cancelar</button>
               <button style={styles.btnPrimary} onClick={handleDividir}>Dividir y Re-encolar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Alerta / Confirmación / Prompt Personalizado */}
+      {customModal && customModal.show && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }}>
+            <div style={styles.modalHeader}>
+              <h3 style={{ margin: 0 }}>{customModal.title}</h3>
+              <button 
+                type="button" 
+                style={styles.closeBtn} 
+                onClick={() => {
+                  if (customModal.onCancel) customModal.onCancel();
+                  else customModal.onConfirm(null);
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={styles.modalBody}>
+              <p style={{ margin: 0, fontSize: "14px", color: "var(--text)" }}>{customModal.message}</p>
+              {customModal.type === "prompt" && (
+                <input 
+                  type="text" 
+                  id="customModalInput"
+                  defaultValue={customModal.defaultValue}
+                  style={{ ...styles.input, marginTop: "12px" }}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const input = document.getElementById("customModalInput") as HTMLInputElement;
+                      customModal.onConfirm(input?.value);
+                    }
+                  }}
+                />
+              )}
+            </div>
+            <div style={styles.modalActions}>
+              {(customModal.type === "confirm" || customModal.type === "prompt") && (
+                <button 
+                  type="button" 
+                  style={styles.btnSecondary} 
+                  onClick={() => {
+                    if (customModal.onCancel) customModal.onCancel();
+                    else customModal.onConfirm(null);
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+              <button 
+                type="button" 
+                style={styles.btnPrimary} 
+                onClick={() => {
+                  if (customModal.type === "prompt") {
+                    const input = document.getElementById("customModalInput") as HTMLInputElement;
+                    customModal.onConfirm(input?.value);
+                  } else {
+                    customModal.onConfirm(null);
+                  }
+                }}
+              >
+                Aceptar
+              </button>
             </div>
           </div>
         </div>

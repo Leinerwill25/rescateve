@@ -37,6 +37,50 @@ export default function TableroDespachoPage() {
   const [selectedTransporte, setSelectedTransporte] = useState<Record<string, string>>({});
   const [selectedMedico, setSelectedMedico] = useState<Record<string, string>>({});
 
+  // Modal de Alerta / Confirmación personalizado
+  const [customModal, setCustomModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    type: "alert" | "confirm";
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null>(null);
+
+  const showCustomAlert = (message: string, title: string = "Notificación") => {
+    return new Promise<void>((resolve) => {
+      setCustomModal({
+        show: true,
+        title,
+        message,
+        type: "alert",
+        onConfirm: () => {
+          setCustomModal(null);
+          resolve();
+        }
+      });
+    });
+  };
+
+  const showCustomConfirm = (message: string, title: string = "Confirmación") => {
+    return new Promise<boolean>((resolve) => {
+      setCustomModal({
+        show: true,
+        title,
+        message,
+        type: "confirm",
+        onConfirm: () => {
+          setCustomModal(null);
+          resolve(true);
+        },
+        onCancel: () => {
+          setCustomModal(null);
+          resolve(false);
+        }
+      });
+    });
+  };
+
   // Detalle del Inventario seleccionado (modal o panel)
   const [viewInventarioCentro, setViewInventarioCentro] = useState<CentroAcopioOperativo | null>(null);
 
@@ -114,7 +158,7 @@ export default function TableroDespachoPage() {
     const medicoId = selectedMedico[ticketId] || null;
 
     if (!acopioId && !transporteId && !medicoId) {
-      alert("Por favor seleccione al menos un recurso para asignar.");
+      showCustomAlert("Por favor seleccione al menos un recurso para asignar.");
       return;
     }
 
@@ -127,10 +171,10 @@ export default function TableroDespachoPage() {
       });
 
       if (error) throw error;
-      alert("Recursos asignados con éxito y notificaciones enviadas.");
+      showCustomAlert("Recursos asignados con éxito y notificaciones enviadas.");
       cargarDatos();
     } catch (err: any) {
-      alert(`Error al asignar recursos: ${err.message}`);
+      showCustomAlert(`Error al asignar recursos: ${err.message}`);
     }
   };
 
@@ -176,7 +220,7 @@ export default function TableroDespachoPage() {
   const handleCopyWhatsapp = () => {
     if (!whatsappText) return;
     navigator.clipboard.writeText(whatsappText);
-    alert("Texto copiado al portapapeles. Listo para enviar.");
+    showCustomAlert("Texto copiado al portapapeles. Listo para enviar.");
     setWhatsappText(null);
   };
 
@@ -436,7 +480,7 @@ export default function TableroDespachoPage() {
                       </a>
                       <button 
                         style={styles.btnSecondarySmall} 
-                        onClick={() => alert("Notificación enviada a SafeCare y Venemergencia.")}
+                        onClick={() => showCustomAlert("Notificación enviada a SafeCare y Venemergencia.")}
                       >
                         <UserCheck size={14} />
                         <span>Aviso Aliado</span>
@@ -620,6 +664,50 @@ export default function TableroDespachoPage() {
             <div style={styles.modalActions}>
               <button style={styles.btnSecondary} onClick={() => setWhatsappText(null)}>Cerrar</button>
               <button style={styles.btnPrimary} onClick={handleCopyWhatsapp}>Copiar Texto</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Alerta / Confirmación Personalizado */}
+      {customModal && customModal.show && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }}>
+            <div style={styles.modalHeader}>
+              <h3 style={{ margin: 0 }}>{customModal.title}</h3>
+              <button 
+                type="button" 
+                style={styles.closeBtn} 
+                onClick={() => {
+                  if (customModal.onCancel) customModal.onCancel();
+                  else customModal.onConfirm();
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={styles.modalBody}>
+              <p style={{ margin: 0, fontSize: "14px", color: "var(--text)" }}>{customModal.message}</p>
+            </div>
+            <div style={styles.modalActions}>
+              {customModal.type === "confirm" && (
+                <button 
+                  type="button" 
+                  style={styles.btnSecondary} 
+                  onClick={() => {
+                    if (customModal.onCancel) customModal.onCancel();
+                    else customModal.onConfirm();
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+              <button 
+                type="button" 
+                style={styles.btnPrimary} 
+                onClick={customModal.onConfirm}
+              >
+                Aceptar
+              </button>
             </div>
           </div>
         </div>

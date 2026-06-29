@@ -13,7 +13,8 @@ import {
   AlertTriangle,
   Play,
   RotateCcw,
-  Compass
+  Compass,
+  X
 } from "lucide-react";
 
 export default function MisViajesPage() {
@@ -21,7 +22,49 @@ export default function MisViajesPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [transporteFicha, setTransporteFicha] = useState<Transporte | null>(null);
   const [loading, setLoading] = useState(true);
+  // Modal de Alerta / Confirmación personalizado
+  const [customModal, setCustomModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    type: "alert" | "confirm";
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null>(null);
 
+  const showCustomAlert = (message: string, title: string = "Notificación") => {
+    return new Promise<void>((resolve) => {
+      setCustomModal({
+        show: true,
+        title,
+        message,
+        type: "alert",
+        onConfirm: () => {
+          setCustomModal(null);
+          resolve();
+        }
+      });
+    });
+  };
+
+  const showCustomConfirm = (message: string, title: string = "Confirmación") => {
+    return new Promise<boolean>((resolve) => {
+      setCustomModal({
+        show: true,
+        title,
+        message,
+        type: "confirm",
+        onConfirm: () => {
+          setCustomModal(null);
+          resolve(true);
+        },
+        onCancel: () => {
+          setCustomModal(null);
+          resolve(false);
+        }
+      });
+    });
+  };
   const cargarDatos = async () => {
     if (!perfil) return;
     setLoading(true);
@@ -72,7 +115,7 @@ export default function MisViajesPage() {
       ? "¿Está seguro de rechazar este viaje? Se devolverá a la cola del administrador."
       : `¿Cambiar el estado del viaje a ${nuevoEstado.toUpperCase()}?`;
 
-    if (!confirm(confirmMsg)) return;
+    if (!(await showCustomConfirm(confirmMsg))) return;
 
     try {
       const { error } = await supabase.rpc("actualizar_estado_ticket", {
@@ -81,10 +124,10 @@ export default function MisViajesPage() {
       });
 
       if (error) throw error;
-      alert("Estado actualizado correctamente.");
+      showCustomAlert("Estado actualizado correctamente.");
       cargarDatos();
     } catch (err: any) {
-      alert(`Error al actualizar estado: ${err.message}`);
+      showCustomAlert(`Error al actualizar estado: ${err.message}`);
     }
   };
 
@@ -232,6 +275,50 @@ export default function MisViajesPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {/* Modal de Alerta / Confirmación Personalizado */}
+      {customModal && customModal.show && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }}>
+            <div style={styles.modalHeader}>
+              <h3 style={{ margin: 0 }}>{customModal.title}</h3>
+              <button 
+                type="button" 
+                style={styles.closeBtn} 
+                onClick={() => {
+                  if (customModal.onCancel) customModal.onCancel();
+                  else customModal.onConfirm();
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={styles.modalBody}>
+              <p style={{ margin: 0, fontSize: "14px", color: "var(--text)" }}>{customModal.message}</p>
+            </div>
+            <div style={styles.modalActions}>
+              {customModal.type === "confirm" && (
+                <button 
+                  type="button" 
+                  style={styles.btnSecondary} 
+                  onClick={() => {
+                    if (customModal.onCancel) customModal.onCancel();
+                    else customModal.onConfirm();
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+              <button 
+                type="button" 
+                style={styles.btnPrimary} 
+                onClick={customModal.onConfirm}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -467,5 +554,62 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     alignItems: "center",
     gap: "8px",
+  },
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    backdropFilter: "blur(4px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10000,
+    padding: "16px",
+  },
+  modal: {
+    backgroundColor: "var(--surface)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius)",
+    padding: "var(--s4)",
+    display: "flex",
+    flexDirection: "column",
+    gap: "var(--s3)",
+    boxShadow: "var(--shadow-lg)",
+  },
+  modalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderBottom: "1px solid var(--border)",
+    paddingBottom: "var(--s2)",
+  },
+  modalBody: {
+    padding: "var(--s1) 0",
+  },
+  modalActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "var(--s2)",
+    borderTop: "1px solid var(--border)",
+    paddingTop: "var(--s3)",
+  },
+  closeBtn: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    color: "var(--text-muted)",
+  },
+  btnSecondary: {
+    background: "none",
+    border: "1px solid var(--border)",
+    color: "var(--text)",
+    padding: "8px 16px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "var(--text-sm)",
+    fontWeight: 600,
+    cursor: "pointer",
   }
 };
