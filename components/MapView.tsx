@@ -43,6 +43,7 @@ export default function MapView({
   const layer   = useRef<any>(null);
   const L       = useRef<any>(null);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
 
   const activas   = solicitudes.filter((s) => s.estado !== "atendido");
   const atendidas = solicitudes.filter((s) => s.estado === "atendido");
@@ -269,6 +270,12 @@ export default function MapView({
     );
   }
 
+  function flyToItem(lat: number, lng: number) {
+    if (!map.current) return;
+    map.current.flyTo([lat, lng], 15, { duration: 1.2 });
+    setListOpen(false);
+  }
+
   return (
     <div className="map-wrapper">
       {/* CSS para la animación del halo — inyectado inline para no requerir build extra */}
@@ -276,12 +283,59 @@ export default function MapView({
         @keyframes ping {
           75%, 100% { transform: scale(1.8); opacity: 0; }
         }
+        .map-points-list {
+          position: absolute; top: 0; right: 0; bottom: 0; width: 320px;
+          background: #fff; z-index: 1000; display: flex; flex-direction: column;
+          box-shadow: -4px 0 24px rgba(0,0,0,.15); border-radius: 12px 0 0 12px;
+          overflow: hidden; animation: slideIn .25s ease-out;
+        }
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .map-points-list__header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 16px; border-bottom: 1px solid #E2E8F0; flex-shrink: 0;
+        }
+        .map-points-list__header h3 { margin: 0; font-size: 15px; font-weight: 700; color: #0F172A; }
+        .map-points-list__close {
+          background: #F1F5F9; border: none; width: 32px; height: 32px; border-radius: 8px;
+          font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+          color: #64748B;
+        }
+        .map-points-list__close:hover { background: #E2E8F0; }
+        .map-points-list__body { flex: 1; overflow-y: auto; padding: 8px 0; }
+        .map-points-list__section {
+          padding: 12px 16px 4px; margin: 0; font-size: 11px; font-weight: 700;
+          text-transform: uppercase; letter-spacing: .5px; color: #94A3B8;
+        }
+        .map-points-list__item {
+          display: flex; align-items: center; gap: 8px; width: 100%;
+          padding: 10px 16px; border: none; background: none; cursor: pointer;
+          text-align: left; font-family: inherit; transition: background .1s;
+        }
+        .map-points-list__item:hover { background: #F8FAFC; }
+        .map-points-list__dot {
+          width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        }
+        .map-points-list__label {
+          font-size: 13px; font-weight: 600; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
+        }
+        .map-points-list__ref {
+          font-size: 12px; color: #94A3B8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+        }
+        .map-points-list__empty {
+          padding: 32px 16px; text-align: center; color: #94A3B8; font-size: 13px;
+        }
+        @media (max-width: 640px) {
+          .map-points-list { width: 85%; border-radius: 12px 0 0 12px; }
+        }
       `}</style>
 
       <div ref={mapRef} className="main-map" role="application" aria-label="Mapa de emergencias" />
 
       {/* Controles flotantes */}
       <div className="map-controls">
+        <button className="map-fab" onClick={() => setListOpen((v) => !v)} aria-label="Abrir lista de puntos">
+          📋
+        </button>
         <button className="map-fab" onClick={centerOnUser} aria-label="Centrar mapa en mi ubicación">
           📍 Mi ubicación
         </button>
@@ -324,6 +378,85 @@ export default function MapView({
           </div>
         )}
       </div>
+
+      {/* Lista flotante de puntos en el mapa */}
+      {listOpen && (
+        <div className="map-points-list" role="dialog" aria-label="Lista de puntos en el mapa">
+          <div className="map-points-list__header">
+            <h3>Puntos en el mapa</h3>
+            <button className="map-points-list__close" onClick={() => setListOpen(false)} aria-label="Cerrar lista">✕</button>
+          </div>
+          <div className="map-points-list__body">
+
+            {/* ── Solicitudes activas ── */}
+            {activas.length > 0 && (
+              <>
+                <p className="map-points-list__section">🆘 Solicitudes activas ({activas.length})</p>
+                {activas.map((s) => {
+                  const t = tipoInfo(s.tipo);
+                  return (
+                    <button key={s.id} className="map-points-list__item" onClick={() => flyToItem(s.latitud, s.longitud)}>
+                      <span className="map-points-list__dot" style={{ background: TIPO_COLORS[s.tipo] ?? "#64748B" }} />
+                      <span className="map-points-list__label">{t.emoji} {t.label}</span>
+                      {s.referencia && <span className="map-points-list__ref">{esc(s.referencia)}</span>}
+                    </button>
+                  );
+                })}
+              </>
+            )}
+
+            {/* ── Desaparecidos ── */}
+            {(() => {
+              const conUbicacion = desaparecidos.filter((d) => d.estado !== "encontrado" && d.latitud != null && d.longitud != null);
+              if (conUbicacion.length === 0) return null;
+              return (
+                <>
+                  <p className="map-points-list__section">🔎 Desaparecidos ({conUbicacion.length})</p>
+                  {conUbicacion.map((d) => (
+                    <button key={d.id} className="map-points-list__item" onClick={() => flyToItem(d.latitud!, d.longitud!)}>
+                      <span className="map-points-list__dot" style={{ background: "#7C3AED" }} />
+                      <span className="map-points-list__label">🔎 {d.nombre}{d.edad ? `, ${d.edad}` : ""}</span>
+                      {d.ultima_ubicacion && <span className="map-points-list__ref">{esc(d.ultima_ubicacion)}</span>}
+                    </button>
+                  ))}
+                </>
+              );
+            })()}
+
+            {/* ── Centros de acopio ── */}
+            {centrosAcopio.length > 0 && (
+              <>
+                <p className="map-points-list__section">📦 Centros de acopio ({centrosAcopio.length})</p>
+                {centrosAcopio.map((c, i) => (
+                  <button key={i} className="map-points-list__item" onClick={() => flyToItem(c.latitude, c.longitude)}>
+                    <span className="map-points-list__dot" style={{ background: "#10B981" }} />
+                    <span className="map-points-list__label">📦 {c.name}</span>
+                    {c.address && <span className="map-points-list__ref">{esc(c.address)}</span>}
+                  </button>
+                ))}
+              </>
+            )}
+
+            {/* ── Puntos de ayuda ── */}
+            {puntosAyuda.length > 0 && (
+              <>
+                <p className="map-points-list__section">🆘 Puntos de ayuda ({puntosAyuda.length})</p>
+                {puntosAyuda.map((p, i) => (
+                  <button key={i} className="map-points-list__item" onClick={() => flyToItem(p.latitude, p.longitude)}>
+                    <span className="map-points-list__dot" style={{ background: "#EF4444" }} />
+                    <span className="map-points-list__label">🆘 {p.name}</span>
+                    {p.address && <span className="map-points-list__ref">{esc(p.address)}</span>}
+                  </button>
+                ))}
+              </>
+            )}
+
+            {activas.length === 0 && desaparecidos.filter(d => d.estado !== "encontrado" && d.latitud).length === 0 && centrosAcopio.length === 0 && puntosAyuda.length === 0 && (
+              <p className="map-points-list__empty">No hay puntos marcados en el mapa</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
