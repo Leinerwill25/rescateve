@@ -267,12 +267,13 @@ export default function TrasladosView() {
       const { data, error } = await supabase
         .from("traslados")
         .select("*")
-        // Solo traslados del público (con reporter_token) — los de Ayuda en Camino
-        // (fuente externa, sin reporter_token) solo deben verse en el panel admin.
+        // Solo traslados creados desde esta página (tienen reporter_token).
+        // Los espejos de Ayuda en Camino no tienen token y no deben mostrarse aquí.
         .not("reporter_token", "is", null)
         .order("created_at", { ascending: false });
       if (error) console.error("Error cargando traslados:", error);
-      if (data) setTraslados(data as Traslado[]);
+      const publicos = (data || []).filter((t) => Boolean(t.reporter_token?.trim()));
+      setTraslados(publicos as Traslado[]);
     } catch (err) {
       console.error("Excepción en load():", err);
     } finally {
