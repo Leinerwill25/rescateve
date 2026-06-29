@@ -267,6 +267,9 @@ export default function TrasladosView() {
       const { data, error } = await supabase
         .from("traslados")
         .select("*")
+        // Solo traslados del público (con reporter_token) — los de Ayuda en Camino
+        // (fuente externa, sin reporter_token) solo deben verse en el panel admin.
+        .not("reporter_token", "is", null)
         .order("created_at", { ascending: false });
       if (error) console.error("Error cargando traslados:", error);
       if (data) setTraslados(data as Traslado[]);

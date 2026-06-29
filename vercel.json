@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/ingesta/ayuda-en-camino",
-      "schedule": "*/4 * * * *"
+      "schedule": "*/20 * * * *"
     }
   ]
 }
