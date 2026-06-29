@@ -44,6 +44,7 @@ export default function MapView({
   const L       = useRef<any>(null);
   const [legendOpen, setLegendOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+  const [listSearch, setListSearch] = useState("");
 
   const activas   = solicitudes.filter((s) => s.estado !== "atendido");
   const atendidas = solicitudes.filter((s) => s.estado === "atendido");
@@ -324,6 +325,13 @@ export default function MapView({
         .map-points-list__empty {
           padding: 32px 16px; text-align: center; color: #94A3B8; font-size: 13px;
         }
+        .map-points-list__search { padding: 8px 16px; flex-shrink: 0; }
+        .map-points-list__search-input {
+          width: 100%; padding: 8px 12px; border: 1px solid #E2E8F0; border-radius: 8px;
+          font-size: 13px; font-family: inherit; outline: none; box-sizing: border-box;
+          background: #F8FAFC; transition: border-color .15s;
+        }
+        .map-points-list__search-input:focus { border-color: #3B82F6; background: #fff; }
         @media (max-width: 640px) {
           .map-points-list { width: 85%; border-radius: 12px 0 0 12px; }
         }
@@ -334,7 +342,7 @@ export default function MapView({
       {/* Controles flotantes */}
       <div className="map-controls">
         <button className="map-fab" onClick={() => setListOpen((v) => !v)} aria-label="Abrir lista de puntos">
-          📋
+          📋 Lista
         </button>
         <button className="map-fab" onClick={centerOnUser} aria-label="Centrar mapa en mi ubicación">
           📍 Mi ubicación
@@ -384,35 +392,61 @@ export default function MapView({
         <div className="map-points-list" role="dialog" aria-label="Lista de puntos en el mapa">
           <div className="map-points-list__header">
             <h3>Puntos en el mapa</h3>
-            <button className="map-points-list__close" onClick={() => setListOpen(false)} aria-label="Cerrar lista">✕</button>
+            <button className="map-points-list__close" onClick={() => { setListOpen(false); setListSearch(""); }} aria-label="Cerrar lista">✕</button>
+          </div>
+          <div className="map-points-list__search">
+            <input
+              className="map-points-list__search-input"
+              type="text"
+              placeholder="Buscar punto..."
+              value={listSearch}
+              onChange={(e) => setListSearch(e.target.value)}
+              autoFocus
+            />
           </div>
           <div className="map-points-list__body">
 
             {/* ── Solicitudes activas ── */}
-            {activas.length > 0 && (
-              <>
-                <p className="map-points-list__section">🆘 Solicitudes activas ({activas.length})</p>
-                {activas.map((s) => {
-                  const t = tipoInfo(s.tipo);
-                  return (
-                    <button key={s.id} className="map-points-list__item" onClick={() => flyToItem(s.latitud, s.longitud)}>
-                      <span className="map-points-list__dot" style={{ background: TIPO_COLORS[s.tipo] ?? "#64748B" }} />
-                      <span className="map-points-list__label">{t.emoji} {t.label}</span>
-                      {s.referencia && <span className="map-points-list__ref">{esc(s.referencia)}</span>}
-                    </button>
-                  );
-                })}
-              </>
-            )}
+            {(() => {
+              const items = listSearch
+                ? activas.filter((s) => {
+                    const t = tipoInfo(s.tipo);
+                    const q = listSearch.toLowerCase();
+                    return t.label.toLowerCase().includes(q) || (s.referencia || "").toLowerCase().includes(q) || (s.descripcion || "").toLowerCase().includes(q);
+                  })
+                : activas;
+              if (items.length === 0) return null;
+              return (
+                <>
+                  <p className="map-points-list__section">🆘 Solicitudes activas ({items.length})</p>
+                  {items.map((s) => {
+                    const t = tipoInfo(s.tipo);
+                    return (
+                      <button key={s.id} className="map-points-list__item" onClick={() => flyToItem(s.latitud, s.longitud)}>
+                        <span className="map-points-list__dot" style={{ background: TIPO_COLORS[s.tipo] ?? "#64748B" }} />
+                        <span className="map-points-list__label">{t.emoji} {t.label}</span>
+                        {s.referencia && <span className="map-points-list__ref">{esc(s.referencia)}</span>}
+                      </button>
+                    );
+                  })}
+                </>
+              );
+            })()}
 
             {/* ── Desaparecidos ── */}
             {(() => {
               const conUbicacion = desaparecidos.filter((d) => d.estado !== "encontrado" && d.latitud != null && d.longitud != null);
-              if (conUbicacion.length === 0) return null;
+              const items = listSearch
+                ? conUbicacion.filter((d) => {
+                    const q = listSearch.toLowerCase();
+                    return d.nombre.toLowerCase().includes(q) || (d.ultima_ubicacion || "").toLowerCase().includes(q) || (d.descripcion || "").toLowerCase().includes(q);
+                  })
+                : conUbicacion;
+              if (items.length === 0) return null;
               return (
                 <>
-                  <p className="map-points-list__section">🔎 Desaparecidos ({conUbicacion.length})</p>
-                  {conUbicacion.map((d) => (
+                  <p className="map-points-list__section">🔎 Desaparecidos ({items.length})</p>
+                  {items.map((d) => (
                     <button key={d.id} className="map-points-list__item" onClick={() => flyToItem(d.latitud!, d.longitud!)}>
                       <span className="map-points-list__dot" style={{ background: "#7C3AED" }} />
                       <span className="map-points-list__label">🔎 {d.nombre}{d.edad ? `, ${d.edad}` : ""}</span>
@@ -424,32 +458,50 @@ export default function MapView({
             })()}
 
             {/* ── Centros de acopio ── */}
-            {centrosAcopio.length > 0 && (
-              <>
-                <p className="map-points-list__section">📦 Centros de acopio ({centrosAcopio.length})</p>
-                {centrosAcopio.map((c, i) => (
-                  <button key={i} className="map-points-list__item" onClick={() => flyToItem(c.latitude, c.longitude)}>
-                    <span className="map-points-list__dot" style={{ background: "#10B981" }} />
-                    <span className="map-points-list__label">📦 {c.name}</span>
-                    {c.address && <span className="map-points-list__ref">{esc(c.address)}</span>}
-                  </button>
-                ))}
-              </>
-            )}
+            {(() => {
+              const items = listSearch
+                ? centrosAcopio.filter((c) => {
+                    const q = listSearch.toLowerCase();
+                    return c.name.toLowerCase().includes(q) || (c.address || "").toLowerCase().includes(q);
+                  })
+                : centrosAcopio;
+              if (items.length === 0) return null;
+              return (
+                <>
+                  <p className="map-points-list__section">📦 Centros de acopio ({items.length})</p>
+                  {items.map((c, i) => (
+                    <button key={i} className="map-points-list__item" onClick={() => flyToItem(c.latitude, c.longitude)}>
+                      <span className="map-points-list__dot" style={{ background: "#10B981" }} />
+                      <span className="map-points-list__label">📦 {c.name}</span>
+                      {c.address && <span className="map-points-list__ref">{esc(c.address)}</span>}
+                    </button>
+                  ))}
+                </>
+              );
+            })()}
 
             {/* ── Puntos de ayuda ── */}
-            {puntosAyuda.length > 0 && (
-              <>
-                <p className="map-points-list__section">🆘 Puntos de ayuda ({puntosAyuda.length})</p>
-                {puntosAyuda.map((p, i) => (
-                  <button key={i} className="map-points-list__item" onClick={() => flyToItem(p.latitude, p.longitude)}>
-                    <span className="map-points-list__dot" style={{ background: "#EF4444" }} />
-                    <span className="map-points-list__label">🆘 {p.name}</span>
-                    {p.address && <span className="map-points-list__ref">{esc(p.address)}</span>}
-                  </button>
-                ))}
-              </>
-            )}
+            {(() => {
+              const items = listSearch
+                ? puntosAyuda.filter((p) => {
+                    const q = listSearch.toLowerCase();
+                    return p.name.toLowerCase().includes(q) || (p.address || "").toLowerCase().includes(q);
+                  })
+                : puntosAyuda;
+              if (items.length === 0) return null;
+              return (
+                <>
+                  <p className="map-points-list__section">🆘 Puntos de ayuda ({items.length})</p>
+                  {items.map((p, i) => (
+                    <button key={i} className="map-points-list__item" onClick={() => flyToItem(p.latitude, p.longitude)}>
+                      <span className="map-points-list__dot" style={{ background: "#EF4444" }} />
+                      <span className="map-points-list__label">🆘 {p.name}</span>
+                      {p.address && <span className="map-points-list__ref">{esc(p.address)}</span>}
+                    </button>
+                  ))}
+                </>
+              );
+            })()}
 
             {activas.length === 0 && desaparecidos.filter(d => d.estado !== "encontrado" && d.latitud).length === 0 && centrosAcopio.length === 0 && puntosAyuda.length === 0 && (
               <p className="map-points-list__empty">No hay puntos marcados en el mapa</p>
