@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Ticket, ReglaClasificacion } from "@/lib/types-operations";
 import { useRouter } from "next/navigation";
-import { pullNecesidades } from "@/lib/adapters/ayudaEnCamino";
+
 import { 
   Check, 
   Edit3, 
@@ -148,6 +148,8 @@ export default function ColaValidacionPage() {
   // Ingesta Ayuda en Camino
   const [filtroExterno, setFiltroExterno] = useState<"todos" | "pendiente" | "cubierta">("pendiente");
   const [ultimoLog, setUltimoLog] = useState<any>(null);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ nuevos: number; actualizados: number } | null>(null);
 
   const getMinutosTranscurridos = () => {
     if (!ultimoLog || !ultimoLog.corrida_at) return null;
@@ -424,16 +426,23 @@ export default function ColaValidacionPage() {
     }
   };
 
-  // 6. SIMULAR IMPORTACION AEC
-  const handleSimularAEC = async () => {
+  // 6. SINCRONIZAR CON AYUDA EN CAMINO (real)
+  const handleSincronizarAEC = async () => {
+    if (sincronizando) return;
+    setSincronizando(true);
+    setSyncResult(null);
     try {
-      const res = await pullNecesidades();
-      if (res.success) {
-        showCustomAlert(`Sincronización simulada. ${res.count} nuevos tickets agregados a la cola.`);
-        cargarTickets();
+      const res = await fetch("/api/ingesta/ayuda-en-camino", { method: "GET" });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || `Error HTTP ${res.status}`);
       }
+      setSyncResult({ nuevos: json.nuevos ?? 0, actualizados: json.actualizados ?? 0 });
+      cargarTickets();
     } catch (err: any) {
-      showCustomAlert(`Error en simulación: ${err.message}`);
+      showCustomAlert(`Error al sincronizar con Ayuda en Camino: ${err.message}`);
+    } finally {
+      setSincronizando(false);
     }
   };
 
@@ -558,10 +567,55 @@ export default function ColaValidacionPage() {
           <p style={styles.subtitle}>Valida y clasifica las solicitudes antes del despacho externo.</p>
         </div>
         <div style={styles.actions}>
-          <button style={styles.btnSecondary} onClick={handleSimularAEC}>
-            <RefreshCw size={16} />
-            <span>Simular Ayuda en Camino</span>
+          {/* Botón de sincronización con Ayuda en Camino */}
+          <button
+            id="btn-sincronizar-aec"
+            style={{
+              ...styles.btnSecondary,
+              background: sincronizando
+                ? "rgba(14,165,233,0.08)"
+                : "linear-gradient(135deg,rgba(14,165,233,0.12) 0%,rgba(6,182,212,0.12) 100%)",
+              border: "1px solid rgba(14,165,233,0.35)",
+              color: "#0ea5e9",
+              fontWeight: 700,
+              gap: 8,
+              opacity: sincronizando ? 0.7 : 1,
+              cursor: sincronizando ? "not-allowed" : "pointer",
+              transition: "all 0.2s",
+              position: "relative",
+              overflow: "hidden",
+            }}
+            onClick={handleSincronizarAEC}
+            disabled={sincronizando}
+            title="Consulta ahora mismo la API de Ayuda en Camino y agrega tickets nuevos a la cola"
+          >
+            <RefreshCw
+              size={16}
+              style={{
+                animation: sincronizando ? "spin 0.8s linear infinite" : "none",
+                flexShrink: 0,
+              }}
+            />
+            <span>
+              {sincronizando
+                ? "Sincronizando..."
+                : syncResult !== null
+                ? `✓ ${syncResult.nuevos} nuevos · ${syncResult.actualizados} actualizados`
+                : "Sincronizar con Ayuda en Camino"}
+            </span>
+            {/* Indicador de última corrida */}
+            {ultimoLog && !sincronizando && syncResult === null && (
+              <span style={{
+                fontSize: 10,
+                opacity: 0.6,
+                fontWeight: 400,
+                marginLeft: 4,
+              }}>
+                ({getMinutosTranscurridos()} min)
+              </span>
+            )}
           </button>
+
           <button style={styles.btnSecondary} onClick={handleImportarPublicas}>
             <Download size={16} />
             <span>Importar de Mapa Público</span>
