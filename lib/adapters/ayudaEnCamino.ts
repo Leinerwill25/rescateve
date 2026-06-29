@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export type NecesidadExterna = {
   fuente_id: string;
@@ -93,6 +93,7 @@ export async function obtenerNecesidades(): Promise<NecesidadExterna[]> {
  *   Los campos que el admin edita (estado, transporte_id, etc.) NO se sobreescriben.
  */
 export async function runIngestaAyudaEnCamino() {
+  const supabase = getSupabaseAdmin();
   const necesidades = await obtenerNecesidades();
   let nuevos      = 0;
   let actualizados = 0;
@@ -175,21 +176,15 @@ export async function runIngestaAyudaEnCamino() {
     }
   }
 
-  // ── 3. INSERT masivo de nuevos (con onConflict como red de seguridad) ──
+  // ── 3. INSERT masivo de nuevos (deduplicación ya hecha arriba) ──
   if (paraInsertar.length > 0) {
-    const { error: insErr } = await supabase
-      .from("tickets")
-      .upsert(paraInsertar, {
-        onConflict: "fuente,fuente_id",   // usa el índice único de la BD
-        ignoreDuplicates: false            // si existe, no insertar duplicado
-      });
+    const { error: insErr } = await supabase.from("tickets").insert(paraInsertar);
 
     if (insErr) {
       console.error("[AEC] Error al insertar nuevos tickets:", insErr.message);
-      throw new Error(`Error en upsert: ${insErr.message}`);
-    } else {
-      nuevos = paraInsertar.length;
+      throw new Error(`Error al insertar tickets: ${insErr.message}`);
     }
+    nuevos = paraInsertar.length;
   }
 
   // ── 4. UPDATEs individuales (solo filas que cambiaron de estado externo) ──
