@@ -432,7 +432,15 @@ export default function ColaValidacionPage() {
     setSincronizando(true);
     setSyncResult(null);
     try {
-      const res = await fetch("/api/ingesta/ayuda-en-camino", { method: "GET" });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Debes iniciar sesión para sincronizar.");
+      }
+
+      const res = await fetch("/api/ingesta/ayuda-en-camino", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error || `Error HTTP ${res.status}`);
