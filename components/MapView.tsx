@@ -49,7 +49,7 @@ export default function MapView({
       const mod = (await import("leaflet")).default;
       L.current = mod;
       if (cancelled || !mapRef.current || map.current) return;
-      map.current = mod.map(mapRef.current).setView(DEFAULT, 9);
+      map.current = mod.map(mapRef.current).setView(DEFAULT, 10);
       mod
         .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: "© OpenStreetMap contributors",
