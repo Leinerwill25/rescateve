@@ -22,7 +22,9 @@ export async function obtenerNecesidades(): Promise<NecesidadExterna[]> {
     const res = await fetch(url, {
       headers: {
         "User-Agent": "RescateVE-Ingestion-Bot/1.0 (+https://rescate-ve.vercel.app; contacto@rescateve.org)"
-      }
+      },
+      // No cachear — siempre queremos datos frescos
+      cache: "no-store"
     });
 
     if (!res.ok) {
@@ -35,37 +37,41 @@ export async function obtenerNecesidades(): Promise<NecesidadExterna[]> {
     }
 
     return data.map((item: any) => {
-      const orgName = item.organizacion?.nombre || "Organización Desconocida";
-      const orgState = item.organizacion?.estado || "";
-      const orgCity = item.organizacion?.ciudad || "";
+      const orgName    = item.organizacion?.nombre    || "Organización Desconocida";
+      const orgState   = item.organizacion?.estado    || "";
+      const orgCity    = item.organizacion?.ciudad    || "";
       const orgAddress = item.organizacion?.direccion || "";
-      const itemDesc = item.descripcion || "";
+      const itemDesc   = item.descripcion             || "";
 
       // Generar descripción rica detallando el insumo solicitado y el centro
       const descripcionRica = `[Artículo: ${item.nombreArticulo}] Cantidad: ${item.cantidadNecesaria}. ${itemDesc ? `Detalle: ${itemDesc}. ` : ""}Organización: ${orgName}`;
 
       // Normalizar la ubicación externa
-      const ubicacion = `${orgCity ? `${orgCity}, ` : ""}${orgState ? `${orgState}. ` : ""}${orgAddress ? `Dir: ${orgAddress}` : ""}`;
+      const ubicacion = [
+        orgCity   ? orgCity   : null,
+        orgState  ? orgState  : null,
+        orgAddress ? `Dir: ${orgAddress}` : null
+      ].filter(Boolean).join(", ");
 
       // Extraer contacto telefónico o correo
       const contacto = item.organizacion?.contactoTelefono || item.organizacion?.contactoEmail || null;
 
       // Evaluar si la necesidad ya fue satisfecha en el origen
-      const estadoExterno: "pendiente" | "cubierta" = 
-        (item.status === "cumplida" || item.cantidadCumplida >= item.cantidadNecesaria) 
-          ? "cubierta" 
+      const estadoExterno: "pendiente" | "cubierta" =
+        (item.status === "cumplida" || item.cantidadCumplida >= item.cantidadNecesaria)
+          ? "cubierta"
           : "pendiente";
 
       return {
-        fuente_id: item.id.toString(),
-        descripcion: descripcionRica,
+        fuente_id:        item.id.toString(),
+        descripcion:      descripcionRica,
         categoria_externa: item.categoria || null,
         ubicacion_externa: ubicacion || null,
-        latitud: null, 
-        longitud: null,
-        contacto: contacto,
-        estado_externo: estadoExterno,
-        fuente_url: `https://ayudaencamino.com/necesidades/${item.id}`
+        latitud:           null,
+        longitud:          null,
+        contacto:          contacto,
+        estado_externo:    estadoExterno,
+        fuente_url:        `https://ayudaencamino.com/necesidades/${item.id}`
       };
     });
   } catch (err: any) {
@@ -76,117 +82,146 @@ export async function obtenerNecesidades(): Promise<NecesidadExterna[]> {
 
 /**
  * runIngestaAyudaEnCamino ejecuta un ciclo completo de ingesta.
- * Importa nuevos registros como tickets de validación y actualiza
- * el estado externo de los tickets ya capturados.
+ *
+ * Estrategia anti-duplicados:
+ * ─ En lugar de hacer SELECT por cada item y decidir INSERT/UPDATE en JS,
+ *   usamos un upsert masivo con onConflict en el índice único (fuente, fuente_id).
+ * ─ El índice `uq_tickets_fuente` en la BD es la última línea de defensa:
+ *   aunque dos corridas del cron coincidan, Postgres rechazará el segundo INSERT
+ *   y el onConflict lo convertirá en UPDATE.
+ * ─ Solo actualizamos campos seguros: estado_externo, descripcion, updated_at.
+ *   Los campos que el admin edita (estado, transporte_id, etc.) NO se sobreescriben.
  */
 export async function runIngestaAyudaEnCamino() {
-  let nuevos = 0;
+  const necesidades = await obtenerNecesidades();
+  let nuevos      = 0;
   let actualizados = 0;
-  let cubiertos = 0;
+  let cubiertos   = 0;
 
-  try {
-    const necesidades = await obtenerNecesidades();
+  // ── 1. Obtener los fuente_ids que YA existen localmente (una sola query) ──
+  const fuente_ids = necesidades.map(n => n.fuente_id);
 
-    for (const nec of necesidades) {
-      // Consultar si el ticket de esta fuente ya existe localmente
-      const { data: ticket, error: fetchErr } = await supabase
-        .from("tickets")
-        .select("id, estado, estado_externo, transporte_id, medico_id, centro_acopio_id")
-        .eq("fuente", "ayuda_en_camino")
-        .eq("fuente_id", nec.fuente_id)
-        .maybeSingle();
+  const { data: existentes, error: fetchErr } = await supabase
+    .from("tickets")
+    .select("id, fuente_id, estado, estado_externo, transporte_id, medico_id, centro_acopio_id")
+    .eq("fuente", "ayuda_en_camino")
+    .in("fuente_id", fuente_ids);
 
-      if (fetchErr) throw fetchErr;
-
-      if (!ticket) {
-        // A. TICKET NUEVO -> Insertar en tickets para Cola de Validación
-        const { error: insErr } = await supabase.from("tickets").insert({
-          fuente: "ayuda_en_camino",
-          fuente_id: nec.fuente_id,
-          descripcion: nec.descripcion,
-          contacto_solicitante: nec.contacto,
-          categoria_externa: nec.categoria_externa,
-          ubicacion_externa: nec.ubicacion_externa,
-          estado_externo: nec.estado_externo,
-          fuente_url: nec.fuente_url,
-          capturado_at: new Date().toISOString(),
-          estado: "en_validacion",
-          requiere_revision: true
-        });
-
-        if (!insErr) {
-          nuevos++;
-        } else {
-          console.error(`Error al registrar nueva necesidad ${nec.fuente_id}:`, insErr.message);
-        }
-      } else {
-        // B. TICKET EXISTENTE -> Sincronizar estado externo y cancelar si no está atendido
-        let nuevoEstadoInterno = ticket.estado;
-        let notaCierre = "";
-
-        if (nec.estado_externo === "cubierta" && ticket.estado_externo !== "cubierta") {
-          cubiertos++;
-          
-          // Cerrar automáticamente si no está en proceso de despacho activo (sin chofer/médico asignado)
-          const estaAtendido = ticket.transporte_id || ticket.medico_id || ticket.centro_acopio_id;
-          if (ticket.estado !== "completado" && !estaAtendido) {
-            nuevoEstadoInterno = "completado";
-            notaCierre = "Cerrado automáticamente: La necesidad fue marcada como cubierta en Ayuda en Camino.";
-          }
-        }
-
-        const updatePayload: any = {
-          estado_externo: nec.estado_externo,
-          updated_at: new Date().toISOString()
-        };
-
-        if (nuevoEstadoInterno !== ticket.estado) {
-          updatePayload.estado = nuevoEstadoInterno;
-          if (notaCierre) {
-            updatePayload.notas_admin = notaCierre;
-          }
-        }
-
-        const { error: updErr } = await supabase
-          .from("tickets")
-          .update(updatePayload)
-          .eq("id", ticket.id);
-
-        if (!updErr) {
-          actualizados++;
-        } else {
-          console.error(`Error al actualizar necesidad existente ${nec.fuente_id}:`, updErr.message);
-        }
-      }
-    }
-
-    // Registrar log de corrida exitosa
+  if (fetchErr) {
     await supabase.from("ingesta_log").insert({
       fuente: "ayuda_en_camino",
-      nuevos,
-      actualizados,
-      cubiertos,
+      error: `Error al consultar tickets existentes: ${fetchErr.message}`,
       corrida_at: new Date().toISOString()
     });
-
-    return { success: true, nuevos, actualizados, cubiertos };
-
-  } catch (err: any) {
-    console.error("Fallo durante la ingesta automática:", err.message);
-    
-    // Registrar log de corrida fallida
-    await supabase.from("ingesta_log").insert({
-      fuente: "ayuda_en_camino",
-      error: err.message,
-      corrida_at: new Date().toISOString()
-    });
-
-    throw err;
+    throw fetchErr;
   }
+
+  // Construir un Map para búsqueda O(1)
+  const existentesMap = new Map<string, any>(
+    (existentes || []).map(t => [t.fuente_id, t])
+  );
+
+  // ── 2. Separar en nuevos vs. existentes ──
+  const paraInsertar: any[]   = [];
+  const paraActualizar: any[] = [];
+
+  for (const nec of necesidades) {
+    const existing = existentesMap.get(nec.fuente_id);
+
+    if (!existing) {
+      // CASO A — Ticket nuevo
+      paraInsertar.push({
+        fuente:             "ayuda_en_camino",
+        fuente_id:          nec.fuente_id,
+        descripcion:        nec.descripcion,
+        contacto_solicitante: nec.contacto,
+        categoria_externa:  nec.categoria_externa,
+        ubicacion_externa:  nec.ubicacion_externa,
+        estado_externo:     nec.estado_externo,
+        fuente_url:         nec.fuente_url,
+        capturado_at:       new Date().toISOString(),
+        estado:             "en_validacion",
+        requiere_revision:  true
+      });
+    } else {
+      // CASO B — Ticket existente: solo actualizar campos de estado externo
+      // Nunca sobreescribimos el trabajo que hizo el admin (estado interno, operador, etc.)
+      const cambioEstadoExterno = nec.estado_externo !== existing.estado_externo;
+
+      if (!cambioEstadoExterno) {
+        // Sin cambios relevantes — no hace falta tocar la BD
+        continue;
+      }
+
+      const payload: any = {
+        estado_externo: nec.estado_externo,
+        updated_at:     new Date().toISOString()
+      };
+
+      // Auto-cerrar si se cubrió en AEC y nadie la está atendiendo internamente
+      if (
+        nec.estado_externo === "cubierta" &&
+        existing.estado !== "completado" &&
+        !existing.transporte_id &&
+        !existing.medico_id &&
+        !existing.centro_acopio_id
+      ) {
+        payload.estado       = "completado";
+        payload.notas_admin  = "Cerrado automáticamente: La necesidad fue marcada como cubierta en Ayuda en Camino.";
+        cubiertos++;
+      }
+
+      paraActualizar.push({ id: existing.id, ...payload });
+    }
+  }
+
+  // ── 3. INSERT masivo de nuevos (con onConflict como red de seguridad) ──
+  if (paraInsertar.length > 0) {
+    const { error: insErr } = await supabase
+      .from("tickets")
+      .upsert(paraInsertar, {
+        onConflict: "fuente,fuente_id",   // usa el índice único de la BD
+        ignoreDuplicates: false            // si existe, no insertar duplicado
+      });
+
+    if (insErr) {
+      console.error("[AEC] Error al insertar nuevos tickets:", insErr.message);
+      // No lanzar — seguir con las actualizaciones
+    } else {
+      nuevos = paraInsertar.length;
+    }
+  }
+
+  // ── 4. UPDATEs individuales (solo filas que cambiaron de estado externo) ──
+  for (const upd of paraActualizar) {
+    const { id, ...payload } = upd;
+    const { error: updErr } = await supabase
+      .from("tickets")
+      .update(payload)
+      .eq("id", id);
+
+    if (updErr) {
+      console.error(`[AEC] Error al actualizar ticket ${id}:`, updErr.message);
+    } else {
+      actualizados++;
+    }
+  }
+
+  // ── 5. Registrar corrida en bitácora ──
+  await supabase.from("ingesta_log").insert({
+    fuente:      "ayuda_en_camino",
+    nuevos,
+    actualizados,
+    cubiertos,
+    corrida_at:  new Date().toISOString()
+  });
+
+  console.log(`[AEC] Corrida completada: +${nuevos} nuevos, ~${actualizados} actualizados, ✓${cubiertos} cubiertos.`);
+  return { success: true, nuevos, actualizados, cubiertos };
 }
 
 /**
- * pullNecesidades es el adaptador simulado/manual que ejecuta la ingesta
+ * pullNecesidades es el adaptador manual que ejecuta la ingesta
  * desde la vista de administración en tiempo real.
  */
 export async function pullNecesidades() {
