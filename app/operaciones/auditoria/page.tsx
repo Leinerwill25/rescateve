@@ -13,6 +13,7 @@ export default function AuditoriaLogisticaPage() {
   const [historial, setHistorial] = useState<AuditEntry[]>([]);
   const [trasladosFinalizados, setTrasladosFinalizados] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [auditError, setAuditError] = useState<string | null>(null);
   
   // Tabs
   const [activeTab, setActiveTab] = useState<"auditoria" | "completados" | "solventados">("auditoria");
@@ -35,8 +36,10 @@ export default function AuditoriaLogisticaPage() {
 
   const cargarHistorial = async () => {
     setLoading(true);
+    setAuditError(null);
+    
+    // 1. Cargar Historial (Auditoría)
     try {
-      // Cargamos historial
       const { data: histData, error: hErr } = await supabase
         .from("ticket_historial")
         .select(`
@@ -46,21 +49,24 @@ export default function AuditoriaLogisticaPage() {
         .order("created_at", { ascending: false });
 
       if (hErr) throw hErr;
-      
       setHistorial((histData || []) as AuditEntry[]);
+    } catch (err: any) {
+      console.error("Error al cargar historial de auditoría:", err);
+    }
 
-      // Cargamos traslados completados y solventados por fuera
+    // 2. Cargar Traslados Finalizados
+    try {
       const { data: trasData, error: tErr } = await supabase
         .from("traslados")
         .select("*")
         .in("estado", ["completado", "solventado_externo"])
         .order("id", { ascending: false });
         
-      if (!tErr && trasData) {
-        setTrasladosFinalizados(trasData);
-      }
-    } catch (err) {
-      console.error("Error al cargar auditoría y casos:", err);
+      if (tErr) throw tErr;
+      setTrasladosFinalizados(trasData || []);
+    } catch (err: any) {
+      console.error("Error al cargar traslados finalizados:", err);
+      setAuditError(`Error al cargar casos: ${err.message || err}`);
     } finally {
       setLoading(false);
     }
@@ -89,23 +95,35 @@ export default function AuditoriaLogisticaPage() {
     return true;
   });
 
-  const casosCompletados = trasladosFinalizados.filter(t => 
-    t.estado === "completado" && 
-    (searchCaso === "" || 
-     t.id.toLowerCase().includes(searchCaso.toLowerCase()) || 
-     (t.descripcion && t.descripcion.toLowerCase().includes(searchCaso.toLowerCase())) ||
-     (t.origen_ref && t.origen_ref.toLowerCase().includes(searchCaso.toLowerCase())) ||
-     (t.destino_ref && t.destino_ref.toLowerCase().includes(searchCaso.toLowerCase())))
-  );
+  const casosCompletados = trasladosFinalizados.filter(t => {
+    if (!t) return false;
+    const matchesEstado = t.estado === "completado";
+    if (!matchesEstado) return false;
+    if (!searchCaso) return true;
+    
+    const searchLower = searchCaso.toLowerCase();
+    const idMatches = t.id ? t.id.toLowerCase().includes(searchLower) : false;
+    const descMatches = t.descripcion ? t.descripcion.toLowerCase().includes(searchLower) : false;
+    const origMatches = t.origen_ref ? t.origen_ref.toLowerCase().includes(searchLower) : false;
+    const destMatches = t.destino_ref ? t.destino_ref.toLowerCase().includes(searchLower) : false;
+    
+    return idMatches || descMatches || origMatches || destMatches;
+  });
 
-  const casosSolventados = trasladosFinalizados.filter(t => 
-    t.estado === "solventado_externo" && 
-    (searchCaso === "" || 
-     t.id.toLowerCase().includes(searchCaso.toLowerCase()) || 
-     (t.descripcion && t.descripcion.toLowerCase().includes(searchCaso.toLowerCase())) ||
-     (t.origen_ref && t.origen_ref.toLowerCase().includes(searchCaso.toLowerCase())) ||
-     (t.destino_ref && t.destino_ref.toLowerCase().includes(searchCaso.toLowerCase())))
-  );
+  const casosSolventados = trasladosFinalizados.filter(t => {
+    if (!t) return false;
+    const matchesEstado = t.estado === "solventado_externo";
+    if (!matchesEstado) return false;
+    if (!searchCaso) return true;
+    
+    const searchLower = searchCaso.toLowerCase();
+    const idMatches = t.id ? t.id.toLowerCase().includes(searchLower) : false;
+    const descMatches = t.descripcion ? t.descripcion.toLowerCase().includes(searchLower) : false;
+    const origMatches = t.origen_ref ? t.origen_ref.toLowerCase().includes(searchLower) : false;
+    const destMatches = t.destino_ref ? t.destino_ref.toLowerCase().includes(searchLower) : false;
+    
+    return idMatches || descMatches || origMatches || destMatches;
+  });
 
   const getAccionBadge = (accion: string, aValor: string | null) => {
     let label = accion.toUpperCase();
@@ -168,6 +186,24 @@ export default function AuditoriaLogisticaPage() {
           <p style={styles.subtitle}>Trazabilidad en tiempo real sobre aprobaciones, asignaciones, casos completados y solventados por fuera.</p>
         </div>
       </div>
+
+      {auditError && (
+        <div style={{
+          padding: "12px 16px",
+          backgroundColor: "rgba(220, 38, 38, 0.1)",
+          color: "var(--emergency)",
+          border: "1px solid rgba(220, 38, 38, 0.3)",
+          borderRadius: "var(--radius)",
+          fontSize: "13px",
+          fontWeight: 600,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px"
+        }}>
+          <AlertTriangle size={16} />
+          <span>{auditError}</span>
+        </div>
+      )}
 
       {/* Tabs de Navegación */}
       <div style={styles.tabsContainer}>
