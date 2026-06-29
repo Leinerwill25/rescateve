@@ -45,6 +45,7 @@ export default function Home() {
   } | null>(null);
   const [novedadModal,   setNovedadModal]   = useState<{ id: string; nombre: string } | null>(null);
   const [encontradoModal, setEncontradoModal] = useState<{ id: string; nombre: string } | null>(null);
+  const [jumpTo, setJumpTo] = useState<{ lat: number; lng: number } | null>(null);
 
   // ── Carga inicial y realtime ──
   async function cargar() {
@@ -207,6 +208,8 @@ export default function Home() {
             puntosAyuda={puntosAyuda}
             onMarcarAtendido={marcarAtendidoLegacy}
             onAbrirAtender={(id, estado) => setAtenderModal({ id, estado })}
+            jumpTo={jumpTo}
+            onJumpUsed={() => setJumpTo(null)}
           />
         )}
 
@@ -302,6 +305,13 @@ export default function Home() {
                     </p>
 
                     <div className="card__actions">
+                      <button
+                        className="card__action card__action--primary"
+                        onClick={() => { setJumpTo({ lat: s.latitud, lng: s.longitud }); setTab("mapa"); }}
+                        aria-label="Ver en el mapa"
+                      >
+                        📍 Ver en mapa
+                      </button>
                       <a href={dir} target="_blank" rel="noreferrer" className="card__action card__action--primary" aria-label={`Cómo llegar a ${t.label}`}>
                         🧭 Cómo llegar
                       </a>
@@ -443,6 +453,14 @@ export default function Home() {
                     )}
 
                     <div className="card__actions" style={{ flexWrap: "wrap" }}>
+                      <button
+                        className="card__action card__action--primary"
+                        onClick={() => { if (d.latitud && d.longitud) { setJumpTo({ lat: d.latitud, lng: d.longitud }); setTab("mapa"); } }}
+                        aria-label="Ver en el mapa"
+                        style={{ flex: "1 1 auto" }}
+                      >
+                        📍 Ver en mapa
+                      </button>
                       <button
                         className="card__action card__action--primary"
                         onClick={() => setEncontradoModal({ id: d.id, nombre: d.nombre })}

@@ -11,6 +11,8 @@ type Props = {
   puntosAyuda?: PuntoAyuda[];
   onMarcarAtendido: (id: string) => void;
   onAbrirAtender: (id: string, estado: "pendiente" | "en_camino") => void;
+  jumpTo?: { lat: number; lng: number } | null;
+  onJumpUsed?: () => void;
 };
 
 const DEFAULT: [number, number] = [10.4806, -66.9036]; // Caracas
@@ -33,6 +35,8 @@ export default function MapView({
   centrosAcopio = [],
   puntosAyuda = [],
   onAbrirAtender,
+  jumpTo,
+  onJumpUsed,
 }: Props) {
   const mapRef  = useRef<HTMLDivElement>(null);
   const map     = useRef<any>(null);
@@ -67,6 +71,14 @@ export default function MapView({
     draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [solicitudes, desaparecidos, centrosAcopio, puntosAyuda]);
+
+  // Volar a un punto especifico cuando se hace clic desde la lista
+  useEffect(() => {
+    if (jumpTo && map.current) {
+      map.current.flyTo([jumpTo.lat, jumpTo.lng], 15, { duration: 1.2 });
+      onJumpUsed?.();
+    }
+  }, [jumpTo, onJumpUsed]);
 
   /** Pin normal */
   function pin(color: string, emoji: string) {
