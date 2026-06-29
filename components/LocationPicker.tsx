@@ -13,6 +13,9 @@ type Props = {
 // Caracas como centro por defecto
 const DEFAULT: [number, number] = [10.4806, -66.9036];
 
+// Limitar el mapa solo a Venezuela
+const VENEZUELA_BOUNDS: [[number, number], [number, number]] = [[0, -75], [13, -59]];
+
 export default function LocationPicker({ lat, lng, onChange }: Props) {
   const mapRef      = useRef<HTMLDivElement>(null);
   const leafletMap  = useRef<any>(null);
@@ -32,7 +35,14 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
       const start: [number, number] =
         lat != null && lng != null ? [lat, lng] : DEFAULT;
 
-      const map = L.map(mapRef.current).setView(start, lat != null ? 16 : 12);
+      const map = L.map(mapRef.current, {
+        center: start,
+        zoom: lat != null ? 16 : 7,
+        minZoom: 5,
+        maxBounds: VENEZUELA_BOUNDS,
+        maxBoundsViscosity: 1,
+        zoomControl: true,
+      });
       leafletMap.current = map;
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {

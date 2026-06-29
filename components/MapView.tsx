@@ -13,7 +13,11 @@ type Props = {
   onAbrirAtender: (id: string, estado: "pendiente" | "en_camino") => void;
 };
 
-const DEFAULT: [number, number] = [10.4806, -66.9036]; // Caracas
+const DEFAULT: [number, number] = [8.5, -66.5]; // Centro de Venezuela
+
+// Limitar el mapa solo a Venezuela (con un poco de margen)
+// Formato Leaflet: [[sur, oeste], [norte, este]]
+const VENEZUELA_BOUNDS: [[number, number], [number, number]] = [[0, -75], [13, -59]];
 
 const TIPO_COLORS: Record<string, string> = {
   rescate:          "#DC2626",
@@ -49,7 +53,14 @@ export default function MapView({
       const mod = (await import("leaflet")).default;
       L.current = mod;
       if (cancelled || !mapRef.current || map.current) return;
-      map.current = mod.map(mapRef.current).setView(DEFAULT, 11);
+      map.current = mod.map(mapRef.current, {
+        center: DEFAULT,
+        zoom: 7,
+        minZoom: 6,
+        maxBounds: VENEZUELA_BOUNDS,
+        maxBoundsViscosity: 1,
+        zoomControl: true,
+      });
       mod
         .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: "© OpenStreetMap contributors",
