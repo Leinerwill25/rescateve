@@ -73,6 +73,17 @@ export default function ColaValidacionPage() {
     { clave: "personal_medico", nombre: "Personal Médico (SafeCare)" }
   ];
 
+  // Ingesta Ayuda en Camino
+  const [filtroExterno, setFiltroExterno] = useState<"todos" | "pendiente" | "cubierta">("pendiente");
+  const [ultimoLog, setUltimoLog] = useState<any>(null);
+
+  const getMinutosTranscurridos = () => {
+    if (!ultimoLog || !ultimoLog.corrida_at) return null;
+    const diffMs = Date.now() - new Date(ultimoLog.corrida_at).getTime();
+    const diffMins = Math.max(0, Math.floor(diffMs / 60000));
+    return diffMins;
+  };
+
   const cargarTickets = async () => {
     setLoading(true);
     setError(null);
@@ -87,6 +98,18 @@ export default function ColaValidacionPage() {
 
       if (fetchErr) throw fetchErr;
       setTickets((data || []) as Ticket[]);
+
+      // Cargar último log de ingesta
+      const { data: logData } = await supabase
+        .from("ingesta_log")
+        .select("corrida_at")
+        .eq("fuente", "ayuda_en_camino")
+        .order("corrida_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (logData) {
+        setUltimoLog(logData);
+      }
     } catch (err: any) {
       console.error(err);
       setError("Error al cargar la cola de validación.");
@@ -418,6 +441,12 @@ export default function ColaValidacionPage() {
     }
   };
 
+  const ticketsFiltrados = tickets.filter(t => {
+    if (filtroExterno === "todos") return true;
+    const estExt = t.estado_externo || "pendiente";
+    return estExt === filtroExterno;
+  });
+
   return (
     <div style={styles.page}>
       <div style={styles.header}>
@@ -569,6 +598,42 @@ export default function ColaValidacionPage() {
         </form>
       )}
 
+      {/* Barra de Filtros Ingesta e Indicador de Sincronización */}
+      <div style={styles.filterBar}>
+        <div style={styles.filterGroup}>
+          <button 
+            type="button"
+            style={filtroExterno === "todos" ? styles.filterBtnActive : styles.filterBtn}
+            onClick={() => setFiltroExterno("todos")}
+          >
+            Todas ({tickets.length})
+          </button>
+          <button 
+            type="button"
+            style={filtroExterno === "pendiente" ? styles.filterBtnActive : styles.filterBtn}
+            onClick={() => setFiltroExterno("pendiente")}
+          >
+            Pendientes ({tickets.filter(t => (t.estado_externo || "pendiente") === "pendiente").length})
+          </button>
+          <button 
+            type="button"
+            style={filtroExterno === "cubierta" ? styles.filterBtnActive : styles.filterBtn}
+            onClick={() => setFiltroExterno("cubierta")}
+          >
+            Cubiertas ({tickets.filter(t => t.estado_externo === "cubierta").length})
+          </button>
+        </div>
+        
+        {ultimoLog && (
+          <div style={styles.syncIndicator}>
+            <Clock size={14} />
+            <span>
+              Sincronizado {getMinutosTranscurridos() === 0 ? "hace menos de 1 min" : getMinutosTranscurridos() !== null ? `hace ${getMinutosTranscurridos()} min` : "recientemente"}
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* Cola de tickets */}
       {loading ? (
         <div style={styles.center}>
@@ -579,15 +644,15 @@ export default function ColaValidacionPage() {
           <AlertTriangle color="var(--emergency)" />
           <p>{error}</p>
         </div>
-      ) : tickets.length === 0 ? (
+      ) : ticketsFiltrados.length === 0 ? (
         <div style={styles.emptyContainer}>
           <Check size={48} color="var(--success)" />
-          <h3>Cola Limpia</h3>
-          <p style={{ color: "var(--text-muted)" }}>No hay tickets pendientes de validación.</p>
+          <h3>Cola Vacía</h3>
+          <p style={{ color: "var(--text-muted)" }}>No hay tickets que coincidan con el filtro seleccionado.</p>
         </div>
       ) : (
         <div style={styles.list}>
-          {tickets.map((t) => (
+          {ticketsFiltrados.map((t) => (
             <div 
               key={t.id} 
               style={{
@@ -597,16 +662,39 @@ export default function ColaValidacionPage() {
               }}
             >
               <div style={styles.cardHeader}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                   <span style={t.prioridad === "alta" ? styles.badgeAlta : styles.badgeMedia}>
                     Prioridad {t.prioridad.toUpperCase()}
                   </span>
-                  <span style={styles.badgeFuente}>
-                    Fuente: {t.fuente.toUpperCase()}
-                  </span>
+                  
+                  {t.fuente === "ayuda_en_camino" ? (
+                    <>
+                      <span style={styles.badgeAEC}>Ayuda en Camino</span>
+                      <span style={t.estado_externo === "cubierta" ? styles.badgeCubierta : styles.badgePendiente}>
+                        Origen: {t.estado_externo === "cubierta" ? "Cubierta" : "Pendiente"}
+                      </span>
+                      {t.fuente_url && (
+                        <a 
+                          href={t.fuente_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          style={styles.verOrigenLink}
+                        >
+                          Ver en origen ↗
+                        </a>
+                      )}
+                    </>
+                  ) : t.fuente === "traslado" ? (
+                    <span style={styles.badgeAEC}>Traslado Público</span>
+                  ) : (
+                    <span style={styles.badgeFuente}>
+                      Fuente: {t.fuente.toUpperCase()}
+                    </span>
+                  )}
+
                   {t.requiere_revision && (
                     <span style={styles.badgeRevision}>
-                      ⚠️ Requiere Revisión (Clasificación Ambígua/Sin Match)
+                      ⚠️ Requiere Revisión
                     </span>
                   )}
                 </div>
@@ -618,6 +706,18 @@ export default function ColaValidacionPage() {
 
               <div style={styles.cardBody}>
                 <h4 style={styles.cardDesc}>{t.descripcion}</h4>
+                
+                {t.ubicacion_externa && (
+                  <p style={styles.externaInfo}>
+                    <strong>📍 Ubicación de origen (Externo):</strong> {t.ubicacion_externa}
+                  </p>
+                )}
+
+                {t.categoria_externa && (
+                  <p style={styles.externaInfo}>
+                    <strong>🏷️ Categoría de origen (Externo):</strong> {t.categoria_externa}
+                  </p>
+                )}
                 
                 {t.cantidad && (
                   <p style={styles.metaText}><strong>Cantidad/Detalles:</strong> {t.cantidad}</p>
@@ -1105,5 +1205,96 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "var(--s3)",
     borderTop: "1px solid var(--border)",
     paddingTop: "var(--s3)",
+  },
+  filterBar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    background: "var(--surface-2)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius)",
+    padding: "12px 16px",
+    marginBottom: "20px",
+    flexWrap: "wrap" as any,
+    gap: "12px",
+  },
+  filterGroup: {
+    display: "flex",
+    gap: "8px",
+  },
+  filterBtn: {
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    color: "var(--text-muted)",
+    padding: "6px 12px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+  },
+  filterBtnActive: {
+    background: "var(--brand)",
+    border: "1px solid var(--brand)",
+    color: "white",
+    padding: "6px 12px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+  },
+  syncIndicator: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "13px",
+    color: "var(--text-muted)",
+  },
+  badgeAEC: {
+    background: "rgba(59, 130, 246, 0.1)",
+    color: "#2563eb",
+    border: "1px solid rgba(59, 130, 246, 0.2)",
+    fontSize: "11px",
+    fontWeight: 800,
+    padding: "3px 8px",
+    borderRadius: "var(--radius-sm)",
+  },
+  badgePendiente: {
+    background: "rgba(245, 158, 11, 0.1)",
+    color: "#d97706",
+    border: "1px solid rgba(245, 158, 11, 0.2)",
+    fontSize: "11px",
+    fontWeight: 800,
+    padding: "3px 8px",
+    borderRadius: "var(--radius-sm)",
+  },
+  badgeCubierta: {
+    background: "rgba(16, 185, 129, 0.1)",
+    color: "#059669",
+    border: "1px solid rgba(16, 185, 129, 0.2)",
+    fontSize: "11px",
+    fontWeight: 800,
+    padding: "3px 8px",
+    borderRadius: "var(--radius-sm)",
+  },
+  verOrigenLink: {
+    fontSize: "11px",
+    color: "var(--brand)",
+    fontWeight: 700,
+    textDecoration: "none",
+    marginLeft: "4px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "2px",
+  },
+  externaInfo: {
+    margin: "4px 0 0 0",
+    fontSize: "var(--text-sm)",
+    color: "var(--text-muted)",
+    background: "var(--surface-1)",
+    padding: "6px 10px",
+    borderRadius: "var(--radius-sm)",
+    borderLeft: "3px solid var(--border)",
   }
 };

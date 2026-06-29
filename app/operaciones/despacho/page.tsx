@@ -251,7 +251,7 @@ export default function TableroDespachoPage() {
               <div key={t.id} style={styles.card}>
                 {/* Cabecera Tarjeta */}
                 <div style={styles.cardHeader}>
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                     <span style={{
                       ...styles.badgeEstado,
                       color: estadoInfo.color,
@@ -263,6 +263,52 @@ export default function TableroDespachoPage() {
                     <span style={t.prioridad === "alta" ? styles.badgeAlta : styles.badgeMedia}>
                       {t.prioridad.toUpperCase()}
                     </span>
+
+                    {t.fuente === "ayuda_en_camino" && (
+                      <>
+                        <span style={{
+                          background: "rgba(59, 130, 246, 0.1)",
+                          color: "#2563eb",
+                          border: "1px solid rgba(59, 130, 246, 0.2)",
+                          fontSize: "10px",
+                          fontWeight: 800,
+                          padding: "2px 6px",
+                          borderRadius: "var(--radius-sm)",
+                        }}>
+                          AEC · {t.estado_externo === "cubierta" ? "Cubierta" : "Pendiente"}
+                        </span>
+                        {t.fuente_url && (
+                          <a 
+                            href={t.fuente_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            style={{
+                              fontSize: "11px",
+                              color: "var(--brand)",
+                              fontWeight: 700,
+                              textDecoration: "none",
+                              marginLeft: "2px"
+                            }}
+                          >
+                            Origen ↗
+                          </a>
+                        )}
+                      </>
+                    )}
+
+                    {t.fuente === "traslado" && (
+                      <span style={{
+                        background: "rgba(59, 130, 246, 0.1)",
+                        color: "#2563eb",
+                        border: "1px solid rgba(59, 130, 246, 0.2)",
+                        fontSize: "10px",
+                        fontWeight: 800,
+                        padding: "2px 6px",
+                        borderRadius: "var(--radius-sm)",
+                      }}>
+                        Traslado Público
+                      </span>
+                    )}
                   </div>
                   <span style={styles.ticketId}>ID: {t.id.slice(0, 8)}</span>
                 </div>
@@ -270,6 +316,35 @@ export default function TableroDespachoPage() {
                 {/* Info Solicitud */}
                 <div style={styles.cardBody}>
                   <h4 style={styles.desc}>{t.descripcion}</h4>
+
+                  {t.ubicacion_externa && (
+                    <p style={{
+                      margin: "4px 0 8px 0",
+                      fontSize: "12px",
+                      color: "var(--text-muted)",
+                      background: "var(--surface-2)",
+                      padding: "6px 10px",
+                      borderRadius: "var(--radius-sm)",
+                      borderLeft: "3px solid var(--border)",
+                    }}>
+                      <strong>📍 Ubicación (Origen):</strong> {t.ubicacion_externa}
+                    </p>
+                  )}
+
+                  {t.categoria_externa && (
+                    <p style={{
+                      margin: "4px 0 8px 0",
+                      fontSize: "12px",
+                      color: "var(--text-muted)",
+                      background: "var(--surface-2)",
+                      padding: "6px 10px",
+                      borderRadius: "var(--radius-sm)",
+                      borderLeft: "3px solid var(--border)",
+                    }}>
+                      <strong>🏷️ Categoría (Origen):</strong> {t.categoria_externa}
+                    </p>
+                  )}
+
                   {t.cantidad && <p style={styles.itemQuantity}><strong>Cantidad solicitada:</strong> {t.cantidad}</p>}
                   
                   <div style={styles.metaRow}>

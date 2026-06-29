@@ -102,7 +102,7 @@ export type Ticket = {
   id: string;
   created_at: string;
   updated_at: string;
-  fuente: "ayuda_en_camino" | "manual" | "publico";
+  fuente: "ayuda_en_camino" | "manual" | "publico" | "traslado";
   fuente_id: string | null;
   descripcion: string;
   categoria_sugerida: string | null;
@@ -126,6 +126,11 @@ export type Ticket = {
   validado_por: string | null;
   validado_at: string | null;
   notas_admin: string | null;
+  categoria_externa?: string | null;
+  ubicacion_externa?: string | null;
+  estado_externo?: "pendiente" | "cubierta" | null;
+  fuente_url?: string | null;
+  capturado_at?: string | null;
 };
 
 export type TicketHistorial = {
