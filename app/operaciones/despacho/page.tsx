@@ -30,6 +30,7 @@ export default function TableroDespachoPage() {
 
   const [loading, setLoading] = useState(true);
   const [filterEstado, setFilterEstado] = useState<string>("todos");
+  const [filtroOrigen, setFiltroOrigen] = useState<"todos" | "traslados" | "ayuda_en_camino">("todos");
 
   // Asignaciones locales en UI (por ticket id)
   const [selectedAcopio, setSelectedAcopio] = useState<Record<string, string>>({});
@@ -180,6 +181,19 @@ export default function TableroDespachoPage() {
   };
 
   const ticketsFiltrados = tickets.filter(t => {
+    // 1. Filtrar por origen/tipo
+    if (filtroOrigen === "traslados") {
+      const isTras = t.fuente === "traslado" || 
+        ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_final || "") ||
+        ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_sugerida || "") ||
+        (t.departamentos_final && (t.departamentos_final.includes("transporte_carga") || t.departamentos_final.includes("personal_medico"))) ||
+        (t.departamentos_sugeridos && (t.departamentos_sugeridos.includes("transporte_carga") || t.departamentos_sugeridos.includes("personal_medico")));
+      if (!isTras) return false;
+    } else if (filtroOrigen === "ayuda_en_camino") {
+      if (t.fuente !== "ayuda_en_camino") return false;
+    }
+
+    // 2. Filtrar por estado interno
     if (filterEstado === "todos") return true;
     return t.estado === filterEstado;
   });
@@ -199,31 +213,71 @@ export default function TableroDespachoPage() {
           <h2 style={styles.title}>Tablero de Despacho Logístico</h2>
           <p style={styles.subtitle}>Gestione rutas, asigne transportes, médicos y acopios a tickets aprobados.</p>
         </div>
-        <div style={styles.filterGroup}>
-          <button 
-            style={filterEstado === "todos" ? styles.btnFilterActive : styles.btnFilter}
-            onClick={() => setFilterEstado("todos")}
-          >
-            Todos ({tickets.length})
-          </button>
-          <button 
-            style={filterEstado === "aprobado" ? styles.btnFilterActive : styles.btnFilter}
-            onClick={() => setFilterEstado("aprobado")}
-          >
-            Aprobados ({tickets.filter(t => t.estado === "aprobado").length})
-          </button>
-          <button 
-            style={filterEstado === "asignado" ? styles.btnFilterActive : styles.btnFilter}
-            onClick={() => setFilterEstado("asignado")}
-          >
-            Asignados ({tickets.filter(t => t.estado === "asignado").length})
-          </button>
-          <button 
-            style={filterEstado === "en_camino" ? styles.btnFilterActive : styles.btnFilter}
-            onClick={() => setFilterEstado("en_camino")}
-          >
-            En Camino ({tickets.filter(t => t.estado === "en_camino").length})
-          </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end" }}>
+          <div style={styles.filterGroup}>
+            <span style={{ fontSize: "11px", fontWeight: 700, alignSelf: "center", padding: "0 6px", color: "var(--text-muted)" }}>Origen:</span>
+            <button 
+              type="button"
+              style={filtroOrigen === "todos" ? styles.btnFilterActive : styles.btnFilter}
+              onClick={() => setFiltroOrigen("todos")}
+            >
+              Todos ({tickets.length})
+            </button>
+            <button 
+              type="button"
+              style={filtroOrigen === "traslados" ? styles.btnFilterActive : styles.btnFilter}
+              onClick={() => setFiltroOrigen("traslados")}
+            >
+              Solo Traslados ({
+                tickets.filter(t => 
+                  t.fuente === "traslado" || 
+                  ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_final || "") ||
+                  ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_sugerida || "") ||
+                  (t.departamentos_final && (t.departamentos_final.includes("transporte_carga") || t.departamentos_final.includes("personal_medico"))) ||
+                  (t.departamentos_sugeridos && (t.departamentos_sugeridos.includes("transporte_carga") || t.departamentos_sugeridos.includes("personal_medico")))
+                ).length
+              })
+            </button>
+            <button 
+              type="button"
+              style={filtroOrigen === "ayuda_en_camino" ? styles.btnFilterActive : styles.btnFilter}
+              onClick={() => setFiltroOrigen("ayuda_en_camino")}
+            >
+              Ayuda en Camino ({tickets.filter(t => t.fuente === "ayuda_en_camino").length})
+            </button>
+          </div>
+
+          <div style={styles.filterGroup}>
+            <span style={{ fontSize: "11px", fontWeight: 700, alignSelf: "center", padding: "0 6px", color: "var(--text-muted)" }}>Estado:</span>
+            <button 
+              type="button"
+              style={filterEstado === "todos" ? styles.btnFilterActive : styles.btnFilter}
+              onClick={() => setFilterEstado("todos")}
+            >
+              Todos ({tickets.length})
+            </button>
+            <button 
+              type="button"
+              style={filterEstado === "aprobado" ? styles.btnFilterActive : styles.btnFilter}
+              onClick={() => setFilterEstado("aprobado")}
+            >
+              Aprobados ({tickets.filter(t => t.estado === "aprobado").length})
+            </button>
+            <button 
+              type="button"
+              style={filterEstado === "asignado" ? styles.btnFilterActive : styles.btnFilter}
+              onClick={() => setFilterEstado("asignado")}
+            >
+              Asignados ({tickets.filter(t => t.estado === "asignado").length})
+            </button>
+            <button 
+              type="button"
+              style={filterEstado === "en_camino" ? styles.btnFilterActive : styles.btnFilter}
+              onClick={() => setFilterEstado("en_camino")}
+            >
+              En Camino ({tickets.filter(t => t.estado === "en_camino").length})
+            </button>
+          </div>
         </div>
       </div>
 

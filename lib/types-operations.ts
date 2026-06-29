@@ -29,6 +29,8 @@ export type Transporte = {
   contacto: string | null;
   en_standby: boolean;
   activo: boolean;
+  modelo?: string | null;
+  placa?: string | null;
 };
 
 export type PersonalMedico = {
@@ -131,6 +133,7 @@ export type Ticket = {
   estado_externo?: "pendiente" | "cubierta" | null;
   fuente_url?: string | null;
   capturado_at?: string | null;
+  cuando?: string | null;
 };
 
 export type TicketHistorial = {

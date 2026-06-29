@@ -187,7 +187,7 @@ export default function RecursosPage() {
   // CRUD TRANSPORTES
   // -------------------------------------------------------------
   const openCrearTrans = () => {
-    setEditTrans({ id: "nuevo", perfil_id: "", nombre: "", tipo: "carga", zona: "", contacto: "", en_standby: true, activo: true });
+    setEditTrans({ id: "nuevo", perfil_id: "", nombre: "", tipo: "carga", zona: "", contacto: "", en_standby: true, activo: true, modelo: "", placa: "" });
   };
 
   const handleGuardarTrans = async (e: React.FormEvent) => {
@@ -201,7 +201,9 @@ export default function RecursosPage() {
       zona: editTrans.zona || null,
       contacto: editTrans.contacto || null,
       en_standby: editTrans.en_standby,
-      activo: editTrans.activo
+      activo: editTrans.activo,
+      modelo: editTrans.modelo || null,
+      placa: editTrans.placa || null
     };
 
     try {
@@ -629,6 +631,8 @@ export default function RecursosPage() {
                   <tr>
                     <th style={styles.th}>Nombre Vehículo</th>
                     <th style={styles.th}>Tipo</th>
+                    <th style={styles.th}>Modelo</th>
+                    <th style={styles.th}>Placa</th>
                     <th style={styles.th}>Zona Ruteo</th>
                     <th style={styles.th}>Teléfono</th>
                     <th style={styles.th}>Standby</th>
@@ -642,6 +646,8 @@ export default function RecursosPage() {
                     <tr key={t.id} style={styles.tr}>
                       <td style={styles.td}><strong>{t.nombre}</strong></td>
                       <td style={styles.td}><span style={styles.typeTag}>{t.tipo.toUpperCase()}</span></td>
+                      <td style={styles.td}>{t.modelo || "N/A"}</td>
+                      <td style={styles.td}>{t.placa || "N/A"}</td>
                       <td style={styles.td}>{t.zona || "Todas"}</td>
                       <td style={styles.td}>{t.contacto || "N/A"}</td>
                       <td style={styles.td}>{t.en_standby ? "⚡ Esperando (Standby)" : "🚚 Ocupado/En viaje"}</td>
@@ -976,6 +982,14 @@ export default function RecursosPage() {
               <div style={styles.formField}>
                 <label style={styles.label}>Contacto de Soporte</label>
                 <input type="text" value={editTrans.contacto || ""} onChange={(e) => setEditTrans({ ...editTrans, contacto: e.target.value })} placeholder="Teléfono" style={styles.input} />
+              </div>
+              <div style={styles.formField}>
+                <label style={styles.label}>Modelo del Vehículo</label>
+                <input type="text" value={editTrans.modelo || ""} onChange={(e) => setEditTrans({ ...editTrans, modelo: e.target.value })} placeholder="Ej: Toyota Hilux / Encava" style={styles.input} />
+              </div>
+              <div style={styles.formField}>
+                <label style={styles.label}>Placa del Vehículo</label>
+                <input type="text" value={editTrans.placa || ""} onChange={(e) => setEditTrans({ ...editTrans, placa: e.target.value })} placeholder="Ej: AB123CD" style={styles.input} />
               </div>
               <div style={{ display: "flex", gap: "12px" }}>
                 <label style={styles.checkboxLabel}>

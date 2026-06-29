@@ -41,7 +41,12 @@ export default function ColaValidacionPage() {
   const [manualDestLng, setManualDestLng] = useState("");
   const [manualCantidad, setManualCantidad] = useState("");
   const [manualPrioridad, setManualPrioridad] = useState("media");
+  const [manualEsTraslado, setManualEsTraslado] = useState(false);
+  const [manualTipoTraslado, setManualTipoTraslado] = useState("insumos");
+  const [manualCuando, setManualCuando] = useState("Lo antes posible");
   
+  // Filtro de origen
+  const [filtroOrigen, setFiltroOrigen] = useState<"todos" | "traslados" | "ayuda_en_camino">("todos");
   // Formulario Reclasificación
   const [finalCat, setFinalCat] = useState("");
   const [finalDeps, setFinalDeps] = useState<string[]>([]);
@@ -298,6 +303,13 @@ export default function ColaValidacionPage() {
     if (!manualDesc.trim()) return;
 
     try {
+      let cat = null;
+      let deps = null;
+      if (manualEsTraslado) {
+        cat = manualTipoTraslado === "insumos" ? "insumo_basico" : "traslado_personal";
+        deps = manualTipoTraslado === "insumos" ? ["acopio", "transporte_carga"] : ["personal_medico"];
+      }
+
       const { error: insErr } = await supabase.from("tickets").insert({
         fuente: "manual",
         descripcion: manualDesc,
@@ -310,6 +322,12 @@ export default function ColaValidacionPage() {
         destino_lng: manualDestLng ? parseFloat(manualDestLng) : null,
         cantidad: manualCantidad || null,
         prioridad: manualPrioridad,
+        cuando: manualEsTraslado ? manualCuando : null,
+        categoria_sugerida: cat,
+        categoria_final: cat,
+        departamentos_sugeridos: deps,
+        departamentos_final: deps,
+        requiere_revision: !manualEsTraslado,
         estado: "en_validacion"
       });
 
@@ -326,6 +344,8 @@ export default function ColaValidacionPage() {
       setManualDestLng("");
       setManualCantidad("");
       setManualPrioridad("media");
+      setManualEsTraslado(false);
+      setManualCuando("Lo antes posible");
       setShowManualForm(false);
       
       cargarTickets();
@@ -442,6 +462,19 @@ export default function ColaValidacionPage() {
   };
 
   const ticketsFiltrados = tickets.filter(t => {
+    // 1. Filtrar por origen/tipo
+    if (filtroOrigen === "traslados") {
+      const isTras = t.fuente === "traslado" || 
+        ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_final || "") ||
+        ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_sugerida || "") ||
+        (t.departamentos_final && (t.departamentos_final.includes("transporte_carga") || t.departamentos_final.includes("personal_medico"))) ||
+        (t.departamentos_sugeridos && (t.departamentos_sugeridos.includes("transporte_carga") || t.departamentos_sugeridos.includes("personal_medico")));
+      if (!isTras) return false;
+    } else if (filtroOrigen === "ayuda_en_camino") {
+      if (t.fuente !== "ayuda_en_camino") return false;
+    }
+
+    // 2. Filtrar por estado externo
     if (filtroExterno === "todos") return true;
     const estExt = t.estado_externo || "pendiente";
     return estExt === filtroExterno;
@@ -508,6 +541,46 @@ export default function ColaValidacionPage() {
                 <option value="alta">Alta</option>
               </select>
             </div>
+
+            <div style={{ ...styles.formField, gridColumn: "span 2", display: "flex", alignItems: "center", gap: "8px", margin: "10px 0" }}>
+              <input
+                type="checkbox"
+                id="manualEsTraslado"
+                checked={manualEsTraslado}
+                onChange={(e) => setManualEsTraslado(e.target.checked)}
+                style={{ width: "18px", height: "18px", cursor: "pointer" }}
+              />
+              <label htmlFor="manualEsTraslado" style={{ ...styles.label, margin: 0, fontWeight: 700, cursor: "pointer" }}>
+                🚚 ¿Es una solicitud de Traslado Logístico?
+              </label>
+            </div>
+
+            {manualEsTraslado && (
+              <>
+                <div style={styles.formField}>
+                  <label style={styles.label}>¿Qué necesitas trasladar?</label>
+                  <select
+                    value={manualTipoTraslado}
+                    onChange={(e) => setManualTipoTraslado(e.target.value)}
+                    style={styles.select}
+                  >
+                    <option value="insumos">📦 Insumos / Carga</option>
+                    <option value="personal_medico">🩺 Personal Médico</option>
+                  </select>
+                </div>
+
+                <div style={styles.formField}>
+                  <label style={styles.label}>¿Cuándo se requiere?</label>
+                  <input
+                    type="text"
+                    value={manualCuando}
+                    onChange={(e) => setManualCuando(e.target.value)}
+                    placeholder="Ej. Lo antes posible / Mañana a las 8am"
+                    style={styles.input}
+                  />
+                </div>
+              </>
+            )}
 
             <div style={styles.formField}>
               <label style={styles.label}>Referencia Origen (Dirección)</label>
@@ -599,39 +672,81 @@ export default function ColaValidacionPage() {
       )}
 
       {/* Barra de Filtros Ingesta e Indicador de Sincronización */}
-      <div style={styles.filterBar}>
-        <div style={styles.filterGroup}>
-          <button 
-            type="button"
-            style={filtroExterno === "todos" ? styles.filterBtnActive : styles.filterBtn}
-            onClick={() => setFiltroExterno("todos")}
-          >
-            Todas ({tickets.length})
-          </button>
-          <button 
-            type="button"
-            style={filtroExterno === "pendiente" ? styles.filterBtnActive : styles.filterBtn}
-            onClick={() => setFiltroExterno("pendiente")}
-          >
-            Pendientes ({tickets.filter(t => (t.estado_externo || "pendiente") === "pendiente").length})
-          </button>
-          <button 
-            type="button"
-            style={filtroExterno === "cubierta" ? styles.filterBtnActive : styles.filterBtn}
-            onClick={() => setFiltroExterno("cubierta")}
-          >
-            Cubiertas ({tickets.filter(t => t.estado_externo === "cubierta").length})
-          </button>
-        </div>
-        
-        {ultimoLog && (
-          <div style={styles.syncIndicator}>
-            <Clock size={14} />
-            <span>
-              Sincronizado {getMinutosTranscurridos() === 0 ? "hace menos de 1 min" : getMinutosTranscurridos() !== null ? `hace ${getMinutosTranscurridos()} min` : "recientemente"}
-            </span>
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}>
+        <div style={{ ...styles.filterBar, marginBottom: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Filtrar por Origen / Tipo</span>
+            <div style={styles.filterGroup}>
+              <button 
+                type="button"
+                style={filtroOrigen === "todos" ? styles.filterBtnActive : styles.filterBtn}
+                onClick={() => setFiltroOrigen("todos")}
+              >
+                Todos los Tickets ({tickets.length})
+              </button>
+              <button 
+                type="button"
+                style={filtroOrigen === "traslados" ? styles.filterBtnActive : styles.filterBtn}
+                onClick={() => setFiltroOrigen("traslados")}
+              >
+                Solo Traslados Logísticos ({
+                  tickets.filter(t => 
+                    t.fuente === "traslado" || 
+                    ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_final || "") ||
+                    ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_sugerida || "") ||
+                    (t.departamentos_final && (t.departamentos_final.includes("transporte_carga") || t.departamentos_final.includes("personal_medico"))) ||
+                    (t.departamentos_sugeridos && (t.departamentos_sugeridos.includes("transporte_carga") || t.departamentos_sugeridos.includes("personal_medico")))
+                  ).length
+                })
+              </button>
+              <button 
+                type="button"
+                style={filtroOrigen === "ayuda_en_camino" ? styles.filterBtnActive : styles.filterBtn}
+                onClick={() => setFiltroOrigen("ayuda_en_camino")}
+              >
+                Solo Ayuda en Camino ({tickets.filter(t => t.fuente === "ayuda_en_camino").length})
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+
+        <div style={{ ...styles.filterBar, marginBottom: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Filtrar por Estado en la Fuente</span>
+            <div style={styles.filterGroup}>
+              <button 
+                type="button"
+                style={filtroExterno === "todos" ? styles.filterBtnActive : styles.filterBtn}
+                onClick={() => setFiltroExterno("todos")}
+              >
+                Todas ({tickets.length})
+              </button>
+              <button 
+                type="button"
+                style={filtroExterno === "pendiente" ? styles.filterBtnActive : styles.filterBtn}
+                onClick={() => setFiltroExterno("pendiente")}
+              >
+                Pendientes ({tickets.filter(t => (t.estado_externo || "pendiente") === "pendiente").length})
+              </button>
+              <button 
+                type="button"
+                style={filtroExterno === "cubierta" ? styles.filterBtnActive : styles.filterBtn}
+                onClick={() => setFiltroExterno("cubierta")}
+              >
+                Cubiertas ({tickets.filter(t => t.estado_externo === "cubierta").length})
+              </button>
+            </div>
+          </div>
+          
+          {ultimoLog && (
+            <div style={styles.syncIndicator}>
+              <Clock size={14} />
+              <span>
+                Sincronizado {getMinutosTranscurridos() === 0 ? "hace menos de 1 min" : getMinutosTranscurridos() !== null ? `hace ${getMinutosTranscurridos()} min` : "recientemente"}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Cola de tickets */}

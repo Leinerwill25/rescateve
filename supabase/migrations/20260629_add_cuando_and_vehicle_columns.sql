@@ -1,78 +1,19 @@
 -- =====================================================================
--- RESCATE VE — Sincronización Automática Bidireccional Completa
+-- RESCATE VE — Migración consolidada para campos de vehículo, cuando y triggers corregidos
 -- Pégalo en: Supabase > SQL Editor > Run
 -- =====================================================================
 
--- 1. Al insertar un traslado público, se crea un ticket con el mismo ID
-create or replace function public.create_ticket_from_traslado()
-returns trigger as $$
-declare
-  v_categoria_sugerida text;
-  v_departamentos_sugeridos text[];
-begin
-  -- Determinar sugerencias basadas en el tipo de traslado
-  if NEW.tipo = 'insumos' then
-    v_categoria_sugerida := 'insumo_basico';
-    v_departamentos_sugeridos := array['acopio', 'transporte_carga'];
-  elsif NEW.tipo = 'personal_medico' then
-    v_categoria_sugerida := 'traslado_personal';
-    v_departamentos_sugeridos := array['personal_medico'];
-  else
-    v_categoria_sugerida := 'otro';
-    v_departamentos_sugeridos := array['otro'];
-  end if;
+-- 1. Agregar modelo y placa a la tabla de transportes si no existen
+alter table public.transportes
+  add column if not exists modelo text,
+  add column if not exists placa text;
 
-  -- Insertar el ticket correspondiente con el mismo UUID
-  insert into public.tickets (
-    id,
-    fuente,
-    fuente_id,
-    descripcion,
-    categoria_sugerida,
-    departamentos_sugeridos,
-    prioridad,
-    origen_ref,
-    origen_lat,
-    origen_lng,
-    destino_ref,
-    destino_lat,
-    destino_lng,
-    cantidad,
-    contacto_solicitante,
-    estado,
-    requiere_revision
-  ) values (
-    NEW.id,
-    'traslado',
-    NEW.id::text,
-    coalesce(NEW.descripcion, '[Traslado: ' || NEW.tipo || ']'),
-    v_categoria_sugerida,
-    v_departamentos_sugeridos,
-    coalesce(NEW.prioridad, 'media'),
-    NEW.origen_ref,
-    NEW.origen_lat,
-    NEW.origen_lng,
-    NEW.destino_ref,
-    NEW.destino_lat,
-    NEW.destino_lng,
-    NEW.cantidad,
-    NEW.contacto,
-    'en_validacion',
-    true
-  )
-  on conflict (id) do nothing;
-  
-  return NEW;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists trg_create_ticket_from_traslado on public.traslados;
-create trigger trg_create_ticket_from_traslado
-  after insert on public.traslados
-  for each row execute function public.create_ticket_from_traslado();
+-- 2. Agregar cuando a la tabla de tickets si no existe
+alter table public.tickets
+  add column if not exists cuando text;
 
 
--- 2. Cuando se crea o actualiza un ticket, se sincroniza con traslados (Bidireccional)
+-- 3. Crear o reemplazar la función del trigger de sincronización bidireccional (Tickets -> Traslados)
 create or replace function public.sync_ticket_changes_to_traslado()
 returns trigger as $$
 declare
@@ -231,74 +172,8 @@ begin
 end;
 $$ language plpgsql security definer;
 
+-- 4. Recrear el trigger en la tabla tickets
 drop trigger if exists trg_sync_ticket_changes_to_traslado on public.tickets;
 create trigger trg_sync_ticket_changes_to_traslado
   after insert or update of estado, transporte_id, medico_id, categoria_final, departamentos_final, cuando on public.tickets
   for each row execute function public.sync_ticket_changes_to_traslado();
-
-
--- 3. Cuando se actualiza un traslado (ej. solventado por fuera), se actualiza el ticket asociado
-create or replace function public.sync_traslado_to_ticket()
-returns trigger as $$
-declare
-  v_ticket_id uuid;
-begin
-  select id into v_ticket_id
-  from public.tickets
-  where id = NEW.id;
-  
-  if v_ticket_id is not null then
-    if NEW.estado = 'solventado_externo' or NEW.estado = 'completado' then
-      update public.tickets
-      set estado = 'completado',
-          updated_at = now()
-      where id = v_ticket_id and estado <> 'completado';
-    elsif NEW.estado = 'en_camino' then
-      update public.tickets
-      set estado = 'en_camino',
-          updated_at = now()
-      where id = v_ticket_id and estado <> 'en_camino';
-    elsif NEW.estado = 'asignado' then
-      update public.tickets
-      set estado = 'asignado',
-          updated_at = now()
-      where id = v_ticket_id and estado <> 'asignado';
-    end if;
-  end if;
-  return NEW;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists trg_sync_traslado_to_ticket on public.traslados;
-create trigger trg_sync_traslado_to_ticket
-  after update of estado on public.traslados
-  for each row execute function public.sync_traslado_to_ticket();
-
-
--- 4. Mantener sincronizadas las eliminaciones en ambas direcciones
-create or replace function public.sync_ticket_delete_to_traslado()
-returns trigger as $$
-begin
-  delete from public.traslados where id = OLD.id;
-  return OLD;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists trg_sync_ticket_delete_to_traslado on public.tickets;
-create trigger trg_sync_ticket_delete_to_traslado
-  after delete on public.tickets
-  for each row execute function public.sync_ticket_delete_to_traslado();
-
-
-create or replace function public.sync_traslado_delete_to_ticket()
-returns trigger as $$
-begin
-  delete from public.tickets where id = OLD.id;
-  return OLD;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists trg_sync_traslado_delete_to_ticket on public.traslados;
-create trigger trg_sync_traslado_delete_to_ticket
-  after delete on public.traslados
-  for each row execute function public.sync_traslado_delete_to_ticket();

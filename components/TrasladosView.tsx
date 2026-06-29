@@ -652,7 +652,7 @@ export default function TrasladosView() {
                             color: t.estado === 'completado' ? '#16A34A' : t.estado === 'solventado_externo' ? '#4B5563' : t.estado === 'en_camino' ? '#1D4ED8' : t.estado === 'asignado' ? '#B45309' : '#DC2626',
                             border: "1px solid currentColor", opacity: 0.8
                           }}>
-                            {(t.estado || "solicitado").replace("_", " ").toUpperCase()}
+                            {t.estado === "solventado_externo" ? "SOLVENTADO POR FUERA" : (t.estado || "solicitado").replace("_", " ").toUpperCase()}
                           </span>
                         </div>
                       </div>
