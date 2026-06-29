@@ -2,9 +2,11 @@ const xlsx = require('xlsx');
 const fs = require('fs');
 const path = require('path');
 
-// Ajustar ruta si es necesario (asume que se ejecuta desde la carpeta del proyecto)
-const excelFilePath = path.join(__dirname, 'PacientesConsolidados_Hospitales_Venezuela.xlsx');
-const sqlFilePath = path.join(__dirname, 'import_pacientes.sql');
+// Directorio raiz del proyecto (scripts/js/ -> ../../)
+const PROJECT_ROOT = path.resolve(__dirname, '../../');
+
+const excelFilePath = path.join(PROJECT_ROOT, 'data/real/PacientesConsolidados_Hospitales_Venezuela.xlsx');
+const sqlFilePath = path.join(PROJECT_ROOT, 'data/real/import_pacientes.sql');
 
 console.log(`Leyendo archivo: ${excelFilePath}`);
 

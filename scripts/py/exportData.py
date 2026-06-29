@@ -2,7 +2,10 @@ import os
 import urllib.request
 import json
 
-env_path = '.env.local'
+# Directorio raiz del proyecto (scripts/py/ -> ../../)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+env_path = os.path.join(PROJECT_ROOT, '.env.local')
 SUPABASE_URL = ''
 SUPABASE_KEY = ''
 
@@ -30,7 +33,8 @@ TABLES = [
     'traslados'
 ]
 
-os.makedirs('db_export', exist_ok=True)
+export_dir = os.path.join(PROJECT_ROOT, 'db_export')
+os.makedirs(export_dir, exist_ok=True)
 
 for table in TABLES:
     print(f"Exporting table: {table}...")
@@ -44,7 +48,7 @@ for table in TABLES:
         with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
             if data:
-                file_path = f"db_export/{table}.json"
+                file_path = os.path.join(export_dir, f"{table}.json")
                 with open(file_path, 'w', encoding='utf-8') as out:
                     json.dump(data, out, indent=2, ensure_ascii=False)
                 print(f"✅ Saved {len(data)} records to {file_path}")
