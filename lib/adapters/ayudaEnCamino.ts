@@ -186,7 +186,7 @@ export async function runIngestaAyudaEnCamino() {
 
     if (insErr) {
       console.error("[AEC] Error al insertar nuevos tickets:", insErr.message);
-      // No lanzar — seguir con las actualizaciones
+      throw new Error(`Error en upsert: ${insErr.message}`);
     } else {
       nuevos = paraInsertar.length;
     }
