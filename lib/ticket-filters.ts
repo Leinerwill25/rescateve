@@ -4,15 +4,29 @@ export type FiltroOrigen = "todos" | "traslados" | "ayuda_en_camino";
 export type FiltroExterno = "todos" | "pendiente" | "cubierta";
 export type FiltroOrden = "recientes" | "importantes" | "criticos";
 
+export type TrasladoFilterContext = {
+  /** IDs de traslados creados desde la página pública (tienen reporter_token). */
+  idsTrasladoPublico: Set<string>;
+};
+
+const EMPTY_CTX: TrasladoFilterContext = { idsTrasladoPublico: new Set() };
+
 const MS_24H = 24 * 60 * 60 * 1000;
 
-/** Ticket de traslado logístico (mapa público, manual logístico o backfill). */
-export function esTicketTraslado(t: Ticket): boolean {
-  if (t.fuente === "traslado") return true;
-  if (t.fuente === "manual") {
-    if (t.cuando || t.destino_ref) return true;
-    const cat = t.categoria_final || t.categoria_sugerida || "";
-    return ["insumo_basico", "insumo_medico", "traslado_personal"].includes(cat);
+/**
+ * Traslado logístico real:
+ * - Ticket importado de un traslado público (fuente=traslado + reporter_token en traslados)
+ * - Ticket manual marcado como traslado en operaciones (fuente=manual + cuando)
+ */
+export function esTicketTraslado(
+  t: Ticket,
+  ctx: TrasladoFilterContext = EMPTY_CTX
+): boolean {
+  if (t.fuente === "traslado") {
+    return ctx.idsTrasladoPublico.has(t.id);
+  }
+  if (t.fuente === "manual" && t.cuando) {
+    return true;
   }
   return false;
 }
@@ -21,7 +35,6 @@ export function esTicketAEC(t: Ticket): boolean {
   return t.fuente === "ayuda_en_camino";
 }
 
-/** Sin respuesta interna ni cobertura en origen tras 24 h. */
 export function esTicketCritico(t: Ticket): boolean {
   if (t.estado !== "en_validacion") return false;
   const edad = Date.now() - new Date(t.created_at).getTime();
@@ -44,10 +57,11 @@ export function filtrarTickets(
   tickets: Ticket[],
   filtroOrigen: FiltroOrigen,
   filtroExterno: FiltroExterno,
-  filtroOrden: FiltroOrden
+  filtroOrden: FiltroOrden,
+  ctx: TrasladoFilterContext = EMPTY_CTX
 ): Ticket[] {
   let result = tickets.filter((t) => {
-    if (filtroOrigen === "traslados" && !esTicketTraslado(t)) return false;
+    if (filtroOrigen === "traslados" && !esTicketTraslado(t, ctx)) return false;
     if (filtroOrigen === "ayuda_en_camino" && !esTicketAEC(t)) return false;
 
     if (filtroExterno !== "todos" && esTicketAEC(t)) {
@@ -78,8 +92,11 @@ export function filtrarTickets(
   return result;
 }
 
-export function contarPorOrigen(tickets: Ticket[]) {
-  const traslados = tickets.filter(esTicketTraslado).length;
+export function contarPorOrigen(
+  tickets: Ticket[],
+  ctx: TrasladoFilterContext = EMPTY_CTX
+) {
+  const traslados = tickets.filter((t) => esTicketTraslado(t, ctx)).length;
   const aec = tickets.filter(esTicketAEC).length;
   return { total: tickets.length, traslados, aec };
 }
@@ -97,6 +114,11 @@ export function contarPorEstadoExterno(tickets: Ticket[], scope: FiltroOrigen) {
     pendiente: base.filter((t) => (t.estado_externo || "pendiente") === "pendiente").length,
     cubierta: base.filter((t) => t.estado_externo === "cubierta").length,
   };
+}
+
+/** Construye el contexto de filtro a partir de IDs de traslados públicos. */
+export function buildTrasladoCtx(ids: string[]): TrasladoFilterContext {
+  return { idsTrasladoPublico: new Set(ids) };
 }
 
 export const PAGE_SIZE_COLA = 20;

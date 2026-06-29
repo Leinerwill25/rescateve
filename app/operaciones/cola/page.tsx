@@ -34,7 +34,9 @@ import {
   contarPorOrigen,
   contarPorEstadoExterno,
   paginar,
+  buildTrasladoCtx,
   PAGE_SIZE_COLA,
+  TrasladoFilterContext,
 } from "@/lib/ticket-filters";
 
 export default function ColaValidacionPage() {
@@ -168,6 +170,7 @@ export default function ColaValidacionPage() {
   const [ultimoLog, setUltimoLog] = useState<any>(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [syncResult, setSyncResult] = useState<{ nuevos: number; actualizados: number } | null>(null);
+  const [trasladoCtx, setTrasladoCtx] = useState<TrasladoFilterContext>(buildTrasladoCtx([]));
 
   const getMinutosTranscurridos = () => {
     if (!ultimoLog || !ultimoLog.corrida_at) return null;
@@ -190,6 +193,12 @@ export default function ColaValidacionPage() {
 
       if (fetchErr) throw fetchErr;
       setTickets((data || []) as Ticket[]);
+
+      const { data: trasladosPub } = await supabase
+        .from("traslados")
+        .select("id")
+        .not("reporter_token", "is", null);
+      setTrasladoCtx(buildTrasladoCtx((trasladosPub || []).map((r) => r.id)));
 
       // Cargar último log de ingesta
       const { data: logData } = await supabase
@@ -576,19 +585,19 @@ export default function ColaValidacionPage() {
     }
   };
 
-  const conteos = contarPorOrigen(tickets);
+  const conteos = contarPorOrigen(tickets, trasladoCtx);
   const conteosExterno = contarPorEstadoExterno(tickets, filtroOrigen);
-  const ticketsFiltrados = filtrarTickets(tickets, filtroOrigen, filtroExterno, filtroOrden);
+  const ticketsFiltrados = filtrarTickets(tickets, filtroOrigen, filtroExterno, filtroOrden, trasladoCtx);
   const paginacion = paginar(ticketsFiltrados, paginaActual, PAGE_SIZE_COLA);
   const ticketsPagina = paginacion.items;
   const conteoCriticos = tickets.filter(
     (t) =>
-      (filtroOrigen === "todos" || (filtroOrigen === "traslados" && esTicketTraslado(t)) || (filtroOrigen === "ayuda_en_camino" && esTicketAEC(t))) &&
+      (filtroOrigen === "todos" || (filtroOrigen === "traslados" && esTicketTraslado(t, trasladoCtx)) || (filtroOrigen === "ayuda_en_camino" && esTicketAEC(t))) &&
       esTicketCritico(t)
   ).length;
   const conteoImportantes = tickets.filter(
     (t) =>
-      (filtroOrigen === "todos" || (filtroOrigen === "traslados" && esTicketTraslado(t)) || (filtroOrigen === "ayuda_en_camino" && esTicketAEC(t))) &&
+      (filtroOrigen === "todos" || (filtroOrigen === "traslados" && esTicketTraslado(t, trasladoCtx)) || (filtroOrigen === "ayuda_en_camino" && esTicketAEC(t))) &&
       esTicketImportante(t)
   ).length;
 

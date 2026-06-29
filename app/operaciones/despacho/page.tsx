@@ -19,7 +19,7 @@ import {
   Calendar,
   X
 } from "lucide-react";
-import { esTicketTraslado, esTicketAEC, contarPorOrigen } from "@/lib/ticket-filters";
+import { esTicketTraslado, esTicketAEC, contarPorOrigen, buildTrasladoCtx, TrasladoFilterContext } from "@/lib/ticket-filters";
 
 export default function TableroDespachoPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -33,6 +33,7 @@ export default function TableroDespachoPage() {
   const [filterEstado, setFilterEstado] = useState<string>("todos");
   const [filtroOrigen, setFiltroOrigen] = useState<"todos" | "traslados" | "ayuda_en_camino">("todos");
   const [highlightedTicketId, setHighlightedTicketId] = useState<string | null>(null);
+  const [trasladoCtx, setTrasladoCtx] = useState<TrasladoFilterContext>(buildTrasladoCtx([]));
 
   // Asignaciones locales en UI (por ticket id)
   const [selectedAcopio, setSelectedAcopio] = useState<Record<string, string>>({});
@@ -92,7 +93,7 @@ export default function TableroDespachoPage() {
   const cargarDatos = async () => {
     setLoading(true);
     try {
-      const [tRes, acRes, trRes, medRes, depRes] = await Promise.all([
+      const [tRes, acRes, trRes, medRes, depRes, trPubRes] = await Promise.all([
         supabase.from("tickets")
           .select("*")
           .in("estado", ["aprobado", "asignado", "aceptado", "en_camino", "completado"])
@@ -102,9 +103,11 @@ export default function TableroDespachoPage() {
         supabase.from("transportes").select("*").eq("activo", true),
         supabase.from("personal_medico").select("*").eq("activo", true),
         supabase.from("departamentos").select("*").eq("activo", true),
+        supabase.from("traslados").select("id").not("reporter_token", "is", null),
       ]);
 
       if (tRes.data) setTickets(tRes.data as Ticket[]);
+      setTrasladoCtx(buildTrasladoCtx((trPubRes.data || []).map((r) => r.id)));
       if (acRes.data) setAcopios(acRes.data as CentroAcopioOperativo[]);
       if (trRes.data) setTransportes(trRes.data as Transporte[]);
       if (medRes.data) setMedicos(medRes.data as PersonalMedico[]);
@@ -243,9 +246,9 @@ export default function TableroDespachoPage() {
     setWhatsappText(null);
   };
 
-  const conteos = contarPorOrigen(tickets);
+  const conteos = contarPorOrigen(tickets, trasladoCtx);
   const ticketsFiltrados = tickets.filter(t => {
-    if (filtroOrigen === "traslados" && !esTicketTraslado(t)) return false;
+    if (filtroOrigen === "traslados" && !esTicketTraslado(t, trasladoCtx)) return false;
     if (filtroOrigen === "ayuda_en_camino" && !esTicketAEC(t)) return false;
     if (filterEstado === "todos") return true;
     return t.estado === filterEstado;
