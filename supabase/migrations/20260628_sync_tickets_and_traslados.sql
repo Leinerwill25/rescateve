@@ -237,33 +237,56 @@ create trigger trg_sync_ticket_changes_to_traslado
   for each row execute function public.sync_ticket_changes_to_traslado();
 
 
--- 3. Cuando se actualiza un traslado (ej. solventado por fuera), se actualiza el ticket asociado
+-- 3. Cuando se actualiza un traslado (ej. solventado por fuera, operador asignado), se actualiza el ticket asociado
 create or replace function public.sync_traslado_to_ticket()
 returns trigger as $$
 declare
   v_ticket_id uuid;
+  v_transporte_id uuid;
+  v_medico_id uuid;
+  v_operador_nombre text;
 begin
   select id into v_ticket_id
   from public.tickets
   where id = NEW.id;
   
   if v_ticket_id is not null then
-    if NEW.estado = 'solventado_externo' or NEW.estado = 'completado' then
-      update public.tickets
-      set estado = 'completado',
-          updated_at = now()
-      where id = v_ticket_id and estado <> 'completado';
-    elsif NEW.estado = 'en_camino' then
-      update public.tickets
-      set estado = 'en_camino',
-          updated_at = now()
-      where id = v_ticket_id and estado <> 'en_camino';
-    elsif NEW.estado = 'asignado' then
-      update public.tickets
-      set estado = 'asignado',
-          updated_at = now()
-      where id = v_ticket_id and estado <> 'asignado';
+    -- Intentar obtener el transporte_id o medico_id a partir del JSON de operador
+    if NEW.operador is not null and NEW.operador <> '' then
+      begin
+        v_operador_nombre := (NEW.operador::jsonb)->>'nombre';
+        if v_operador_nombre is not null and v_operador_nombre <> '' then
+          select id into v_transporte_id
+          from public.transportes
+          where nombre = v_operador_nombre;
+          
+          if v_transporte_id is null then
+            select id into v_medico_id
+            from public.personal_medico
+            where nombre = v_operador_nombre;
+          end if;
+        end if;
+      exception when others then
+        -- Fallback si no es JSON válido
+        v_operador_nombre := NEW.operador;
+        select id into v_transporte_id
+        from public.transportes
+        where nombre = v_operador_nombre;
+      end;
     end if;
+
+    update public.tickets
+    set estado = case 
+                   when NEW.estado = 'solventado_externo' then 'completado'::text
+                   when NEW.estado = 'completado' then 'completado'::text
+                   when NEW.estado = 'en_camino' then 'en_camino'::text
+                   when NEW.estado = 'asignado' then 'asignado'::text
+                   else estado
+                 end,
+        transporte_id = coalesce(v_transporte_id, transporte_id),
+        medico_id = coalesce(v_medico_id, medico_id),
+        updated_at = now()
+    where id = v_ticket_id;
   end if;
   return NEW;
 end;
@@ -271,7 +294,7 @@ $$ language plpgsql security definer;
 
 drop trigger if exists trg_sync_traslado_to_ticket on public.traslados;
 create trigger trg_sync_traslado_to_ticket
-  after update of estado on public.traslados
+  after update of estado, operador on public.traslados
   for each row execute function public.sync_traslado_to_ticket();
 
 

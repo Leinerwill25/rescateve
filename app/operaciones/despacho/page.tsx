@@ -31,6 +31,7 @@ export default function TableroDespachoPage() {
   const [loading, setLoading] = useState(true);
   const [filterEstado, setFilterEstado] = useState<string>("todos");
   const [filtroOrigen, setFiltroOrigen] = useState<"todos" | "traslados" | "ayuda_en_camino">("todos");
+  const [highlightedTicketId, setHighlightedTicketId] = useState<string | null>(null);
 
   // Asignaciones locales en UI (por ticket id)
   const [selectedAcopio, setSelectedAcopio] = useState<Record<string, string>>({});
@@ -130,6 +131,23 @@ export default function TableroDespachoPage() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const focusId = params.get("focus");
+      if (focusId) {
+        setHighlightedTicketId(focusId);
+        // Scroll to the card after the data finishes loading
+        setTimeout(() => {
+          const el = document.getElementById(`ticket-${focusId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 800);
+      }
+    }
+  }, [loading]);
 
   // FILTRADO DE SUGERENCIA DE TRANSPORTE
   const obtenerTransportesSugeridos = (categoria: string | null) => {
@@ -346,7 +364,20 @@ export default function TableroDespachoPage() {
               : null;
 
             return (
-              <div key={t.id} style={styles.card}>
+              <div 
+                key={t.id} 
+                id={`ticket-${t.id}`}
+                style={{
+                  ...styles.card,
+                  ...(highlightedTicketId === t.id ? {
+                    borderColor: "var(--brand)",
+                    boxShadow: "0 0 16px rgba(37, 99, 235, 0.4)",
+                    transform: "scale(1.01)",
+                    transition: "all 0.3s ease",
+                    borderWidth: "2px"
+                  } : {})
+                }}
+              >
                 {/* Cabecera Tarjeta */}
                 <div style={styles.cardHeader}>
                   <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Ticket, ReglaClasificacion } from "@/lib/types-operations";
+import { useRouter } from "next/navigation";
 import { pullNecesidades } from "@/lib/adapters/ayudaEnCamino";
 import { 
   Check, 
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 
 export default function ColaValidacionPage() {
+  const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -213,7 +215,8 @@ export default function ColaValidacionPage() {
       });
 
       if (rpcErr) throw rpcErr;
-      cargarTickets();
+      await showCustomAlert("¡Ticket aprobado con éxito! Te redirigiremos al tablero de despacho para asignar al operador.");
+      router.push(`/operaciones/despacho?focus=${ticket.id}`);
     } catch (err: any) {
       showCustomAlert(`Error al aprobar ticket: ${err.message}`);
     }
@@ -244,8 +247,10 @@ export default function ColaValidacionPage() {
       });
 
       if (rpcErr) throw rpcErr;
+      const approvedId = reclasificarTicket.id;
       setReclasificarTicket(null);
-      cargarTickets();
+      await showCustomAlert("¡Ticket reclasificado y aprobado con éxito! Te redirigiremos al tablero de despacho para asignar al operador.");
+      router.push(`/operaciones/despacho?focus=${approvedId}`);
     } catch (err: any) {
       showCustomAlert(`Error al reclasificar: ${err.message}`);
     }
