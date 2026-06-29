@@ -1,0 +1,53 @@
+name: Bug
+description: Reporte de bug (alimenta QA-4)
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: severidad
+    attributes:
+      label: Severidad
+      options:
+        - "Crítica — bloquea operación / mueve dinero / pierde datos"
+        - "Alta — flujo principal roto, sin workaround"
+        - "Media — flujo roto con workaround"
+        - "Baja — cosmético / menor"
+    validations:
+      required: true
+  - type: dropdown
+    id: modulo
+    attributes:
+      label: Módulo
+      options: [Mapa, Login, Cola, Despacho, Traslados, Wallet/Pagos, Recursos, Auditoría, APIs, Otro]
+    validations:
+      required: true
+  - type: dropdown
+    id: entorno
+    attributes:
+      label: Entorno
+      options: [local, qa, prod]
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Pasos para reproducir
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: esperado-actual
+    attributes:
+      label: Esperado vs. actual
+      description: Qué debía pasar y qué pasó.
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Capturas / logs (sin secretos)
+    validations:
+      required: false
