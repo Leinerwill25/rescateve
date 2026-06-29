@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { TicketHistorial, Perfil } from "@/lib/types-operations";
-import { History, Search, Filter, AlertTriangle, ShieldCheck, Clock, FileSpreadsheet } from "lucide-react";
+import { History, Search, Filter, AlertTriangle, ShieldCheck, Clock, FileSpreadsheet, CheckCircle, XCircle } from "lucide-react";
 
 interface AuditEntry extends TicketHistorial {
   perfil: Perfil | null;
@@ -11,12 +11,17 @@ interface AuditEntry extends TicketHistorial {
 
 export default function AuditoriaLogisticaPage() {
   const [historial, setHistorial] = useState<AuditEntry[]>([]);
+  const [trasladosFinalizados, setTrasladosFinalizados] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Tabs
+  const [activeTab, setActiveTab] = useState<"auditoria" | "completados" | "solventados">("auditoria");
+
   // Filtros
   const [searchTicket, setSearchTicket] = useState("");
   const [searchActor, setSearchActor] = useState("");
   const [filterAccion, setFilterAccion] = useState("todos");
+  const [searchCaso, setSearchCaso] = useState("");
 
   const ACCIONES = [
     { value: "aprobado", label: "Aprobado" },
@@ -43,8 +48,19 @@ export default function AuditoriaLogisticaPage() {
       if (hErr) throw hErr;
       
       setHistorial((histData || []) as AuditEntry[]);
+
+      // Cargamos traslados completados y solventados por fuera
+      const { data: trasData, error: tErr } = await supabase
+        .from("traslados")
+        .select("*")
+        .in("estado", ["completado", "solventado_externo"])
+        .order("id", { ascending: false });
+        
+      if (!tErr && trasData) {
+        setTrasladosFinalizados(trasData);
+      }
     } catch (err) {
-      console.error("Error al cargar auditoría:", err);
+      console.error("Error al cargar auditoría y casos:", err);
     } finally {
       setLoading(false);
     }
@@ -72,6 +88,24 @@ export default function AuditoriaLogisticaPage() {
     }
     return true;
   });
+
+  const casosCompletados = trasladosFinalizados.filter(t => 
+    t.estado === "completado" && 
+    (searchCaso === "" || 
+     t.id.toLowerCase().includes(searchCaso.toLowerCase()) || 
+     (t.descripcion && t.descripcion.toLowerCase().includes(searchCaso.toLowerCase())) ||
+     (t.origen_ref && t.origen_ref.toLowerCase().includes(searchCaso.toLowerCase())) ||
+     (t.destino_ref && t.destino_ref.toLowerCase().includes(searchCaso.toLowerCase())))
+  );
+
+  const casosSolventados = trasladosFinalizados.filter(t => 
+    t.estado === "solventado_externo" && 
+    (searchCaso === "" || 
+     t.id.toLowerCase().includes(searchCaso.toLowerCase()) || 
+     (t.descripcion && t.descripcion.toLowerCase().includes(searchCaso.toLowerCase())) ||
+     (t.origen_ref && t.origen_ref.toLowerCase().includes(searchCaso.toLowerCase())) ||
+     (t.destino_ref && t.destino_ref.toLowerCase().includes(searchCaso.toLowerCase())))
+  );
 
   const getAccionBadge = (accion: string, aValor: string | null) => {
     let label = accion.toUpperCase();
@@ -131,116 +165,289 @@ export default function AuditoriaLogisticaPage() {
       <div style={styles.header}>
         <div>
           <h2 style={styles.title}>Auditoría Logística y Registro</h2>
-          <p style={styles.subtitle}>Traceabilidad en tiempo real sobre aprobaciones, asignaciones y cambios de estado.</p>
+          <p style={styles.subtitle}>Trazabilidad en tiempo real sobre aprobaciones, asignaciones, casos completados y solventados por fuera.</p>
         </div>
       </div>
 
-      {/* Barra de Filtros */}
-      <div style={styles.filtersBar}>
-        <div style={styles.filterField}>
-          <Search size={16} color="var(--text-muted)" style={styles.icon} />
-          <input
-            type="text"
-            value={searchTicket}
-            onChange={(e) => setSearchTicket(e.target.value)}
-            placeholder="Buscar por ID de Ticket..."
-            style={styles.input}
-          />
-        </div>
-        <div style={styles.filterField}>
-          <Search size={16} color="var(--text-muted)" style={styles.icon} />
-          <input
-            type="text"
-            value={searchActor}
-            onChange={(e) => setSearchActor(e.target.value)}
-            placeholder="Buscar por Actor / Operador..."
-            style={styles.input}
-          />
-        </div>
-        <div style={styles.filterField}>
-          <Filter size={16} color="var(--text-muted)" style={styles.icon} />
-          <select
-            value={filterAccion}
-            onChange={(e) => setFilterAccion(e.target.value)}
-            style={styles.select}
-          >
-            <option value="todos">Todas las Acciones</option>
-            {ACCIONES.map(a => (
-              <option key={a.value} value={a.value}>{a.label}</option>
-            ))}
-          </select>
-        </div>
+      {/* Tabs de Navegación */}
+      <div style={styles.tabsContainer}>
+        <button 
+          onClick={() => setActiveTab("auditoria")} 
+          style={activeTab === "auditoria" ? styles.tabButtonActive : styles.tabButton}
+        >
+          <History size={16} />
+          <span>Registro de Acciones</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab("completados")} 
+          style={activeTab === "completados" ? styles.tabButtonActive : styles.tabButton}
+        >
+          <CheckCircle size={16} />
+          <span>Casos Completados ({casosCompletados.length})</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab("solventados")} 
+          style={activeTab === "solventados" ? styles.tabButtonActive : styles.tabButton}
+        >
+          <XCircle size={16} />
+          <span>Solventados por Fuera ({casosSolventados.length})</span>
+        </button>
       </div>
 
-      {loading ? (
-        <div style={styles.center}><div style={styles.spinner}></div></div>
-      ) : entriesFiltradas.length === 0 ? (
-        <div style={styles.emptyContainer}>
-          <AlertTriangle size={48} color="var(--text-muted)" />
-          <h3>Sin Registros</h3>
-          <p style={{ color: "var(--text-muted)" }}>No se encontraron entradas en el historial con los filtros indicados.</p>
-        </div>
-      ) : (
-        <div style={styles.tableWrapper}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Fecha / Hora</th>
-                <th style={styles.th}>Ticket ID</th>
-                <th style={styles.th}>Acción</th>
-                <th style={styles.th}>Actor / Operador</th>
-                <th style={styles.th}>Valores</th>
-                <th style={styles.th}>Detalles / Notas</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entriesFiltradas.map((e) => (
-                <tr key={e.id} style={styles.tr}>
-                  <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
-                    <div style={styles.timeRow}>
-                      <Clock size={12} color="var(--text-muted)" />
-                      <span>{new Date(e.created_at).toLocaleString("es-VE")}</span>
-                    </div>
-                  </td>
-                  <td style={styles.td}>
-                    <code style={styles.code}>{e.ticket_id.slice(0, 8)}...</code>
-                  </td>
-                  <td style={styles.td}>
-                    {getAccionBadge(e.accion, e.a_valor)}
-                  </td>
-                  <td style={styles.td}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      {e.perfil ? (
-                        <>
-                          <ShieldCheck size={14} color="var(--brand)" />
-                          <span><strong>{e.perfil.nombre}</strong> ({e.perfil.rol.toUpperCase()})</span>
-                        </>
-                      ) : (
-                        <>
-                          <Clock size={14} color="var(--text-muted)" />
-                          <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>Motor / Sistema</span>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                  <td style={styles.td}>
-                    {e.de_valor && <span>De: <code>{e.de_valor}</code> &rarr; </span>}
-                    {e.a_valor && <span>A: <code>{e.a_valor}</code></span>}
-                  </td>
-                  <td style={styles.td}>
-                    {e.nota || <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>Sin notas</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {activeTab === "auditoria" && (
+        <>
+          {/* Barra de Filtros de Auditoría */}
+          <div style={styles.filtersBar}>
+            <div style={styles.filterField}>
+              <Search size={16} color="var(--text-muted)" style={styles.icon} />
+              <input
+                type="text"
+                value={searchTicket}
+                onChange={(e) => setSearchTicket(e.target.value)}
+                placeholder="Buscar por ID de Ticket..."
+                style={styles.input}
+              />
+            </div>
+            <div style={styles.filterField}>
+              <Search size={16} color="var(--text-muted)" style={styles.icon} />
+              <input
+                type="text"
+                value={searchActor}
+                onChange={(e) => setSearchActor(e.target.value)}
+                placeholder="Buscar por Actor / Operador..."
+                style={styles.input}
+              />
+            </div>
+            <div style={styles.filterField}>
+              <Filter size={16} color="var(--text-muted)" style={styles.icon} />
+              <select
+                value={filterAccion}
+                onChange={(e) => setFilterAccion(e.target.value)}
+                style={styles.select}
+              >
+                <option value="todos">Todas las Acciones</option>
+                {ACCIONES.map(a => (
+                  <option key={a.value} value={a.value}>{a.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {loading ? (
+            <div style={styles.center}><div style={styles.spinner}></div></div>
+          ) : entriesFiltradas.length === 0 ? (
+            <div style={styles.emptyContainer}>
+              <AlertTriangle size={48} color="var(--text-muted)" />
+              <h3>Sin Registros</h3>
+              <p style={{ color: "var(--text-muted)" }}>No se encontraron entradas en el historial con los filtros indicados.</p>
+            </div>
+          ) : (
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Fecha / Hora</th>
+                    <th style={styles.th}>Ticket ID</th>
+                    <th style={styles.th}>Acción</th>
+                    <th style={styles.th}>Actor / Operador</th>
+                    <th style={styles.th}>Valores</th>
+                    <th style={styles.th}>Detalles / Notas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entriesFiltradas.map((e) => (
+                    <tr key={e.id} style={styles.tr}>
+                      <td style={{ ...styles.td, whiteSpace: "nowrap" }}>
+                        <div style={styles.timeRow}>
+                          <Clock size={12} color="var(--text-muted)" />
+                          <span>{new Date(e.created_at).toLocaleString("es-VE")}</span>
+                        </div>
+                      </td>
+                      <td style={styles.td}>
+                        <code style={styles.code}>{e.ticket_id.slice(0, 8)}...</code>
+                      </td>
+                      <td style={styles.td}>
+                        {getAccionBadge(e.accion, e.a_valor)}
+                      </td>
+                      <td style={styles.td}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          {e.perfil ? (
+                            <>
+                              <ShieldCheck size={14} color="var(--brand)" />
+                              <span><strong>{e.perfil.nombre}</strong> ({e.perfil.rol.toUpperCase()})</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock size={14} color="var(--text-muted)" />
+                              <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>Motor / Sistema</span>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                      <td style={styles.td}>
+                        {e.de_valor && <span>De: <code>{e.de_valor}</code> &rarr; </span>}
+                        {e.a_valor && <span>A: <code>{e.a_valor}</code></span>}
+                      </td>
+                      <td style={styles.td}>
+                        {e.nota || <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>Sin notas</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {(activeTab === "completados" || activeTab === "solventados") && (
+        <>
+          {/* Barra de Filtros de Casos */}
+          <div style={styles.filtersBar}>
+            <div style={{ ...styles.filterField, flex: 1 }}>
+              <Search size={16} color="var(--text-muted)" style={styles.icon} />
+              <input
+                type="text"
+                value={searchCaso}
+                onChange={(e) => setSearchCaso(e.target.value)}
+                placeholder="Buscar por ID, descripción, origen, destino..."
+                style={styles.input}
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div style={styles.center}><div style={styles.spinner}></div></div>
+          ) : (activeTab === "completados" ? casosCompletados.length : casosSolventados.length) === 0 ? (
+            <div style={styles.emptyContainer}>
+              <AlertTriangle size={48} color="var(--text-muted)" />
+              <h3>Sin Casos</h3>
+              <p style={{ color: "var(--text-muted)" }}>No se encontraron traslados en este estado con los filtros indicados.</p>
+            </div>
+          ) : (
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>ID Traslado</th>
+                    <th style={styles.th}>Tipo</th>
+                    <th style={styles.th}>Descripción</th>
+                    <th style={styles.th}>Origen / Destino</th>
+                    <th style={styles.th}>Operador Asignado</th>
+                    <th style={styles.th}>Contacto Solicitante</th>
+                    <th style={styles.th}>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(activeTab === "completados" ? casosCompletados : casosSolventados).map((c) => {
+                    let operadorInfo = null;
+                    if (c.operador) {
+                      try {
+                        operadorInfo = typeof c.operador === 'string' ? JSON.parse(c.operador) : c.operador;
+                      } catch (e) {
+                        operadorInfo = { nombre: c.operador };
+                      }
+                    }
+                    return (
+                      <tr key={c.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <code style={styles.code}>{c.id.slice(0, 8)}...</code>
+                        </td>
+                        <td style={styles.td}>
+                          <span style={{
+                            fontSize: "11px",
+                            fontWeight: 800,
+                            padding: "3px 8px",
+                            borderRadius: "var(--radius-sm)",
+                            backgroundColor: c.tipo === "insumos" ? "var(--warning-soft)" : "var(--success-soft)",
+                            color: c.tipo === "insumos" ? "var(--warning)" : "var(--success)",
+                            border: "1px solid currentColor"
+                          }}>
+                            {c.tipo === "insumos" ? "Insumos" : "Personal Médico"}
+                          </span>
+                        </td>
+                        <td style={styles.td}>
+                          <strong>{c.descripcion || <span style={{ fontStyle: "italic", color: "var(--text-muted)" }}>Sin descripción</span>}</strong>
+                        </td>
+                        <td style={styles.td}>
+                          <div><strong>Origen:</strong> {c.origen_ref || "N/A"}</div>
+                          {c.destino_ref && <div><strong>Destino:</strong> {c.destino_ref}</div>}
+                        </td>
+                        <td style={styles.td}>
+                          {operadorInfo ? (
+                            <div>
+                              <strong>{operadorInfo.nombre}</strong>
+                              {operadorInfo.placa && <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{operadorInfo.modelo} ({operadorInfo.placa})</div>}
+                            </div>
+                          ) : (
+                            <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>Sin asignar</span>
+                          )}
+                        </td>
+                        <td style={styles.td}>
+                          {c.contacto || "N/A"}
+                        </td>
+                        <td style={styles.td}>
+                          <span style={{
+                            fontSize: "11px",
+                            fontWeight: 800,
+                            padding: "3px 8px",
+                            borderRadius: "var(--radius-sm)",
+                            backgroundColor: c.estado === "completado" ? "var(--success-soft)" : "var(--surface-2)",
+                            color: c.estado === "completado" ? "var(--success)" : "var(--text-muted)",
+                            border: "1px solid currentColor"
+                          }}>
+                            {c.estado === "completado" ? "COMPLETADO" : "SOLVENTADO POR FUERA"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  tabsContainer: {
+    display: "flex",
+    gap: "8px",
+    borderBottom: "1px solid var(--border)",
+    paddingBottom: "12px",
+    flexWrap: "wrap"
+  },
+  tabButton: {
+    padding: "8px 16px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text-muted)",
+    transition: "all 0.2s ease",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px"
+  },
+  tabButtonActive: {
+    padding: "8px 16px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    border: "1px solid var(--brand)",
+    background: "rgba(37, 99, 235, 0.1)",
+    color: "var(--brand)",
+    transition: "all 0.2s ease",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px"
+  },
   page: {
     display: "flex",
     flexDirection: "column",
