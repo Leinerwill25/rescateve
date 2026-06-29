@@ -6,7 +6,7 @@ App para reportar, sobre un mapa en tiempo real:
 
 Cualquiera reporta desde el teléfono con un toque (GPS) o moviendo un pin en el mapa. Los rescatistas ven todos los puntos y pueden tocar **"Cómo llegar"** para abrir la ruta en Google Maps.
 
-Stack: **Next.js 15 (App Router) + Supabase + Leaflet/OpenStreetMap**. Sin API keys de mapas.
+Stack: **Next.js 15 (App Router) + Supabase + Leaflet/OpenStreetMap**. Sin API keys de mapas
 
 ---
 

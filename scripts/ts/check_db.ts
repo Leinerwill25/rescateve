@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+import * as path from 'path';
+
+// Directorio raiz del proyecto (scripts/ts/ -> ../../)
+const PROJECT_ROOT = path.resolve(__dirname, '../../');
+dotenv.config({ path: path.join(PROJECT_ROOT, '.env.local') });
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 

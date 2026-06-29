@@ -10,6 +10,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Rescate VE — Mapa de emergencia",
+  manifest: "/manifest.json",
   description:
     "Mapa colaborativo para reportar lugares que necesitan rescate y personas desaparecidas tras el terremoto en Venezuela.",
   openGraph: {

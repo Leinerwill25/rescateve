@@ -1,8 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
+// Directorio raiz del proyecto (scripts/js/ -> ../../)
+const PROJECT_ROOT = path.resolve(__dirname, '../../');
+
 // Manually parse .env.local
-const envPath = path.join(__dirname, '.env.local');
+const envPath = path.join(PROJECT_ROOT, '.env.local');
 let SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 let SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -33,7 +36,7 @@ const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function exportData() {
-  const exportDir = path.join(__dirname, 'db_export');
+  const exportDir = path.join(PROJECT_ROOT, 'db_export');
   if (!fs.existsSync(exportDir)){
     fs.mkdirSync(exportDir);
   }

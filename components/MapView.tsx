@@ -11,6 +11,8 @@ type Props = {
   puntosAyuda?: PuntoAyuda[];
   onMarcarAtendido: (id: string) => void;
   onAbrirAtender: (id: string, estado: "pendiente" | "en_camino") => void;
+  jumpTo?: { lat: number; lng: number } | null;
+  onJumpUsed?: () => void;
 };
 
 const DEFAULT: [number, number] = [10.4806, -66.9036]; // Caracas
@@ -33,12 +35,16 @@ export default function MapView({
   centrosAcopio = [],
   puntosAyuda = [],
   onAbrirAtender,
+  jumpTo,
+  onJumpUsed,
 }: Props) {
   const mapRef  = useRef<HTMLDivElement>(null);
   const map     = useRef<any>(null);
   const layer   = useRef<any>(null);
   const L       = useRef<any>(null);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
+  const [listSearch, setListSearch] = useState("");
 
   const activas   = solicitudes.filter((s) => s.estado !== "atendido");
   const atendidas = solicitudes.filter((s) => s.estado === "atendido");
@@ -49,7 +55,7 @@ export default function MapView({
       const mod = (await import("leaflet")).default;
       L.current = mod;
       if (cancelled || !mapRef.current || map.current) return;
-      map.current = mod.map(mapRef.current).setView(DEFAULT, 11);
+      map.current = mod.map(mapRef.current).setView(DEFAULT, 10);
       mod
         .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: "© OpenStreetMap contributors",
@@ -67,6 +73,14 @@ export default function MapView({
     draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [solicitudes, desaparecidos, centrosAcopio, puntosAyuda]);
+
+  // Volar a un punto especifico cuando se hace clic desde la lista
+  useEffect(() => {
+    if (jumpTo && map.current) {
+      map.current.flyTo([jumpTo.lat, jumpTo.lng], 15, { duration: 1.2 });
+      onJumpUsed?.();
+    }
+  }, [jumpTo, onJumpUsed]);
 
   /** Pin normal */
   function pin(color: string, emoji: string) {
@@ -228,7 +242,7 @@ export default function MapView({
     });
 
     if (all.length) {
-      map.current.fitBounds(all, { padding: [40, 40], maxZoom: 15 });
+      // No hacemos fitBounds para mantener el zoom 9 fijo
     }
   }
 
@@ -257,6 +271,12 @@ export default function MapView({
     );
   }
 
+  function flyToItem(lat: number, lng: number) {
+    if (!map.current) return;
+    map.current.flyTo([lat, lng], 15, { duration: 1.2 });
+    setListOpen(false);
+  }
+
   return (
     <div className="map-wrapper">
       {/* CSS para la animación del halo — inyectado inline para no requerir build extra */}
@@ -264,12 +284,66 @@ export default function MapView({
         @keyframes ping {
           75%, 100% { transform: scale(1.8); opacity: 0; }
         }
+        .map-points-list {
+          position: absolute; top: 0; right: 0; bottom: 0; width: 320px;
+          background: #fff; z-index: 1000; display: flex; flex-direction: column;
+          box-shadow: -4px 0 24px rgba(0,0,0,.15); border-radius: 12px 0 0 12px;
+          overflow: hidden; animation: slideIn .25s ease-out;
+        }
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .map-points-list__header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 16px; border-bottom: 1px solid #E2E8F0; flex-shrink: 0;
+        }
+        .map-points-list__header h3 { margin: 0; font-size: 15px; font-weight: 700; color: #0F172A; }
+        .map-points-list__close {
+          background: #F1F5F9; border: none; width: 32px; height: 32px; border-radius: 8px;
+          font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+          color: #64748B;
+        }
+        .map-points-list__close:hover { background: #E2E8F0; }
+        .map-points-list__body { flex: 1; overflow-y: auto; padding: 8px 0; }
+        .map-points-list__section {
+          padding: 12px 16px 4px; margin: 0; font-size: 11px; font-weight: 700;
+          text-transform: uppercase; letter-spacing: .5px; color: #94A3B8;
+        }
+        .map-points-list__item {
+          display: flex; align-items: center; gap: 8px; width: 100%;
+          padding: 10px 16px; border: none; background: none; cursor: pointer;
+          text-align: left; font-family: inherit; transition: background .1s;
+        }
+        .map-points-list__item:hover { background: #F8FAFC; }
+        .map-points-list__dot {
+          width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        }
+        .map-points-list__label {
+          font-size: 13px; font-weight: 600; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
+        }
+        .map-points-list__ref {
+          font-size: 12px; color: #94A3B8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+        }
+        .map-points-list__empty {
+          padding: 32px 16px; text-align: center; color: #94A3B8; font-size: 13px;
+        }
+        .map-points-list__search { padding: 8px 16px; flex-shrink: 0; }
+        .map-points-list__search-input {
+          width: 100%; padding: 8px 12px; border: 1px solid #E2E8F0; border-radius: 8px;
+          font-size: 13px; font-family: inherit; outline: none; box-sizing: border-box;
+          background: #F8FAFC; transition: border-color .15s;
+        }
+        .map-points-list__search-input:focus { border-color: #3B82F6; background: #fff; }
+        @media (max-width: 640px) {
+          .map-points-list { width: 85%; border-radius: 12px 0 0 12px; }
+        }
       `}</style>
 
       <div ref={mapRef} className="main-map" role="application" aria-label="Mapa de emergencias" />
 
       {/* Controles flotantes */}
       <div className="map-controls">
+        <button className="map-fab" onClick={() => setListOpen((v) => !v)} aria-label="Abrir lista de puntos">
+          📋 Lista
+        </button>
         <button className="map-fab" onClick={centerOnUser} aria-label="Centrar mapa en mi ubicación">
           📍 Mi ubicación
         </button>
@@ -312,6 +386,129 @@ export default function MapView({
           </div>
         )}
       </div>
+
+      {/* Lista flotante de puntos en el mapa */}
+      {listOpen && (
+        <div className="map-points-list" role="dialog" aria-label="Lista de puntos en el mapa">
+          <div className="map-points-list__header">
+            <h3>Puntos en el mapa</h3>
+            <button className="map-points-list__close" onClick={() => { setListOpen(false); setListSearch(""); }} aria-label="Cerrar lista">✕</button>
+          </div>
+          <div className="map-points-list__search">
+            <input
+              className="map-points-list__search-input"
+              type="text"
+              placeholder="Buscar punto..."
+              value={listSearch}
+              onChange={(e) => setListSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="map-points-list__body">
+
+            {/* ── Solicitudes activas ── */}
+            {(() => {
+              const items = listSearch
+                ? activas.filter((s) => {
+                    const t = tipoInfo(s.tipo);
+                    const q = listSearch.toLowerCase();
+                    return t.label.toLowerCase().includes(q) || (s.referencia || "").toLowerCase().includes(q) || (s.descripcion || "").toLowerCase().includes(q);
+                  })
+                : activas;
+              if (items.length === 0) return null;
+              return (
+                <>
+                  <p className="map-points-list__section">🆘 Solicitudes activas ({items.length})</p>
+                  {items.map((s) => {
+                    const t = tipoInfo(s.tipo);
+                    return (
+                      <button key={s.id} className="map-points-list__item" onClick={() => flyToItem(s.latitud, s.longitud)}>
+                        <span className="map-points-list__dot" style={{ background: TIPO_COLORS[s.tipo] ?? "#64748B" }} />
+                        <span className="map-points-list__label">{t.emoji} {t.label}</span>
+                        {s.referencia && <span className="map-points-list__ref">{esc(s.referencia)}</span>}
+                      </button>
+                    );
+                  })}
+                </>
+              );
+            })()}
+
+            {/* ── Desaparecidos ── */}
+            {(() => {
+              const conUbicacion = desaparecidos.filter((d) => d.estado !== "encontrado" && d.latitud != null && d.longitud != null);
+              const items = listSearch
+                ? conUbicacion.filter((d) => {
+                    const q = listSearch.toLowerCase();
+                    return d.nombre.toLowerCase().includes(q) || (d.ultima_ubicacion || "").toLowerCase().includes(q) || (d.descripcion || "").toLowerCase().includes(q);
+                  })
+                : conUbicacion;
+              if (items.length === 0) return null;
+              return (
+                <>
+                  <p className="map-points-list__section">🔎 Desaparecidos ({items.length})</p>
+                  {items.map((d) => (
+                    <button key={d.id} className="map-points-list__item" onClick={() => flyToItem(d.latitud!, d.longitud!)}>
+                      <span className="map-points-list__dot" style={{ background: "#7C3AED" }} />
+                      <span className="map-points-list__label">🔎 {d.nombre}{d.edad ? `, ${d.edad}` : ""}</span>
+                      {d.ultima_ubicacion && <span className="map-points-list__ref">{esc(d.ultima_ubicacion)}</span>}
+                    </button>
+                  ))}
+                </>
+              );
+            })()}
+
+            {/* ── Centros de acopio ── */}
+            {(() => {
+              const items = listSearch
+                ? centrosAcopio.filter((c) => {
+                    const q = listSearch.toLowerCase();
+                    return c.name.toLowerCase().includes(q) || (c.address || "").toLowerCase().includes(q);
+                  })
+                : centrosAcopio;
+              if (items.length === 0) return null;
+              return (
+                <>
+                  <p className="map-points-list__section">📦 Centros de acopio ({items.length})</p>
+                  {items.map((c, i) => (
+                    <button key={i} className="map-points-list__item" onClick={() => flyToItem(c.latitude, c.longitude)}>
+                      <span className="map-points-list__dot" style={{ background: "#10B981" }} />
+                      <span className="map-points-list__label">📦 {c.name}</span>
+                      {c.address && <span className="map-points-list__ref">{esc(c.address)}</span>}
+                    </button>
+                  ))}
+                </>
+              );
+            })()}
+
+            {/* ── Puntos de ayuda ── */}
+            {(() => {
+              const items = listSearch
+                ? puntosAyuda.filter((p) => {
+                    const q = listSearch.toLowerCase();
+                    return p.name.toLowerCase().includes(q) || (p.address || "").toLowerCase().includes(q);
+                  })
+                : puntosAyuda;
+              if (items.length === 0) return null;
+              return (
+                <>
+                  <p className="map-points-list__section">🆘 Puntos de ayuda ({items.length})</p>
+                  {items.map((p, i) => (
+                    <button key={i} className="map-points-list__item" onClick={() => flyToItem(p.latitude, p.longitude)}>
+                      <span className="map-points-list__dot" style={{ background: "#EF4444" }} />
+                      <span className="map-points-list__label">🆘 {p.name}</span>
+                      {p.address && <span className="map-points-list__ref">{esc(p.address)}</span>}
+                    </button>
+                  ))}
+                </>
+              );
+            })()}
+
+            {activas.length === 0 && desaparecidos.filter(d => d.estado !== "encontrado" && d.latitud).length === 0 && centrosAcopio.length === 0 && puntosAyuda.length === 0 && (
+              <p className="map-points-list__empty">No hay puntos marcados en el mapa</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
