@@ -228,7 +228,7 @@ export default function MapView({
     });
 
     if (all.length) {
-      map.current.fitBounds(all, { padding: [40, 40], maxZoom: 15 });
+      // No hacemos fitBounds para mantener el zoom 9 fijo
     }
   }
 
