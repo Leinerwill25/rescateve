@@ -19,6 +19,7 @@ import {
   Calendar,
   X
 } from "lucide-react";
+import { esTicketTraslado, esTicketAEC, contarPorOrigen } from "@/lib/ticket-filters";
 
 export default function TableroDespachoPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -242,20 +243,10 @@ export default function TableroDespachoPage() {
     setWhatsappText(null);
   };
 
+  const conteos = contarPorOrigen(tickets);
   const ticketsFiltrados = tickets.filter(t => {
-    // 1. Filtrar por origen/tipo
-    if (filtroOrigen === "traslados") {
-      const isTras = t.fuente === "traslado" || 
-        ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_final || "") ||
-        ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_sugerida || "") ||
-        (t.departamentos_final && (t.departamentos_final.includes("transporte_carga") || t.departamentos_final.includes("personal_medico"))) ||
-        (t.departamentos_sugeridos && (t.departamentos_sugeridos.includes("transporte_carga") || t.departamentos_sugeridos.includes("personal_medico")));
-      if (!isTras) return false;
-    } else if (filtroOrigen === "ayuda_en_camino") {
-      if (t.fuente !== "ayuda_en_camino") return false;
-    }
-
-    // 2. Filtrar por estado interno
+    if (filtroOrigen === "traslados" && !esTicketTraslado(t)) return false;
+    if (filtroOrigen === "ayuda_en_camino" && !esTicketAEC(t)) return false;
     if (filterEstado === "todos") return true;
     return t.estado === filterEstado;
   });
@@ -283,29 +274,21 @@ export default function TableroDespachoPage() {
               style={filtroOrigen === "todos" ? styles.btnFilterActive : styles.btnFilter}
               onClick={() => setFiltroOrigen("todos")}
             >
-              Todos ({tickets.length})
+              Todos ({conteos.total})
             </button>
             <button 
               type="button"
               style={filtroOrigen === "traslados" ? styles.btnFilterActive : styles.btnFilter}
               onClick={() => setFiltroOrigen("traslados")}
             >
-              Solo Traslados ({
-                tickets.filter(t => 
-                  t.fuente === "traslado" || 
-                  ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_final || "") ||
-                  ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_sugerida || "") ||
-                  (t.departamentos_final && (t.departamentos_final.includes("transporte_carga") || t.departamentos_final.includes("personal_medico"))) ||
-                  (t.departamentos_sugeridos && (t.departamentos_sugeridos.includes("transporte_carga") || t.departamentos_sugeridos.includes("personal_medico")))
-                ).length
-              })
+              Solo Traslados ({conteos.traslados})
             </button>
             <button 
               type="button"
               style={filtroOrigen === "ayuda_en_camino" ? styles.btnFilterActive : styles.btnFilter}
               onClick={() => setFiltroOrigen("ayuda_en_camino")}
             >
-              Ayuda en Camino ({tickets.filter(t => t.fuente === "ayuda_en_camino").length})
+              Ayuda en Camino ({conteos.aec})
             </button>
           </div>
 

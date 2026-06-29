@@ -18,8 +18,24 @@ import {
   Phone,
   Clock,
   Send,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
+import {
+  FiltroOrigen,
+  FiltroExterno,
+  FiltroOrden,
+  esTicketTraslado,
+  esTicketAEC,
+  esTicketCritico,
+  esTicketImportante,
+  filtrarTickets,
+  contarPorOrigen,
+  contarPorEstadoExterno,
+  paginar,
+  PAGE_SIZE_COLA,
+} from "@/lib/ticket-filters";
 
 export default function ColaValidacionPage() {
   const router = useRouter();
@@ -48,7 +64,9 @@ export default function ColaValidacionPage() {
   const [manualCuando, setManualCuando] = useState("Lo antes posible");
   
   // Filtro de origen
-  const [filtroOrigen, setFiltroOrigen] = useState<"todos" | "traslados" | "ayuda_en_camino">("todos");
+  const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("traslados");
+  const [filtroOrden, setFiltroOrden] = useState<FiltroOrden>("recientes");
+  const [paginaActual, setPaginaActual] = useState(1);
   // Formulario Reclasificación
   const [finalCat, setFinalCat] = useState("");
   const [finalDeps, setFinalDeps] = useState<string[]>([]);
@@ -146,7 +164,7 @@ export default function ColaValidacionPage() {
   ];
 
   // Ingesta Ayuda en Camino
-  const [filtroExterno, setFiltroExterno] = useState<"todos" | "pendiente" | "cubierta">("pendiente");
+  const [filtroExterno, setFiltroExterno] = useState<FiltroExterno>("pendiente");
   const [ultimoLog, setUltimoLog] = useState<any>(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [syncResult, setSyncResult] = useState<{ nuevos: number; actualizados: number } | null>(null);
@@ -191,6 +209,16 @@ export default function ColaValidacionPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [filtroOrigen, filtroExterno, filtroOrden]);
+
+  useEffect(() => {
+    if (filtroOrigen === "traslados" && filtroExterno !== "todos") {
+      setFiltroExterno("todos");
+    }
+  }, [filtroOrigen, filtroExterno]);
 
   useEffect(() => {
     cargarTickets();
@@ -548,24 +576,21 @@ export default function ColaValidacionPage() {
     }
   };
 
-  const ticketsFiltrados = tickets.filter(t => {
-    // 1. Filtrar por origen/tipo
-    if (filtroOrigen === "traslados") {
-      const isTras = t.fuente === "traslado" || 
-        ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_final || "") ||
-        ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_sugerida || "") ||
-        (t.departamentos_final && (t.departamentos_final.includes("transporte_carga") || t.departamentos_final.includes("personal_medico"))) ||
-        (t.departamentos_sugeridos && (t.departamentos_sugeridos.includes("transporte_carga") || t.departamentos_sugeridos.includes("personal_medico")));
-      if (!isTras) return false;
-    } else if (filtroOrigen === "ayuda_en_camino") {
-      if (t.fuente !== "ayuda_en_camino") return false;
-    }
-
-    // 2. Filtrar por estado externo
-    if (filtroExterno === "todos") return true;
-    const estExt = t.estado_externo || "pendiente";
-    return estExt === filtroExterno;
-  });
+  const conteos = contarPorOrigen(tickets);
+  const conteosExterno = contarPorEstadoExterno(tickets, filtroOrigen);
+  const ticketsFiltrados = filtrarTickets(tickets, filtroOrigen, filtroExterno, filtroOrden);
+  const paginacion = paginar(ticketsFiltrados, paginaActual, PAGE_SIZE_COLA);
+  const ticketsPagina = paginacion.items;
+  const conteoCriticos = tickets.filter(
+    (t) =>
+      (filtroOrigen === "todos" || (filtroOrigen === "traslados" && esTicketTraslado(t)) || (filtroOrigen === "ayuda_en_camino" && esTicketAEC(t))) &&
+      esTicketCritico(t)
+  ).length;
+  const conteoImportantes = tickets.filter(
+    (t) =>
+      (filtroOrigen === "todos" || (filtroOrigen === "traslados" && esTicketTraslado(t)) || (filtroOrigen === "ayuda_en_camino" && esTicketAEC(t))) &&
+      esTicketImportante(t)
+  ).length;
 
   return (
     <div style={styles.page}>
@@ -814,58 +839,51 @@ export default function ColaValidacionPage() {
                 style={filtroOrigen === "todos" ? styles.filterBtnActive : styles.filterBtn}
                 onClick={() => setFiltroOrigen("todos")}
               >
-                Todos los Tickets ({tickets.length})
+                Todos los Tickets ({conteos.total})
               </button>
               <button 
                 type="button"
                 style={filtroOrigen === "traslados" ? styles.filterBtnActive : styles.filterBtn}
                 onClick={() => setFiltroOrigen("traslados")}
               >
-                Solo Traslados Logísticos ({
-                  tickets.filter(t => 
-                    t.fuente === "traslado" || 
-                    ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_final || "") ||
-                    ["insumo_basico", "insumo_medico", "traslado_personal"].includes(t.categoria_sugerida || "") ||
-                    (t.departamentos_final && (t.departamentos_final.includes("transporte_carga") || t.departamentos_final.includes("personal_medico"))) ||
-                    (t.departamentos_sugeridos && (t.departamentos_sugeridos.includes("transporte_carga") || t.departamentos_sugeridos.includes("personal_medico")))
-                  ).length
-                })
+                Solo Traslados Logísticos ({conteos.traslados})
               </button>
               <button 
                 type="button"
                 style={filtroOrigen === "ayuda_en_camino" ? styles.filterBtnActive : styles.filterBtn}
                 onClick={() => setFiltroOrigen("ayuda_en_camino")}
               >
-                Solo Ayuda en Camino ({tickets.filter(t => t.fuente === "ayuda_en_camino").length})
+                Solo Ayuda en Camino ({conteos.aec})
               </button>
             </div>
           </div>
         </div>
 
+        {(filtroOrigen === "ayuda_en_camino" || filtroOrigen === "todos") && (
         <div style={{ ...styles.filterBar, marginBottom: 0 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Filtrar por Estado en la Fuente</span>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Filtrar por Estado en la Fuente (Ayuda en Camino)</span>
             <div style={styles.filterGroup}>
               <button 
                 type="button"
                 style={filtroExterno === "todos" ? styles.filterBtnActive : styles.filterBtn}
                 onClick={() => setFiltroExterno("todos")}
               >
-                Todas ({tickets.length})
+                Todas ({conteosExterno.todos})
               </button>
               <button 
                 type="button"
                 style={filtroExterno === "pendiente" ? styles.filterBtnActive : styles.filterBtn}
                 onClick={() => setFiltroExterno("pendiente")}
               >
-                Pendientes ({tickets.filter(t => (t.estado_externo || "pendiente") === "pendiente").length})
+                Pendientes ({conteosExterno.pendiente})
               </button>
               <button 
                 type="button"
                 style={filtroExterno === "cubierta" ? styles.filterBtnActive : styles.filterBtn}
                 onClick={() => setFiltroExterno("cubierta")}
               >
-                Cubiertas ({tickets.filter(t => t.estado_externo === "cubierta").length})
+                Cubiertas ({conteosExterno.cubierta})
               </button>
             </div>
           </div>
@@ -878,6 +896,41 @@ export default function ColaValidacionPage() {
               </span>
             </div>
           )}
+        </div>
+        )}
+
+        <div style={{ ...styles.filterBar, marginBottom: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Ordenar / Prioridad</span>
+            <div style={styles.filterGroup}>
+              <button
+                type="button"
+                style={filtroOrden === "recientes" ? styles.filterBtnActive : styles.filterBtn}
+                onClick={() => setFiltroOrden("recientes")}
+              >
+                Más recientes
+              </button>
+              <button
+                type="button"
+                style={filtroOrden === "importantes" ? styles.filterBtnActive : styles.filterBtn}
+                onClick={() => setFiltroOrden("importantes")}
+              >
+                Más importantes ({conteoImportantes})
+              </button>
+              <button
+                type="button"
+                style={filtroOrden === "criticos" ? styles.filterBtnActive : styles.filterBtn}
+                onClick={() => setFiltroOrden("criticos")}
+              >
+                Críticos +24h ({conteoCriticos})
+              </button>
+            </div>
+          </div>
+          <div style={{ fontSize: "13px", color: "var(--text-muted)", fontWeight: 600 }}>
+            {paginacion.total === 0
+              ? "0 tickets"
+              : `Mostrando ${paginacion.inicio}–${paginacion.fin} de ${paginacion.total}`}
+          </div>
         </div>
       </div>
 
@@ -898,8 +951,9 @@ export default function ColaValidacionPage() {
           <p style={{ color: "var(--text-muted)" }}>No hay tickets que coincidan con el filtro seleccionado.</p>
         </div>
       ) : (
+        <>
         <div style={styles.list}>
-          {ticketsFiltrados.map((t) => (
+          {ticketsPagina.map((t) => (
             <div 
               key={t.id} 
               style={{
@@ -913,6 +967,10 @@ export default function ColaValidacionPage() {
                   <span style={t.prioridad === "alta" ? styles.badgeAlta : styles.badgeMedia}>
                     Prioridad {t.prioridad.toUpperCase()}
                   </span>
+                  
+                  {esTicketCritico(t) && (
+                    <span style={styles.badgeCritico}>Crítico +24h</span>
+                  )}
                   
                   {t.fuente === "ayuda_en_camino" ? (
                     <>
@@ -1017,6 +1075,33 @@ export default function ColaValidacionPage() {
             </div>
           ))}
         </div>
+
+        {paginacion.totalPaginas > 1 && (
+          <div style={styles.paginationBar}>
+            <button
+              type="button"
+              style={styles.paginationBtn}
+              disabled={paginacion.pagina <= 1}
+              onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft size={16} />
+              Anterior
+            </button>
+            <span style={styles.paginationInfo}>
+              Página {paginacion.pagina} de {paginacion.totalPaginas}
+            </span>
+            <button
+              type="button"
+              style={styles.paginationBtn}
+              disabled={paginacion.pagina >= paginacion.totalPaginas}
+              onClick={() => setPaginaActual((p) => Math.min(paginacion.totalPaginas, p + 1))}
+            >
+              Siguiente
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+        </>
       )}
 
       {/* Modal Reclasificar */}
@@ -1590,6 +1675,44 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
     padding: "3px 8px",
     borderRadius: "var(--radius-sm)",
+  },
+  badgeCritico: {
+    background: "rgba(225, 29, 72, 0.12)",
+    color: "var(--emergency)",
+    border: "1px solid rgba(225, 29, 72, 0.25)",
+    fontSize: "11px",
+    fontWeight: 800,
+    padding: "3px 8px",
+    borderRadius: "var(--radius-sm)",
+  },
+  paginationBar: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "16px",
+    marginTop: "20px",
+    padding: "12px",
+    background: "var(--surface-2)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius)",
+  },
+  paginationBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    color: "var(--text)",
+    padding: "8px 14px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  paginationInfo: {
+    fontSize: "13px",
+    fontWeight: 700,
+    color: "var(--text-muted)",
   },
   verOrigenLink: {
     fontSize: "11px",
