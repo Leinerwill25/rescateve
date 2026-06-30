@@ -30,7 +30,9 @@ import {
   Users, 
   RefreshCw,
   AlertCircle,
-  Check
+  Check,
+  Lock,
+  MapPin
 } from "lucide-react";
 
 type ActiveTab = "perfiles" | "departamentos" | "transportes" | "medicos" | "acopios";
@@ -1167,111 +1169,199 @@ export default function RecursosPage() {
       {/* MODAL ACOPIO */}
       {editAcopio && (
         <div style={styles.modalOverlay}>
-          <form onSubmit={handleGuardarAcopio} style={styles.modal}>
+          <form onSubmit={handleGuardarAcopio} style={styles.modalAcopio}>
             <div style={styles.modalHeader}>
-              <h3>{editAcopio.id === "nuevo" ? "Crear Centro de Acopio" : "Editar Centro de Acopio"}</h3>
-              <button type="button" style={styles.closeBtn} onClick={() => setEditAcopio(null)}><X size={18} /></button>
+              <h3 style={{ margin: 0, fontSize: "17px" }}>
+                {editAcopio.id === "nuevo" ? "Crear Centro de Acopio" : "Editar Centro de Acopio"}
+              </h3>
+              <button type="button" style={styles.closeBtn} onClick={() => setEditAcopio(null)} aria-label="Cerrar">
+                <X size={18} />
+              </button>
             </div>
-            <div style={{ ...styles.modalBody, maxHeight: "55vh", overflowY: "auto" }}>
-              <div style={styles.formField}>
-                <label style={styles.label}>Nombre del Almacén</label>
-                <input type="text" value={editAcopio.nombre} onChange={(e) => setEditAcopio({ ...editAcopio, nombre: e.target.value })} placeholder="Acopio Colegio Francia" required style={styles.input} />
-              </div>
-              <div style={styles.formField}>
-                <label style={styles.label}>Dirección Detallada</label>
-                <input type="text" value={editAcopio.direccion || ""} onChange={(e) => setEditAcopio({ ...editAcopio, direccion: e.target.value })} placeholder="Av. Principal, Altamira" style={styles.input} />
-              </div>
-              <div style={{ display: "flex", gap: "10px" }}>
-                <div style={{ ...styles.formField, flex: 1 }}>
-                  <label style={styles.label}>Latitud</label>
-                  <input type="number" step="any" value={editAcopio.latitud || ""} onChange={(e) => setEditAcopio({ ...editAcopio, latitud: e.target.value ? parseFloat(e.target.value) : null })} placeholder="10.48" style={styles.input} />
-                </div>
-                <div style={{ ...styles.formField, flex: 1 }}>
-                  <label style={styles.label}>Longitud</label>
-                  <input type="number" step="any" value={editAcopio.longitud || ""} onChange={(e) => setEditAcopio({ ...editAcopio, longitud: e.target.value ? parseFloat(e.target.value) : null })} placeholder="-66.86" style={styles.input} />
-                </div>
-              </div>
-              
-              <div style={styles.formField}>
-                <label style={styles.label}>Ubicación Geográfica (Mapa)</label>
-                <LocationPicker
-                  lat={editAcopio.latitud}
-                  lng={editAcopio.longitud}
-                  onChange={(lat, lng) => setEditAcopio({ ...editAcopio, latitud: lat, longitud: lng })}
-                />
-              </div>
 
-              <div style={styles.formField}>
-                 <label style={styles.label}>Contacto Encargado</label>
-                 <input type="text" value={editAcopio.contacto || ""} onChange={(e) => setEditAcopio({ ...editAcopio, contacto: e.target.value })} style={styles.input} />
-               </div>
-               
-               {editAcopio.id === "nuevo" ? (
-                  <>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "10px 0" }}>
-                      <input 
-                        type="checkbox" 
-                        id="crear_usuario"
-                        checked={editAcopio.crear_usuario || false} 
-                        onChange={(e) => setEditAcopio({ ...editAcopio, crear_usuario: e.target.checked })} 
-                      />
-                      <label htmlFor="crear_usuario" style={{ fontWeight: 600, fontSize: "12px", cursor: "pointer", color: "var(--text)" }}>
-                        🔐 Crear usuario de acceso para este Centro de Acopio
-                      </label>
-                    </div>
-
-                    {editAcopio.crear_usuario && (
-                      <div style={{ background: "var(--surface-hover)", padding: "12px", borderRadius: "6px", border: "1px solid var(--border)", marginBottom: "15px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                        <div style={styles.formField}>
-                          <label style={{ ...styles.label, fontSize: "10px" }}>Correo de acceso (puede ser ficticio)</label>
-                          <input 
-                            type="email" 
-                            value={editAcopio.email || ""} 
-                            onChange={(e) => setEditAcopio({ ...editAcopio, email: e.target.value })} 
-                            placeholder="acopio01@rescate.local" 
-                            required={editAcopio.crear_usuario}
-                            style={styles.input} 
-                          />
-                        </div>
-                        <div style={styles.formField}>
-                          <label style={{ ...styles.label, fontSize: "10px" }}>Contraseña (Mín. 6 car.)</label>
-                          <input 
-                            type="password" 
-                            value={editAcopio.password || ""} 
-                            onChange={(e) => setEditAcopio({ ...editAcopio, password: e.target.value })} 
-                            placeholder="******" 
-                            required={editAcopio.crear_usuario}
-                            style={styles.input} 
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
+            <div style={styles.modalBodyAcopio}>
+              <section style={styles.modalSection}>
+                <h4 style={styles.modalSectionTitle}>Información del almacén</h4>
+                <div style={styles.modalSectionContent}>
                   <div style={styles.formField}>
-                    <label style={styles.label}>Usuario Asociado (Login)</label>
-                    <select 
-                      value={editAcopio.perfil_id || ""} 
+                    <label style={styles.labelNormal}>Nombre del almacén</label>
+                    <input
+                      type="text"
+                      value={editAcopio.nombre}
+                      onChange={(e) => setEditAcopio({ ...editAcopio, nombre: e.target.value })}
+                      placeholder="Acopio Colegio Francia"
+                      required
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.labelNormal}>Dirección</label>
+                    <input
+                      type="text"
+                      value={editAcopio.direccion || ""}
+                      onChange={(e) => setEditAcopio({ ...editAcopio, direccion: e.target.value })}
+                      placeholder="Av. Principal, Altamira"
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.labelNormal}>Contacto del encargado</label>
+                    <input
+                      type="text"
+                      value={editAcopio.contacto || ""}
+                      onChange={(e) => setEditAcopio({ ...editAcopio, contacto: e.target.value })}
+                      placeholder="Nombre y teléfono"
+                      style={styles.input}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section style={styles.modalSection}>
+                <h4 style={styles.modalSectionTitle}>
+                  <MapPin size={14} style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }} />
+                  Ubicación en mapa
+                </h4>
+                <div style={styles.modalSectionContent}>
+                  <div style={styles.fieldRow}>
+                    <div style={{ ...styles.formField, minWidth: 0 }}>
+                      <label style={styles.labelNormal}>Latitud</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editAcopio.latitud ?? ""}
+                        onChange={(e) =>
+                          setEditAcopio({
+                            ...editAcopio,
+                            latitud: e.target.value ? parseFloat(e.target.value) : null,
+                          })
+                        }
+                        placeholder="10.48"
+                        style={styles.input}
+                      />
+                    </div>
+                    <div style={{ ...styles.formField, minWidth: 0 }}>
+                      <label style={styles.labelNormal}>Longitud</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editAcopio.longitud ?? ""}
+                        onChange={(e) =>
+                          setEditAcopio({
+                            ...editAcopio,
+                            longitud: e.target.value ? parseFloat(e.target.value) : null,
+                          })
+                        }
+                        placeholder="-66.86"
+                        style={styles.input}
+                      />
+                    </div>
+                  </div>
+                  <div style={styles.mapPickerWrap}>
+                    <LocationPicker
+                      lat={editAcopio.latitud}
+                      lng={editAcopio.longitud}
+                      onChange={(lat, lng) => setEditAcopio({ ...editAcopio, latitud: lat, longitud: lng })}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {editAcopio.id === "nuevo" ? (
+                <section
+                  style={{
+                    ...styles.modalSection,
+                    borderColor: editAcopio.crear_usuario ? "rgba(59,130,246,0.35)" : undefined,
+                    background: editAcopio.crear_usuario ? "rgba(59,130,246,0.04)" : undefined,
+                  }}
+                >
+                  <label style={styles.accessToggle}>
+                    <input
+                      type="checkbox"
+                      checked={editAcopio.crear_usuario || false}
+                      onChange={(e) => setEditAcopio({ ...editAcopio, crear_usuario: e.target.checked })}
+                      style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={styles.accessToggleTitle}>
+                        <Lock size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />
+                        Crear usuario de acceso
+                      </span>
+                      <span style={styles.accessToggleHint}>
+                        El operador podrá ingresar y gestionar el inventario de este acopio.
+                      </span>
+                    </div>
+                  </label>
+
+                  {editAcopio.crear_usuario && (
+                    <div style={styles.accessFields}>
+                      <p style={styles.accessHint}>
+                        El correo solo sirve para iniciar sesión (puede ser ficticio). La cuenta queda activa al instante.
+                      </p>
+                      <div style={styles.formField}>
+                        <label style={styles.labelNormal}>Correo de acceso</label>
+                        <input
+                          type="email"
+                          value={editAcopio.email || ""}
+                          onChange={(e) => setEditAcopio({ ...editAcopio, email: e.target.value })}
+                          placeholder="acopio01@rescate.local"
+                          required={editAcopio.crear_usuario}
+                          style={styles.input}
+                        />
+                      </div>
+                      <div style={styles.formField}>
+                        <label style={styles.labelNormal}>Contraseña inicial</label>
+                        <input
+                          type="password"
+                          value={editAcopio.password || ""}
+                          onChange={(e) => setEditAcopio({ ...editAcopio, password: e.target.value })}
+                          placeholder="Mínimo 6 caracteres"
+                          required={editAcopio.crear_usuario}
+                          minLength={6}
+                          style={styles.input}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </section>
+              ) : (
+                <section style={styles.modalSection}>
+                  <h4 style={styles.modalSectionTitle}>Usuario vinculado</h4>
+                  <div style={styles.formField}>
+                    <label style={styles.labelNormal}>Cuenta de acceso (login)</label>
+                    <select
+                      value={editAcopio.perfil_id || ""}
                       onChange={(e) => setEditAcopio({ ...editAcopio, perfil_id: e.target.value })}
                       style={styles.select}
                     >
-                      <option value="">-- No vincular cuenta --</option>
-                      {perfiles.filter(p => p.rol === "acopio").map(p => (
-                        <option key={p.id} value={p.id}>{p.nombre} ({p.rol})</option>
+                      <option value="">— Sin vincular —</option>
+                      {perfiles.filter((p) => p.rol === "acopio").map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} ({p.rol})
+                        </option>
                       ))}
                     </select>
                   </div>
-                )}
-              <div style={styles.formField}>
-                <label style={styles.checkboxLabel}>
-                  <input type="checkbox" checked={editAcopio.activo} onChange={(e) => setEditAcopio({ ...editAcopio, activo: e.target.checked })} />
-                  <span>Activo</span>
-                </label>
-              </div>
+                </section>
+              )}
+
+              <label style={styles.statusRow}>
+                <input
+                  type="checkbox"
+                  checked={editAcopio.activo}
+                  onChange={(e) => setEditAcopio({ ...editAcopio, activo: e.target.checked })}
+                />
+                <span>Centro activo y visible en operaciones</span>
+              </label>
             </div>
+
             <div style={styles.modalActions}>
-              <button type="button" style={styles.btnSecondary} onClick={() => setEditAcopio(null)}>Cancelar</button>
-              <button type="submit" style={styles.btnPrimary}>Guardar Acopio</button>
+              <button type="button" style={styles.btnSecondary} onClick={() => setEditAcopio(null)}>
+                Cancelar
+              </button>
+              <button type="submit" style={styles.btnPrimary}>
+                Guardar acopio
+              </button>
             </div>
           </form>
         </div>
@@ -1628,12 +1718,118 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "var(--s4)",
     padding: "var(--s5)",
   },
+  modalAcopio: {
+    background: "var(--surface)",
+    borderRadius: "var(--radius-lg)",
+    boxShadow: "var(--shadow-lg)",
+    width: "100%",
+    maxWidth: "520px",
+    maxHeight: "min(92vh, 720px)",
+    display: "flex",
+    flexDirection: "column",
+    margin: "16px",
+    overflow: "hidden",
+  },
+  modalBodyAcopio: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "14px",
+    padding: "0 20px",
+    overflowY: "auto",
+    overflowX: "hidden",
+    flex: 1,
+  },
+  modalSection: {
+    background: "var(--surface-2)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius)",
+    padding: "14px 16px",
+  },
+  modalSectionTitle: {
+    margin: "0 0 12px 0",
+    fontSize: "13px",
+    fontWeight: 700,
+    color: "var(--text)",
+  },
+  modalSectionContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  fieldRow: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "10px",
+  },
+  mapPickerWrap: {
+    borderRadius: "var(--radius-sm)",
+    overflow: "hidden",
+    border: "1px solid var(--border)",
+    maxWidth: "100%",
+  },
+  labelNormal: {
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "var(--text-muted)",
+  },
+  accessToggle: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+    cursor: "pointer",
+    margin: 0,
+  },
+  accessToggleTitle: {
+    display: "block",
+    fontSize: "13px",
+    fontWeight: 700,
+    color: "var(--text)",
+    marginBottom: "4px",
+  },
+  accessToggleHint: {
+    display: "block",
+    fontSize: "12px",
+    color: "var(--text-muted)",
+    lineHeight: 1.45,
+  },
+  accessFields: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+    marginTop: "14px",
+    paddingTop: "14px",
+    borderTop: "1px solid var(--border)",
+  },
+  accessHint: {
+    margin: 0,
+    fontSize: "11px",
+    lineHeight: 1.45,
+    color: "var(--text-muted)",
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
+    padding: "8px 10px",
+  },
+  statusRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "12px 14px",
+    background: "var(--surface-2)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius)",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    marginBottom: "4px",
+  },
   modalHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     borderBottom: "1px solid var(--border)",
-    paddingBottom: "var(--s2)",
+    padding: "16px 20px",
+    flexShrink: 0,
   },
   closeBtn: {
     background: "none",
@@ -1651,6 +1847,8 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "flex-end",
     gap: "var(--s3)",
     borderTop: "1px solid var(--border)",
-    paddingTop: "var(--s3)",
+    padding: "14px 20px",
+    flexShrink: 0,
+    background: "var(--surface)",
   }
 };
