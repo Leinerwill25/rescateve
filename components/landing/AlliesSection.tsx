@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import { ExternalLink, Lock, Sparkles } from "lucide-react";
 import {
@@ -10,26 +9,18 @@ import {
 } from "@/lib/alliesShowcase";
 import Kicker from "./Kicker";
 
-const PARADA_INDEX = ALLY_SHOWCASE_SLIDES.findIndex((s) => s.id === "en-la-parada");
-const slide = ALLY_SHOWCASE_SLIDES[PARADA_INDEX];
+const slide = ALLY_SHOWCASE_SLIDES.find((s) => s.id === "en-la-parada")!;
 
 function isAllyAvailable(item: AllyShowcaseSlide) {
   return item.available !== false;
 }
 
-function AllyCardThumb({
-  item,
-  cardRef,
-}: {
-  item: AllyShowcaseSlide;
-  cardRef?: (el: HTMLButtonElement | null) => void;
-}) {
+function AllyCardThumb({ item }: { item: AllyShowcaseSlide }) {
   const available = isAllyAvailable(item);
   const isParada = item.id === "en-la-parada";
 
   return (
     <button
-      ref={cardRef}
       type="button"
       className={`allies-showcase__card${isParada ? " allies-showcase__card--active" : ""}${!available ? " allies-showcase__card--locked" : ""}`}
       disabled={!available}
@@ -68,16 +59,6 @@ function AllyCardThumb({
 }
 
 export default function AlliesSection() {
-  const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  useEffect(() => {
-    cardRefs.current[PARADA_INDEX]?.scrollIntoView({
-      behavior: "smooth",
-      inline: "center",
-      block: "nearest",
-    });
-  }, []);
-
   return (
     <section
       className="allies-showcase"
@@ -166,14 +147,8 @@ export default function AlliesSection() {
               Más aliados se sumarán pronto a la red.
             </p>
             <div className="allies-showcase__cards">
-              {ALLY_SHOWCASE_SLIDES.map((item, index) => (
-                <AllyCardThumb
-                  key={item.id}
-                  item={item}
-                  cardRef={(el) => {
-                    cardRefs.current[index] = el;
-                  }}
-                />
+              {ALLY_SHOWCASE_SLIDES.map((item) => (
+                <AllyCardThumb key={item.id} item={item} />
               ))}
             </div>
           </div>
