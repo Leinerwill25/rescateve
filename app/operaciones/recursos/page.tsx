@@ -32,7 +32,9 @@ import {
   AlertCircle,
   Check,
   Lock,
-  MapPin
+  MapPin,
+  User,
+  Phone
 } from "lucide-react";
 
 type ActiveTab = "perfiles" | "departamentos" | "transportes" | "medicos" | "acopios";
@@ -1037,69 +1039,160 @@ export default function RecursosPage() {
       {/* MODAL TRANSPORTE */}
       {editTrans && (
         <div style={styles.modalOverlay}>
-          <form onSubmit={handleGuardarTrans} style={styles.modal}>
+          <form onSubmit={handleGuardarTrans} style={styles.modalAcopio}>
             <div style={styles.modalHeader}>
-              <h3>{editTrans.id === "nuevo" ? "Crear Transporte" : "Editar Transporte"}</h3>
-              <button type="button" style={styles.closeBtn} onClick={() => setEditTrans(null)}><X size={18} /></button>
+              <h3 style={{ margin: 0, fontSize: "17px" }}>
+                {editTrans.id === "nuevo" ? "Crear Transporte" : "Editar Transporte"}
+              </h3>
+              <button type="button" style={styles.closeBtn} onClick={() => setEditTrans(null)} aria-label="Cerrar">
+                <X size={18} />
+              </button>
             </div>
-            <div style={styles.modalBody}>
-              <div style={styles.formField}>
-                <label style={styles.label}>Nombre Proveedor / Conductor</label>
-                <input type="text" value={editTrans.nombre} onChange={(e) => setEditTrans({ ...editTrans, nombre: e.target.value })} placeholder="Tu Gruero / Voluntario Juan" required style={styles.input} />
-              </div>
-              <div style={styles.formField}>
-                <label style={styles.label}>Tipo de Transporte</label>
-                <select value={editTrans.tipo} onChange={(e) => setEditTrans({ ...editTrans, tipo: e.target.value as any })} style={styles.select}>
-                  <option value="ambulancia">Ambulancia (Médico)</option>
-                  <option value="pasajeros">Transporte Pasajeros</option>
-                  <option value="carga">Vehículo Carga / Insumos</option>
-                  <option value="grua">Grúa Pesada</option>
-                  <option value="tecnico">Vehículo Soporte Técnico</option>
-                </select>
-              </div>
-              <div style={styles.formField}>
-                <label style={styles.label}>Usuario Asociado (Login)</label>
-                <select 
-                  value={editTrans.perfil_id || ""} 
-                  onChange={(e) => setEditTrans({ ...editTrans, perfil_id: e.target.value })}
-                  style={styles.select}
-                >
-                  <option value="">-- Sin usuario (Externo) --</option>
-                  {perfiles.filter(p => p.rol === "transportista").map(p => (
-                    <option key={p.id} value={p.id}>{p.nombre} ({p.organizacion || "Sin org"})</option>
-                  ))}
-                </select>
-              </div>
-              <div style={styles.formField}>
-                <label style={styles.label}>Zona Principal Operación</label>
-                <input type="text" value={editTrans.zona || ""} onChange={(e) => setEditTrans({ ...editTrans, zona: e.target.value })} placeholder="Chacao, Baruta, Caracas..." style={styles.input} />
-              </div>
-              <div style={styles.formField}>
-                <label style={styles.label}>Contacto de Soporte</label>
-                <input type="text" value={editTrans.contacto || ""} onChange={(e) => setEditTrans({ ...editTrans, contacto: e.target.value })} placeholder="Teléfono" style={styles.input} />
-              </div>
-              <div style={styles.formField}>
-                <label style={styles.label}>Modelo del Vehículo</label>
-                <input type="text" value={editTrans.modelo || ""} onChange={(e) => setEditTrans({ ...editTrans, modelo: e.target.value })} placeholder="Ej: Toyota Hilux / Encava" style={styles.input} />
-              </div>
-              <div style={styles.formField}>
-                <label style={styles.label}>Placa del Vehículo</label>
-                <input type="text" value={editTrans.placa || ""} onChange={(e) => setEditTrans({ ...editTrans, placa: e.target.value })} placeholder="Ej: AB123CD" style={styles.input} />
-              </div>
-              <div style={{ display: "flex", gap: "12px" }}>
-                <label style={styles.checkboxLabel}>
-                  <input type="checkbox" checked={editTrans.en_standby} onChange={(e) => setEditTrans({ ...editTrans, en_standby: e.target.checked })} />
-                  <strong>En Standby (Disponible)</strong>
+
+            <div style={styles.modalBodyAcopio}>
+              <section style={styles.modalSection}>
+                <h4 style={styles.modalSectionTitle}>
+                  <Truck size={14} style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }} />
+                  Conductor y tipo de unidad
+                </h4>
+                <div style={styles.modalSectionContent}>
+                  <div style={styles.formField}>
+                    <label style={styles.labelNormal}>Nombre del proveedor / conductor</label>
+                    <input
+                      type="text"
+                      value={editTrans.nombre}
+                      onChange={(e) => setEditTrans({ ...editTrans, nombre: e.target.value })}
+                      placeholder="Tu Gruero / Voluntario Juan"
+                      required
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.labelNormal}>Tipo de transporte</label>
+                    <select
+                      value={editTrans.tipo}
+                      onChange={(e) => setEditTrans({ ...editTrans, tipo: e.target.value as Transporte["tipo"] })}
+                      style={styles.select}
+                    >
+                      <option value="ambulancia">Ambulancia (médico)</option>
+                      <option value="pasajeros">Transporte de pasajeros</option>
+                      <option value="carga">Vehículo de carga / insumos</option>
+                      <option value="grua">Grúa pesada</option>
+                      <option value="tecnico">Soporte técnico</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              <section style={styles.modalSection}>
+                <h4 style={styles.modalSectionTitle}>Datos del vehículo</h4>
+                <div style={styles.modalSectionContent}>
+                  <div style={styles.fieldRow}>
+                    <div style={{ ...styles.formField, minWidth: 0 }}>
+                      <label style={styles.labelNormal}>Modelo</label>
+                      <input
+                        type="text"
+                        value={editTrans.modelo || ""}
+                        onChange={(e) => setEditTrans({ ...editTrans, modelo: e.target.value })}
+                        placeholder="Toyota Hilux / Encava"
+                        style={styles.input}
+                      />
+                    </div>
+                    <div style={{ ...styles.formField, minWidth: 0 }}>
+                      <label style={styles.labelNormal}>Placa</label>
+                      <input
+                        type="text"
+                        value={editTrans.placa || ""}
+                        onChange={(e) => setEditTrans({ ...editTrans, placa: e.target.value })}
+                        placeholder="AB123CD"
+                        style={styles.input}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section style={styles.modalSection}>
+                <h4 style={styles.modalSectionTitle}>
+                  <Phone size={14} style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }} />
+                  Zona y contacto
+                </h4>
+                <div style={styles.modalSectionContent}>
+                  <div style={styles.formField}>
+                    <label style={styles.labelNormal}>Zona principal de operación</label>
+                    <input
+                      type="text"
+                      value={editTrans.zona || ""}
+                      onChange={(e) => setEditTrans({ ...editTrans, zona: e.target.value })}
+                      placeholder="Chacao, Baruta, Caracas..."
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.labelNormal}>Teléfono de contacto</label>
+                    <input
+                      type="tel"
+                      value={editTrans.contacto || ""}
+                      onChange={(e) => setEditTrans({ ...editTrans, contacto: e.target.value })}
+                      placeholder="0414-0000000"
+                      style={styles.input}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section style={styles.modalSection}>
+                <h4 style={styles.modalSectionTitle}>
+                  <User size={14} style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }} />
+                  Usuario vinculado
+                </h4>
+                <div style={styles.formField}>
+                  <label style={styles.labelNormal}>Cuenta de acceso (opcional)</label>
+                  <select
+                    value={editTrans.perfil_id || ""}
+                    onChange={(e) => setEditTrans({ ...editTrans, perfil_id: e.target.value })}
+                    style={styles.select}
+                  >
+                    <option value="">— Sin usuario (operador externo) —</option>
+                    {perfiles.filter((p) => p.rol === "transportista").map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre} {p.organizacion ? `· ${p.organizacion}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: 4 }}>
+                    Vincula un transportista registrado en Perfiles para que vea sus asignaciones en la app.
+                  </span>
+                </div>
+              </section>
+
+              <div style={styles.statusGroup}>
+                <label style={styles.statusRow}>
+                  <input
+                    type="checkbox"
+                    checked={editTrans.en_standby}
+                    onChange={(e) => setEditTrans({ ...editTrans, en_standby: e.target.checked })}
+                  />
+                  <span>En standby (disponible para asignación)</span>
                 </label>
-                <label style={styles.checkboxLabel}>
-                  <input type="checkbox" checked={editTrans.activo} onChange={(e) => setEditTrans({ ...editTrans, activo: e.target.checked })} />
-                  <span>Activo</span>
+                <label style={styles.statusRow}>
+                  <input
+                    type="checkbox"
+                    checked={editTrans.activo}
+                    onChange={(e) => setEditTrans({ ...editTrans, activo: e.target.checked })}
+                  />
+                  <span>Activo en el sistema</span>
                 </label>
               </div>
             </div>
+
             <div style={styles.modalActions}>
-              <button type="button" style={styles.btnSecondary} onClick={() => setEditTrans(null)}>Cancelar</button>
-              <button type="submit" style={styles.btnPrimary}>Guardar Vehículo</button>
+              <button type="button" style={styles.btnSecondary} onClick={() => setEditTrans(null)}>
+                Cancelar
+              </button>
+              <button type="submit" style={styles.btnPrimary}>
+                Guardar vehículo
+              </button>
             </div>
           </form>
         </div>
@@ -1821,6 +1914,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
+    margin: 0,
+  },
+  statusGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
     marginBottom: "4px",
   },
   modalHeader: {
