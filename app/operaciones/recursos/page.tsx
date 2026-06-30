@@ -538,17 +538,18 @@ export default function RecursosPage() {
                   <div style={styles.infoBox}>
                     <AlertCircle size={16} />
                     <span style={{ fontSize: "11px", lineHeight: 1.4 }}>
-                      Se crea automáticamente la cuenta en Supabase Auth y el perfil operativo vinculado.
+                      El correo solo identifica la cuenta de acceso (puede ser ficticio, ej. conductor01@rescate.local).
+                      La cuenta queda confirmada al instante; no se envía correo de verificación.
                     </span>
                   </div>
 
                   <div style={{ ...styles.formField, marginTop: "12px" }}>
-                    <label style={styles.label}>Correo electrónico (Requerido)</label>
+                    <label style={styles.label}>Correo de acceso (Requerido)</label>
                     <input
                       type="email"
                       value={newPerfilEmail}
                       onChange={(e) => setNewPerfilEmail(e.target.value)}
-                      placeholder="operador@ejemplo.com"
+                      placeholder="conductor01@rescate.local"
                       required
                       style={styles.input}
                     />
@@ -1222,12 +1223,12 @@ export default function RecursosPage() {
                     {editAcopio.crear_usuario && (
                       <div style={{ background: "var(--surface-hover)", padding: "12px", borderRadius: "6px", border: "1px solid var(--border)", marginBottom: "15px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                         <div style={styles.formField}>
-                          <label style={{ ...styles.label, fontSize: "10px" }}>Correo Electrónico</label>
+                          <label style={{ ...styles.label, fontSize: "10px" }}>Correo de acceso (puede ser ficticio)</label>
                           <input 
                             type="email" 
                             value={editAcopio.email || ""} 
                             onChange={(e) => setEditAcopio({ ...editAcopio, email: e.target.value })} 
-                            placeholder="operador@test.com" 
+                            placeholder="acopio01@rescate.local" 
                             required={editAcopio.crear_usuario}
                             style={styles.input} 
                           />

@@ -8,35 +8,30 @@ export async function POST(req: Request) {
   try {
     const { email, password, nombre, rol, organizacion, telefono } = await req.json();
 
-    if (!email || !password || !nombre || !rol) {
+    const emailNorm = String(email || "").trim().toLowerCase();
+
+    if (!emailNorm || !password || !nombre || !rol) {
       return NextResponse.json({ error: "Faltan datos requeridos (email, password, nombre, rol)." }, { status: 400 });
     }
 
     if (!serviceRoleKey) {
-      return NextResponse.json({ 
-        error: "Falta la variable de entorno SUPABASE_SERVICE_ROLE_KEY en el servidor para crear usuarios administrados." 
+      return NextResponse.json({
+        error: "Falta la variable de entorno SUPABASE_SERVICE_ROLE_KEY en el servidor para crear usuarios administrados.",
       }, { status: 500 });
     }
 
-    // Inicializar Supabase con Service Role Key para privilegios administrativos (creación de usuarios Auth)
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
+      auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    console.log(`[Admin Auth Creator] Intentando registrar usuario auth para: ${email} (Rol: ${rol})`);
+    console.log(`[Admin Auth Creator] Registrando usuario: ${emailNorm} (Rol: ${rol})`);
 
-    // 1. Crear el usuario en la autenticación de Supabase (auth.users)
+    // Admin API + email_confirm: cuenta activa de inmediato, sin correo de verificación.
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: emailNorm,
       password,
-      email_confirm: true, // Confirmar cuenta inmediatamente
-      user_metadata: {
-        nombre,
-        rol
-      }
+      email_confirm: true,
+      user_metadata: { nombre, rol },
     });
 
     if (authError || !authData.user) {
@@ -44,10 +39,16 @@ export async function POST(req: Request) {
     }
 
     const userId = authData.user.id;
-    console.log(`[Admin Auth Creator] Usuario creado con éxito. UUID: ${userId}`);
 
-    // 2. Asegurarse de que el perfil en public.perfiles tenga los datos correctos
-    // (Por si el trigger no se ha disparado o no tiene permisos de replicación instantánea)
+    if (!authData.user.email_confirmed_at) {
+      const { error: confirmErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        email_confirm: true,
+      });
+      if (confirmErr) {
+        throw new Error(`Usuario creado pero no se pudo confirmar el correo: ${confirmErr.message}`);
+      }
+    }
+
     const { error: perfilError } = await supabaseAdmin
       .from("perfiles")
       .upsert({
@@ -56,14 +57,14 @@ export async function POST(req: Request) {
         rol,
         organizacion: organizacion?.trim() || null,
         telefono: telefono?.trim() || null,
-        activo: true
+        activo: true,
       });
 
     if (perfilError) {
-      console.warn(`[Admin Auth Creator] Advertencia al sincronizar perfil en la tabla perfiles: ${perfilError.message}`);
+      console.warn(`[Admin Auth Creator] Advertencia al sincronizar perfil: ${perfilError.message}`);
     }
 
-    return NextResponse.json({ success: true, userId });
+    return NextResponse.json({ success: true, userId, email: emailNorm });
 
   } catch (err: any) {
     console.error("[Admin Auth Creator] ERROR:", err.message);
