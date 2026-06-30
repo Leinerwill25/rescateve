@@ -8,7 +8,8 @@ import {
   PersonalMedico, 
   CentroAcopioOperativo, 
   InventarioAcopio, 
-  Perfil 
+  Perfil,
+  RolUsuario
 } from "@/lib/types-operations";
 import { syncInventarioConAPI } from "@/lib/adapters/acopio";
 import { syncMedicosSafeCare } from "@/lib/adapters/safecare";
@@ -57,12 +58,14 @@ export default function RecursosPage() {
   const [selectedAcopioInv, setSelectedAcopioInv] = useState<CentroAcopioOperativo | null>(null);
   const [editInv, setEditInv] = useState<InventarioAcopio | null>(null);
 
-  // Formulario Perfil Nuevo (manual UUID)
-  const [newPerfilId, setNewPerfilId] = useState("");
+  // Formulario Perfil Nuevo (creación automática Auth + perfil)
+  const [newPerfilEmail, setNewPerfilEmail] = useState("");
+  const [newPerfilPassword, setNewPerfilPassword] = useState("");
   const [newPerfilNombre, setNewPerfilNombre] = useState("");
-  const [newPerfilRol, setNewPerfilRol] = useState<"admin" | "transportista" | "medico">("transportista");
+  const [newPerfilRol, setNewPerfilRol] = useState<RolUsuario>("transportista");
   const [newPerfilOrg, setNewPerfilOrg] = useState("");
   const [newPerfilTel, setNewPerfilTel] = useState("");
+  const [creandoPerfil, setCreandoPerfil] = useState(false);
 
   // Modal de Alerta / Confirmación personalizado
   const [customModal, setCustomModal] = useState<{
@@ -142,29 +145,49 @@ export default function RecursosPage() {
   // -------------------------------------------------------------
   const handleCrearPerfilManual = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPerfilId.trim()) return;
+    if (!newPerfilEmail.trim() || !newPerfilPassword || !newPerfilNombre.trim()) {
+      showCustomAlert("Correo, contraseña y nombre son obligatorios.");
+      return;
+    }
+    if (newPerfilPassword.length < 6) {
+      showCustomAlert("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
 
+    setCreandoPerfil(true);
     try {
-      const { error } = await supabase.from("perfiles").insert({
-        id: newPerfilId.trim(),
-        nombre: newPerfilNombre.trim() || null,
-        rol: newPerfilRol,
-        organizacion: newPerfilOrg.trim() || null,
-        telefono: newPerfilTel.trim() || null,
-        activo: true
+      const res = await fetch("/api/usuarios/crear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: newPerfilEmail.trim(),
+          password: newPerfilPassword,
+          nombre: newPerfilNombre.trim(),
+          rol: newPerfilRol,
+          organizacion: newPerfilOrg.trim() || null,
+          telefono: newPerfilTel.trim() || null,
+        }),
       });
 
-      if (error) throw error;
-      
-      setNewPerfilId("");
+      const resData = await res.json();
+      if (!res.ok) {
+        throw new Error(resData.error || "No se pudo crear el usuario");
+      }
+
+      const emailCreado = newPerfilEmail.trim();
+
+      setNewPerfilEmail("");
+      setNewPerfilPassword("");
       setNewPerfilNombre("");
       setNewPerfilRol("transportista");
       setNewPerfilOrg("");
       setNewPerfilTel("");
-      showCustomAlert("Perfil asociado con éxito.");
+      showCustomAlert(`Operador creado con éxito. Ya puede iniciar sesión con ${emailCreado}.`);
       cargarDatos();
     } catch (err: any) {
-      showCustomAlert(`Error al asociar perfil. Verifique que el UUID de usuario sea correcto y exista en Supabase Auth: ${err.message}`);
+      showCustomAlert(`Error al crear operador: ${err.message}`);
+    } finally {
+      setCreandoPerfil(false);
     }
   };
 
@@ -510,34 +533,48 @@ export default function RecursosPage() {
               <div className="ops-panel-grid">
                 {/* Formulario vinculación */}
                 <form onSubmit={handleCrearPerfilManual} style={styles.sideForm}>
-                  <h4 style={{ margin: "0 0 12px 0", color: "var(--brand)" }}>Asociar Cuenta Auth a Perfil</h4>
+                  <h4 style={{ margin: "0 0 12px 0", color: "var(--brand)" }}>Registrar Operador</h4>
                   
                   <div style={styles.infoBox}>
                     <AlertCircle size={16} />
                     <span style={{ fontSize: "11px", lineHeight: 1.4 }}>
-                      Primero registre al operador en Supabase Console (Authentication &gt; Add User), copie su UUID de usuario y péguelo abajo.
+                      Se crea automáticamente la cuenta en Supabase Auth y el perfil operativo vinculado.
                     </span>
                   </div>
 
                   <div style={{ ...styles.formField, marginTop: "12px" }}>
-                    <label style={styles.label}>UUID de Supabase Auth (Requerido)</label>
+                    <label style={styles.label}>Correo electrónico (Requerido)</label>
                     <input
-                      type="text"
-                      value={newPerfilId}
-                      onChange={(e) => setNewPerfilId(e.target.value)}
-                      placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+                      type="email"
+                      value={newPerfilEmail}
+                      onChange={(e) => setNewPerfilEmail(e.target.value)}
+                      placeholder="operador@ejemplo.com"
                       required
                       style={styles.input}
                     />
                   </div>
 
                   <div style={styles.formField}>
-                    <label style={styles.label}>Nombre Completo</label>
+                    <label style={styles.label}>Contraseña inicial (Requerido)</label>
+                    <input
+                      type="password"
+                      value={newPerfilPassword}
+                      onChange={(e) => setNewPerfilPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                      required
+                      minLength={6}
+                      style={styles.input}
+                    />
+                  </div>
+
+                  <div style={styles.formField}>
+                    <label style={styles.label}>Nombre Completo (Requerido)</label>
                     <input
                       type="text"
                       value={newPerfilNombre}
                       onChange={(e) => setNewPerfilNombre(e.target.value)}
                       placeholder="Dra. Elena Silva / Conductor Tilín 4"
+                      required
                       style={styles.input}
                     />
                   </div>
@@ -546,11 +583,12 @@ export default function RecursosPage() {
                     <label style={styles.label}>Rol Operativo</label>
                     <select
                       value={newPerfilRol}
-                      onChange={(e) => setNewPerfilRol(e.target.value as any)}
+                      onChange={(e) => setNewPerfilRol(e.target.value as RolUsuario)}
                       style={styles.select}
                     >
                       <option value="transportista">Transportista (Conductor)</option>
                       <option value="medico">Médico (SafeCare)</option>
+                      <option value="acopio">Operador de Acopio</option>
                       <option value="admin">Administrador (Despachador)</option>
                     </select>
                   </div>
@@ -577,9 +615,19 @@ export default function RecursosPage() {
                     />
                   </div>
 
-                  <button type="submit" style={{ ...styles.btnPrimary, marginTop: "12px", width: "100%" }}>
+                  <button
+                    type="submit"
+                    disabled={creandoPerfil}
+                    style={{
+                      ...styles.btnPrimary,
+                      marginTop: "12px",
+                      width: "100%",
+                      opacity: creandoPerfil ? 0.7 : 1,
+                      cursor: creandoPerfil ? "not-allowed" : "pointer",
+                    }}
+                  >
                     <Plus size={16} />
-                    <span>Asociar Perfil</span>
+                    <span>{creandoPerfil ? "Creando..." : "Crear Operador"}</span>
                   </button>
                 </form>
 

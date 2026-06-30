@@ -6,7 +6,7 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 export async function POST(req: Request) {
   try {
-    const { email, password, nombre, rol } = await req.json();
+    const { email, password, nombre, rol, organizacion, telefono } = await req.json();
 
     if (!email || !password || !nombre || !rol) {
       return NextResponse.json({ error: "Faltan datos requeridos (email, password, nombre, rol)." }, { status: 400 });
@@ -54,6 +54,8 @@ export async function POST(req: Request) {
         id: userId,
         nombre,
         rol,
+        organizacion: organizacion?.trim() || null,
+        telefono: telefono?.trim() || null,
         activo: true
       });
 
