@@ -109,6 +109,7 @@ export default function TableroDespachoPage() {
       if (tRes.data) setTickets(tRes.data as Ticket[]);
       setTrasladoCtx(buildTrasladoCtx((trPubRes.data || []).map((r) => r.id)));
       if (acRes.data) setAcopios(acRes.data as CentroAcopioOperativo[]);
+      if (trRes.error) console.error("Error cargando transportes:", trRes.error);
       if (trRes.data) setTransportes(trRes.data as Transporte[]);
       if (medRes.data) setMedicos(medRes.data as PersonalMedico[]);
       if (depRes.data) setDepartamentos(depRes.data as Departamento[]);
@@ -153,24 +154,43 @@ export default function TableroDespachoPage() {
     }
   }, [loading]);
 
-  // FILTRADO DE SUGERENCIA DE TRANSPORTE
-  const obtenerTransportesSugeridos = (categoria: string | null) => {
-    const list = transportes.filter(t => t.en_standby);
-    if (!categoria) return list;
-    
+  const tipoSugeridoParaCategoria = (categoria: string | null, tipo: string) => {
+    if (!categoria) return true;
     if (categoria === "emergencia_medica" || categoria === "traslado_personal") {
-      return list.filter(t => t.tipo === "ambulancia" || t.tipo === "pasajeros");
+      return tipo === "ambulancia" || tipo === "pasajeros";
     }
     if (categoria === "insumo_basico" || categoria === "insumo_medico") {
-      return list.filter(t => t.tipo === "carga" || t.tipo === "pasajeros");
+      return tipo === "carga" || tipo === "pasajeros";
     }
-    if (categoria === "grua") {
-      return list.filter(t => t.tipo === "grua");
+    if (categoria === "grua") return tipo === "grua";
+    if (categoria === "tecnico") return tipo === "tecnico";
+    return true;
+  };
+
+  const obtenerTransportesParaAsignar = (categoria: string | null, asignadoId?: string | null) => {
+    const score = (t: Transporte) => {
+      let s = 0;
+      if (tipoSugeridoParaCategoria(categoria, t.tipo)) s += 10;
+      return s;
+    };
+
+    // Solo transportistas activos y disponibles (en_standby); excepción: el ya asignado al ticket
+    let pool = transportes.filter((t) => t.en_standby);
+    if (asignadoId && !pool.some((t) => t.id === asignadoId)) {
+      const asignado = transportes.find((t) => t.id === asignadoId);
+      if (asignado) pool = [asignado, ...pool];
     }
-    if (categoria === "tecnico") {
-      return list.filter(t => t.tipo === "tecnico");
-    }
-    return list;
+
+    return [...pool].sort(
+      (a, b) => score(b) - score(a) || a.nombre.localeCompare(b.nombre, "es")
+    );
+  };
+
+  const etiquetaTransporte = (t: Transporte, categoria: string | null) => {
+    const partes = [`${t.nombre} (${t.tipo.toUpperCase()})`];
+    if (!t.en_standby) partes.push("no disponible");
+    else if (!tipoSugeridoParaCategoria(categoria, t.tipo)) partes.push("otro tipo");
+    return partes.join(" · ");
   };
 
   // ASIGNAR RECURSOS
@@ -263,7 +283,7 @@ export default function TableroDespachoPage() {
   };
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="ops-page">
       <div style={styles.header}>
         <div>
           <h2 style={styles.title}>Tablero de Despacho Logístico</h2>
@@ -340,10 +360,13 @@ export default function TableroDespachoPage() {
           <p style={{ color: "var(--text-muted)" }}>No hay tickets activos en este estado.</p>
         </div>
       ) : (
-        <div style={styles.grid}>
+        <div style={styles.grid} className="ops-ticket-grid">
           {ticketsFiltrados.map((t) => {
             const estadoInfo = ESTADOS_MAP[t.estado] || { label: t.estado, color: "var(--text)", bg: "var(--surface-2)" };
-            const transStandby = obtenerTransportesSugeridos(t.categoria_final);
+            const transportesAsignables = obtenerTransportesParaAsignar(
+              t.categoria_final,
+              selectedTransporte[t.id] || t.transporte_id
+            );
             const medDisponibles = medicos.filter(m => m.disponible && m.verificado);
             const origenMapUrl = t.origen_lat && t.origen_lng
               ? `https://www.google.com/maps/dir/?api=1&origin=${t.origen_lat},${t.origen_lng}&destination=${t.destino_lat || t.origen_lat},${t.destino_lng || t.origen_lng}`
@@ -558,11 +581,15 @@ export default function TableroDespachoPage() {
                         style={styles.select}
                       >
                         <option value="">-- Sin transporte asignado --</option>
-                        {transStandby.map(tr => (
-                          <option key={tr.id} value={tr.id}>
-                            {tr.nombre} ({tr.tipo.toUpperCase()})
-                          </option>
-                        ))}
+                        {transportesAsignables.length === 0 ? (
+                          <option value="" disabled>Sin transportistas disponibles</option>
+                        ) : (
+                          transportesAsignables.map((tr) => (
+                            <option key={tr.id} value={tr.id}>
+                              {etiquetaTransporte(tr, t.categoria_final)}
+                            </option>
+                          ))
+                        )}
                       </select>
                     </div>
 
@@ -620,8 +647,8 @@ export default function TableroDespachoPage() {
 
       {/* Modal Inventario Acopio */}
       {viewInventarioCentro && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={styles.modal} className="ops-modal">
             <div style={styles.modalHeader}>
               <div>
                 <h3 style={{ margin: 0 }}>Inventario disponible</h3>
@@ -635,6 +662,7 @@ export default function TableroDespachoPage() {
                   Sin insumos registrados en este centro.
                 </p>
               ) : (
+                <div className="ops-table-wrap">
                 <table style={styles.table}>
                   <thead>
                     <tr>
@@ -653,9 +681,10 @@ export default function TableroDespachoPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button style={styles.btnSecondary} onClick={() => setViewInventarioCentro(null)}>Cerrar</button>
             </div>
           </div>
@@ -664,8 +693,8 @@ export default function TableroDespachoPage() {
 
       {/* Modal WhatsApp Handoff */}
       {whatsappText && (
-        <div style={styles.modalOverlay}>
-          <div style={{ ...styles.modal, maxWidth: "500px" }}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={{ ...styles.modal, maxWidth: "500px" }} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3 style={{ margin: 0 }}>WhatsApp Handoff generado</h3>
               <button style={styles.closeBtn} onClick={() => setWhatsappText(null)}><X size={18} /></button>
@@ -678,7 +707,7 @@ export default function TableroDespachoPage() {
                 {whatsappText}
               </pre>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button style={styles.btnSecondary} onClick={() => setWhatsappText(null)}>Cerrar</button>
               <button style={styles.btnPrimary} onClick={handleCopyWhatsapp}>Copiar Texto</button>
             </div>
@@ -687,8 +716,8 @@ export default function TableroDespachoPage() {
       )}
       {/* Modal de Alerta / Confirmación Personalizado */}
       {customModal && customModal.show && (
-        <div style={styles.modalOverlay}>
-          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3 style={{ margin: 0 }}>{customModal.title}</h3>
               <button 
@@ -705,7 +734,7 @@ export default function TableroDespachoPage() {
             <div style={styles.modalBody}>
               <p style={{ margin: 0, fontSize: "14px", color: "var(--text)" }}>{customModal.message}</p>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               {customModal.type === "confirm" && (
                 <button 
                   type="button" 
@@ -814,8 +843,6 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "8px",
   },
   grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
     gap: "var(--s4)",
   },
   card: {

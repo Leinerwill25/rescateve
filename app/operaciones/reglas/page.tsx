@@ -232,7 +232,7 @@ export default function ReglasClasificacionPage() {
   };
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="ops-page">
       <div style={styles.header}>
         <div>
           <h2 style={styles.title}>Reglas de Clasificación Automática</h2>
@@ -255,7 +255,7 @@ export default function ReglasClasificacionPage() {
           <p style={{ color: "var(--text-muted)" }}>Haga clic en crear para agregar la primera regla.</p>
         </div>
       ) : (
-        <div style={styles.tableWrapper}>
+        <div style={styles.tableWrapper} className="ops-table-wrap">
           <table style={styles.table}>
             <thead>
               <tr>
@@ -323,8 +323,8 @@ export default function ReglasClasificacionPage() {
 
       {/* Modal Crear/Editar */}
       {editingRegla && (
-        <div style={styles.modalOverlay}>
-          <form onSubmit={handleSave} style={styles.modal}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <form onSubmit={handleSave} style={styles.modal} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3>{editingRegla.id === "nueva" ? "Crear Regla de Clasificación" : "Editar Regla de Clasificación"}</h3>
               <button type="button" style={styles.closeBtn} onClick={() => setEditingRegla(null)}><X size={18} /></button>
@@ -418,7 +418,7 @@ export default function ReglasClasificacionPage() {
                 />
               </div>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button type="button" style={styles.btnSecondary} onClick={() => setEditingRegla(null)}>Cancelar</button>
               <button type="submit" style={styles.btnPrimary}>
                 <Save size={16} />
@@ -430,8 +430,8 @@ export default function ReglasClasificacionPage() {
       )}
       {/* Modal de Alerta / Confirmación Personalizado */}
       {customModal && customModal.show && (
-        <div style={styles.modalOverlay}>
-          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3 style={{ margin: 0 }}>{customModal.title}</h3>
               <button 
@@ -448,7 +448,7 @@ export default function ReglasClasificacionPage() {
             <div style={styles.modalBody}>
               <p style={{ margin: 0, fontSize: "14px", color: "var(--text)" }}>{customModal.message}</p>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               {customModal.type === "confirm" && (
                 <button 
                   type="button" 

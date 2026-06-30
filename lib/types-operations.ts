@@ -31,6 +31,7 @@ export type Transporte = {
   activo: boolean;
   modelo?: string | null;
   placa?: string | null;
+  cedula?: string | null;
 };
 
 export type PersonalMedico = {
@@ -134,6 +135,7 @@ export type Ticket = {
   fuente_url?: string | null;
   capturado_at?: string | null;
   cuando?: string | null;
+  evidencia_entrega_url?: string | null;
 };
 
 export type TicketHistorial = {

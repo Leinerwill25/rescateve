@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { LogIn, ShieldAlert, CheckCircle } from "lucide-react";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -60,9 +61,11 @@ export default function LoginPage() {
     <div style={styles.container}>
       <div style={styles.card}>
         <div style={styles.header}>
-          <div style={styles.logo}>🛡️</div>
+          <div style={styles.logo}>
+            <BrandLogo size={56} priority />
+          </div>
           <h1 style={styles.title}>Rescate VE</h1>
-          <p style={styles.subtitle}>Consola de Operaciones Privada</p>
+          <p style={styles.subtitle}>Consola logística · Red Juntos por Venezuela</p>
         </div>
 
         {error && (
@@ -135,7 +138,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     minHeight: "100vh",
-    background: "linear-gradient(135deg, #0F4C81 0%, #1E293B 100%)",
+    background: "linear-gradient(135deg, #1E3A8A 0%, #1E293B 100%)",
     padding: "var(--s4)",
     fontFamily: "var(--font)",
   },
@@ -159,16 +162,14 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "var(--s1)",
   },
   logo: {
-    fontSize: "36px",
-    background: "var(--brand-soft)",
-    width: "64px",
-    height: "64px",
+    background: "transparent",
+    width: "72px",
+    height: "72px",
     borderRadius: "var(--radius-lg)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: "var(--s2)",
-    boxShadow: "var(--shadow-sm)",
   },
   title: {
     margin: 0,

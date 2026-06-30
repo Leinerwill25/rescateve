@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/api-auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
 const muneyToken = process.env.MUNEY_API_TOKEN || "";
 
 export async function POST(req: Request) {
+  if (!(await requireAdmin(req))) {
+    return NextResponse.json({ error: "No autorizado. Solo administradores pueden procesar pagos." }, { status: 401 });
+  }
+
   // Inicializar supabase client localmente para esta petición
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

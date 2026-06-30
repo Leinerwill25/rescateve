@@ -222,6 +222,10 @@ export type SolicitudGasolina = {
   litros: number;
   estado: "pendiente" | "suministrado" | "pendiente_autorizacion" | "rechazado";
   traslado_id?: string | null;
+  ticket_id?: string | null;
+  transporte_id?: string | null;
+  solicitante_perfil_id?: string | null;
+  origen?: "publico" | "transportista" | null;
   tipo_vehiculo?: "moto" | "carro" | "autobus" | null;
   banco?: string | null;
   order_id?: string | null;

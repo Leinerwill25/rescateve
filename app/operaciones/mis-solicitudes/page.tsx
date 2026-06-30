@@ -166,7 +166,7 @@ export default function MisSolicitudesPage() {
   const completadas = tickets.filter(t => t.estado === "completado");
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="ops-page">
       <div style={styles.header}>
         <div>
           <h2 style={styles.title}>Consola de Atención Médica</h2>
@@ -270,7 +270,7 @@ export default function MisSolicitudesPage() {
       {completadas.length === 0 ? (
         <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", fontStyle: "italic" }}>No hay registros de atenciones médicas previas.</p>
       ) : (
-        <div style={styles.tableWrapper}>
+        <div style={styles.tableWrapper} className="ops-table-wrap">
           <table style={styles.table}>
             <thead>
               <tr>
@@ -297,8 +297,8 @@ export default function MisSolicitudesPage() {
       )}
       {/* Modal de Alerta / Confirmación Personalizado */}
       {customModal && customModal.show && (
-        <div style={styles.modalOverlay}>
-          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3 style={{ margin: 0 }}>{customModal.title}</h3>
               <button 
@@ -315,7 +315,7 @@ export default function MisSolicitudesPage() {
             <div style={styles.modalBody}>
               <p style={{ margin: 0, fontSize: "14px", color: "var(--text)" }}>{customModal.message}</p>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               {customModal.type === "confirm" && (
                 <button 
                   type="button" 

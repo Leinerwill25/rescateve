@@ -602,7 +602,7 @@ export default function ColaValidacionPage() {
   ).length;
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="ops-page">
       <div style={styles.header}>
         <div>
           <h2 style={styles.title}>Cola de Validación Humana</h2>
@@ -1115,8 +1115,8 @@ export default function ColaValidacionPage() {
 
       {/* Modal Reclasificar */}
       {reclasificarTicket && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={styles.modal} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3>Reclasificar Requerimiento</h3>
               <button style={styles.closeBtn} onClick={() => setReclasificarTicket(null)}><X size={18} /></button>
@@ -1151,7 +1151,7 @@ export default function ColaValidacionPage() {
                 </div>
               </div>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button style={styles.btnSecondary} onClick={() => setReclasificarTicket(null)}>Cancelar</button>
               <button style={styles.btnPrimary} onClick={handleReclasificar}>Aprobar con Clasificación</button>
             </div>
@@ -1161,8 +1161,8 @@ export default function ColaValidacionPage() {
 
       {/* Modal Dividir */}
       {dividirTicket && (
-        <div style={styles.modalOverlay}>
-          <div style={{ ...styles.modal, maxWidth: "550px" }}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={{ ...styles.modal, maxWidth: "550px" }} className="ops-modal ops-modal-wide">
             <div style={styles.modalHeader}>
               <h3>Dividir Requerimiento</h3>
               <button style={styles.closeBtn} onClick={() => setDividirTicket(null)}><X size={18} /></button>
@@ -1197,7 +1197,7 @@ export default function ColaValidacionPage() {
                 </div>
               ))}
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button style={styles.btnSecondary} onClick={() => setDividirTicket(null)}>Cancelar</button>
               <button style={styles.btnPrimary} onClick={handleDividir}>Dividir y Re-encolar</button>
             </div>
@@ -1206,8 +1206,8 @@ export default function ColaValidacionPage() {
       )}
       {/* Modal de Alerta / Confirmación / Prompt Personalizado */}
       {customModal && customModal.show && (
-        <div style={styles.modalOverlay}>
-          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3 style={{ margin: 0 }}>{customModal.title}</h3>
               <button 
@@ -1239,7 +1239,7 @@ export default function ColaValidacionPage() {
                 />
               )}
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               {(customModal.type === "confirm" || customModal.type === "prompt") && (
                 <button 
                   type="button" 

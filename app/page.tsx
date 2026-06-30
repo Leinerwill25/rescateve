@@ -12,7 +12,19 @@ import EncontradoModal from "@/components/EncontradoModal";
 import AvisosView from "@/components/AvisosView";
 import TrasladosView from "@/components/TrasladosView";
 import HospitalesView from "@/components/HospitalesView";
-import { Map, AlertCircle, Search, ClipboardList, Megaphone, Truck, Home as HomeIcon, Fuel, ChevronRight } from "lucide-react";
+import { Map, ClipboardList, Megaphone, Truck } from "lucide-react";
+import BrandLogo from "@/components/BrandLogo";
+import SiteHeader, { type SiteNavTarget } from "@/components/landing/SiteHeader";
+import SiteFooter from "@/components/landing/SiteFooter";
+import LandingHero from "@/components/landing/LandingHero";
+import HowItWorks from "@/components/landing/HowItWorks";
+import ProblemSection from "@/components/landing/ProblemSection";
+import ProfileCtas from "@/components/landing/ProfileCtas";
+import AlliesSection from "@/components/landing/AlliesSection";
+import ImpactSection from "@/components/landing/ImpactSection";
+import ShareSection from "@/components/landing/ShareSection";
+import QuipuSection from "@/components/landing/QuipuSection";
+import { useLiveStats } from "@/hooks/useLiveStats";
 
 // Leaflet solo en cliente
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -35,7 +47,6 @@ export default function Home() {
   const [rescatados,    setRescatados]    = useState<RescatadoPublico[]>([]);
   const [centrosAcopio, setCentrosAcopio] = useState<CentroAcopio[]>([]);
   const [puntosAyuda,   setPuntosAyuda]   = useState<PuntoAyuda[]>([]);
-  const [showModal,     setShowModal]     = useState(false);
   const [buscarTab,     setBuscarTab]     = useState<"hospitales" | "reportar">("hospitales");
 
   // Modales de acción
@@ -46,6 +57,24 @@ export default function Home() {
   const [novedadModal,   setNovedadModal]   = useState<{ id: string; nombre: string } | null>(null);
   const [encontradoModal, setEncontradoModal] = useState<{ id: string; nombre: string } | null>(null);
   const [jumpTo, setJumpTo] = useState<{ lat: number; lng: number } | null>(null);
+  const liveStats = useLiveStats();
+
+  const handleSiteNav = (target: SiteNavTarget) => {
+    if (target === "mapa" || target === "traslados" || target === "lista" || target === "info") {
+      setTab(target);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (target === "sumarse" || target === "como-funciona") {
+      setTab("inicio");
+      requestAnimationFrame(() => {
+        document.getElementById(target === "como-funciona" ? "como-funciona" : "sumarse")?.scrollIntoView({ behavior: "smooth" });
+      });
+      return;
+    }
+    setTab("inicio");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // ── Carga inicial y realtime ──
   async function cargar() {
@@ -90,34 +119,19 @@ export default function Home() {
   const buscando  = desaparecidos.filter((d) => d.estado !== "encontrado");
 
   const NAV_ITEMS: { id: Tab; icon: React.ReactNode; label: string; count?: number; emergency?: boolean }[] = [
-    { id: "inicio",        icon: <HomeIcon size={20} strokeWidth={2.25} />, label: "Inicio" },
-    { id: "mapa",          icon: <Map size={20} strokeWidth={2.25} />, label: "Mapa" },
-    { id: "lista",         icon: <ClipboardList size={20} strokeWidth={2.25} />, label: "Lista", count: activas.length + buscando.length },
-    { id: "info",          icon: <Megaphone size={20} strokeWidth={2.25} />, label: "Avisos" },
+    { id: "traslados",     icon: <Truck size={18} strokeWidth={2.25} />, label: "Traslados" },
+    { id: "mapa",          icon: <Map size={18} strokeWidth={2.25} />, label: "Mapa" },
+    { id: "lista",         icon: <ClipboardList size={18} strokeWidth={2.25} />, label: "Lista", count: activas.length + buscando.length },
+    { id: "info",          icon: <Megaphone size={18} strokeWidth={2.25} />, label: "Avisos" },
   ];
 
   return (
-    <div className="app">
-      {/* ── Header ── */}
-      <header className="app-header" role="banner">
-        <div className="app-header__brand">
-          <div className="app-header__logo" aria-hidden="true">🛟</div>
-          <div>
-            <h1 className="app-header__title">Rescate VE</h1>
-            <p className="app-header__subtitle">Mapa de emergencia · Venezuela</p>
-          </div>
-        </div>
-        <button
-          className="app-header__info-btn"
-          onClick={() => setShowModal(true)}
-          aria-label="¿Qué es Rescate VE? Más información"
-        >
-          ¿Qué es esto?
-        </button>
-      </header>
+    <div className={`app${tab === "inicio" ? " app--landing" : ""}`}>
+      <SiteHeader onNav={handleSiteNav} activeTab={tab} />
 
-      {/* ── Bottom Nav ── */}
-      <nav className="bottom-nav" aria-label="Navegación principal">
+      {/* Bottom nav — oculta en landing para no duplicar navegación */}
+      {tab !== "inicio" && (
+      <nav className="bottom-nav" aria-label="Navegación rápida">
         {NAV_ITEMS.map((item) => (
           <button
             key={item.id}
@@ -138,65 +152,30 @@ export default function Home() {
           </button>
         ))}
       </nav>
+      )}
 
       {/* ── Contenido principal ── */}
-      <main className="main-content" id="main-content">
+      <main className={`main-content${tab === "inicio" ? " main-content--landing" : ""}`} id="main-content">
 
         {tab === "inicio" && (
-          <div className="home-container">
-            <header className="dashboard-header">
-              <h2 className="dashboard-title">Centro de Mando</h2>
-              <p className="dashboard-subtitle">Selecciona una opción para comenzar.</p>
-            </header>
-            
-            {/* Hero Section para Emergencias */}
-            <div className="action-hero" onClick={() => setTab("ayuda")}>
-              <div className="action-hero__content">
-                <AlertCircle size={36} strokeWidth={2.5} color="#FFFFFF" className="hero-icon" />
-                <div className="action-hero__text">
-                  <h3 className="action-hero__title">Emergencia Inmediata</h3>
-                  <p className="action-hero__desc">Solicita rescate o atención médica urgente.</p>
-                </div>
-              </div>
-              <ChevronRight size={24} color="#FFFFFF" className="action-hero__chevron" />
-            </div>
-
-            {/* Acciones Rápidas */}
-            <h4 className="dashboard-section-title">Servicios Principales</h4>
-            <div className="action-list">
-              <div className="action-item" onClick={() => setTab("desaparecidos")}>
-                <div className="action-item__icon-wrapper"><Search size={22} strokeWidth={2.5} /></div>
-                <div className="action-item__label">Buscar Persona u Hospitales</div>
-                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
-              </div>
-              
-              <div className="action-item" onClick={() => { setTab("desaparecidos"); setBuscarTab("reportar"); }}>
-                <div className="action-item__icon-wrapper"><Megaphone size={22} strokeWidth={2.5} /></div>
-                <div className="action-item__label">Reportar Desaparecido</div>
-                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
-              </div>
-
-              <div className="action-item" onClick={() => setTab("traslados")}>
-                <div className="action-item__icon-wrapper"><Truck size={22} strokeWidth={2.5} /></div>
-                <div className="action-item__label">Logística y Traslados</div>
-                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
-              </div>
-            </div>
-
-            {/* Accesos secundarios */}
-            <h4 className="dashboard-section-title mt-4">Accesos Directos</h4>
-            <div className="action-list">
-              <div className="action-item" onClick={() => setTab("mapa")}>
-                <div className="action-item__icon-wrapper"><Map size={22} strokeWidth={2.5} /></div>
-                <div className="action-item__label">Ver Mapa</div>
-                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
-              </div>
-              <div className="action-item" onClick={() => setTab("lista")}>
-                <div className="action-item__icon-wrapper"><ClipboardList size={22} strokeWidth={2.5} /></div>
-                <div className="action-item__label">Lista de Casos</div>
-                <ChevronRight size={20} color="#94A3B8" className="action-chevron" />
-              </div>
-            </div>
+          <div className="landing-page">
+            <LandingHero
+              stats={liveStats}
+              onSolicitarTraslado={() => setTab("traslados")}
+              onVerMapa={() => setTab("mapa")}
+            />
+            <HowItWorks />
+            <ProblemSection />
+            <ProfileCtas
+              onSolicitarTraslado={() => setTab("traslados")}
+              onVerMapa={() => setTab("mapa")}
+              onEmergencia={() => setTab("ayuda")}
+            />
+            <ImpactSection stats={liveStats} />
+            <AlliesSection />
+            <ShareSection />
+            <QuipuSection />
+            <SiteFooter onNav={handleSiteNav} />
           </div>
         )}
 
@@ -485,49 +464,6 @@ export default function Home() {
           </div>
         )}
       </main>
-
-      {/* ── Modal ¿Qué es esto? ── */}
-      {showModal && (
-        <div
-          className="modal-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-title"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
-        >
-          <div className="modal">
-            <div className="modal__handle" aria-hidden="true" />
-            <h2 className="modal__title" id="modal-title">¿Qué es Rescate VE?</h2>
-            <div className="modal__body">
-              <p>
-                <strong>Rescate VE</strong> es un mapa colaborativo de emergencia
-                creado para coordinar ayuda tras el terremoto en Venezuela.
-                Cualquier persona puede reportar lugares que necesitan rescate
-                o publicar información sobre personas desaparecidas.
-              </p>
-              <p>
-                Los rescatistas, familiares y voluntarios pueden ver los puntos
-                en el mapa, abrir rutas de navegación y marcar casos atendidos
-                en tiempo real.
-              </p>
-              <p style={{ marginBottom: 0 }}>
-                <strong>¿Cómo funciona?</strong> Selecciona "Pedir ayuda" para
-                reportar un lugar. Selecciona "Desaparecidos" para reportar a
-                una persona. El mapa se actualiza automáticamente.
-              </p>
-              <div className="modal__privacy">
-                🔒 <strong>Tu privacidad:</strong> Solo pedimos la información
-                estrictamente necesaria. La ubicación se usa únicamente para
-                mostrar el pin en el mapa. No hay registro de usuario ni
-                rastreo de ningún tipo.
-              </div>
-            </div>
-            <button className="modal__close" onClick={() => setShowModal(false)}>
-              Entendido
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── Modal Atender emergencia ── */}
       {atenderModal && (

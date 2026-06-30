@@ -160,9 +160,9 @@ export default function MiAcopioPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="ops-page">
       {/* HEADER DE ALMACÉN */}
-      <div style={styles.headerCard}>
+      <div style={styles.headerCard} className="ops-page-header">
         <div style={styles.headerInfo}>
           <div style={styles.iconWrapper}>
             <Package size={32} color="var(--brand)" />
@@ -191,7 +191,7 @@ export default function MiAcopioPage() {
       </div>
 
       {/* TABS DE NAVEGACIÓN */}
-      <div style={styles.tabBar}>
+      <div style={styles.tabBar} className="ops-tabs">
         <button 
           onClick={() => setActiveTab("stock")} 
           style={{
@@ -232,7 +232,7 @@ export default function MiAcopioPage() {
               </button>
             </div>
           ) : (
-            <div style={styles.tableResponsive}>
+            <div style={styles.tableResponsive} className="ops-table-wrap">
               <table style={styles.table}>
                 <thead>
                   <tr>
@@ -273,7 +273,7 @@ export default function MiAcopioPage() {
               <p style={{ margin: 0, color: "var(--text-muted)" }}>No se han registrado movimientos de inventario todavía.</p>
             </div>
           ) : (
-            <div style={styles.tableResponsive}>
+            <div style={styles.tableResponsive} className="ops-table-wrap">
               <table style={styles.table}>
                 <thead>
                   <tr>
@@ -350,8 +350,8 @@ export default function MiAcopioPage() {
 
       {/* MODAL REGISTRAR MOVIMIENTO */}
       {showMovModal && (
-        <div style={styles.modalOverlay}>
-          <form onSubmit={handleRegistrarMovimiento} style={styles.modal}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <form onSubmit={handleRegistrarMovimiento} style={styles.modal} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3 style={{ margin: 0, fontSize: "16px" }}>Registrar Movimiento de Inventario</h3>
               <button type="button" onClick={() => setShowMovModal(false)} style={styles.closeBtn}><X size={18} /></button>
@@ -492,7 +492,7 @@ export default function MiAcopioPage() {
               )}
             </div>
 
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button type="button" onClick={() => setShowMovModal(false)} style={styles.btnSecondary}>Cancelar</button>
               <button type="submit" disabled={guardando} style={{
                 ...styles.btnPrimary,

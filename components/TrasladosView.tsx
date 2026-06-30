@@ -596,24 +596,10 @@ export default function TrasladosView() {
                         </div>
                       )}
 
-                      {s.estado === "pendiente_autorizacion" && (
-                        <button 
-                          className="btn btn--primary" 
-                          style={{ width: "100%", padding: "var(--s2)", minHeight: "36px", height: "36px", background: "var(--brand-dark)" }}
-                          onClick={() => autorizarGasolina(s.id)}
-                        >
-                          ✓ Autorizar Recarga (Exceso de límite)
-                        </button>
-                      )}
-
                       {s.estado === "pendiente" && (
-                        <button 
-                          className="btn btn--primary" 
-                          style={{ width: "100%", padding: "var(--s2)", minHeight: "36px", height: "36px" }}
-                          onClick={() => marcarGasolinaSuministrado(s.id)}
-                        >
-                          ✓ Procesar Pago Móvil en Tiempo Real
-                        </button>
+                        <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--text-muted)", textAlign: "center" }}>
+                          El administrador procesará el pago desde la consola de operaciones.
+                        </p>
                       )}
                     </article>
                   );

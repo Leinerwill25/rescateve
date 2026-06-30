@@ -258,7 +258,7 @@ export default function RecursosPage() {
   // CRUD TRANSPORTES
   // -------------------------------------------------------------
   const openCrearTrans = () => {
-    setEditTrans({ id: "nuevo", perfil_id: "", nombre: "", tipo: "carga", zona: "", contacto: "", en_standby: true, activo: true, modelo: "", placa: "" });
+    setEditTrans({ id: "nuevo", perfil_id: "", nombre: "", tipo: "carga", zona: "", contacto: "", cedula: "", en_standby: true, activo: true, modelo: "", placa: "" });
   };
 
   const handleGuardarTrans = async (e: React.FormEvent) => {
@@ -271,6 +271,7 @@ export default function RecursosPage() {
       tipo: editTrans.tipo,
       zona: editTrans.zona || null,
       contacto: editTrans.contacto || null,
+      cedula: editTrans.cedula || null,
       en_standby: editTrans.en_standby,
       activo: editTrans.activo,
       modelo: editTrans.modelo || null,
@@ -479,7 +480,7 @@ export default function RecursosPage() {
   };
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="ops-page">
       <div style={styles.header}>
         <div>
           <h2 style={styles.title}>Gestor de Recursos Logísticos</h2>
@@ -488,7 +489,7 @@ export default function RecursosPage() {
       </div>
 
       {/* Tabs */}
-      <div style={styles.tabGroup}>
+      <div style={styles.tabGroup} className="ops-tabs">
         <button 
           style={activeTab === "perfiles" ? styles.tabActive : styles.tab}
           onClick={() => { setActiveTab("perfiles"); setSelectedAcopioInv(null); }}
@@ -637,7 +638,7 @@ export default function RecursosPage() {
                 </form>
 
                 {/* Lista perfiles */}
-                <div style={styles.listContainer}>
+                <div style={styles.listContainer} className="ops-table-wrap">
                   <h4 style={{ margin: "0 0 12px 0" }}>Perfiles Vinculados</h4>
                   <table style={styles.table}>
                     <thead>
@@ -933,8 +934,8 @@ export default function RecursosPage() {
 
       {/* MODAL PERFIL EDIT */}
       {editPerfil && (
-        <div style={styles.modalOverlay}>
-          <form onSubmit={handleGuardarPerfil} style={styles.modal}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <form onSubmit={handleGuardarPerfil} style={styles.modal} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3>Editar Perfil Operador</h3>
               <button type="button" style={styles.closeBtn} onClick={() => setEditPerfil(null)}><X size={18} /></button>
@@ -972,7 +973,7 @@ export default function RecursosPage() {
                 </label>
               </div>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button type="button" style={styles.btnSecondary} onClick={() => setEditPerfil(null)}>Cancelar</button>
               <button type="submit" style={styles.btnPrimary}>Guardar Cambios</button>
             </div>
@@ -982,8 +983,8 @@ export default function RecursosPage() {
 
       {/* MODAL DEPARTAMENTO */}
       {editDept && (
-        <div style={styles.modalOverlay}>
-          <form onSubmit={handleGuardarDept} style={styles.modal}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <form onSubmit={handleGuardarDept} style={styles.modal} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3>{editDept.id === "nuevo" ? "Crear Departamento" : "Editar Departamento"}</h3>
               <button type="button" style={styles.closeBtn} onClick={() => setEditDept(null)}><X size={18} /></button>
@@ -1028,7 +1029,7 @@ export default function RecursosPage() {
                 </label>
               </div>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button type="button" style={styles.btnSecondary} onClick={() => setEditDept(null)}>Cancelar</button>
               <button type="submit" style={styles.btnPrimary}>Guardar Departamento</button>
             </div>
@@ -1038,8 +1039,8 @@ export default function RecursosPage() {
 
       {/* MODAL TRANSPORTE */}
       {editTrans && (
-        <div style={styles.modalOverlay}>
-          <form onSubmit={handleGuardarTrans} style={styles.modalAcopio}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <form onSubmit={handleGuardarTrans} style={styles.modalAcopio} className="ops-modal ops-modal-wide">
             <div style={styles.modalHeader}>
               <h3 style={{ margin: 0, fontSize: "17px" }}>
                 {editTrans.id === "nuevo" ? "Crear Transporte" : "Editar Transporte"}
@@ -1087,7 +1088,7 @@ export default function RecursosPage() {
               <section style={styles.modalSection}>
                 <h4 style={styles.modalSectionTitle}>Datos del vehículo</h4>
                 <div style={styles.modalSectionContent}>
-                  <div style={styles.fieldRow}>
+                  <div style={styles.fieldRow} className="ops-form-row">
                     <div style={{ ...styles.formField, minWidth: 0 }}>
                       <label style={styles.labelNormal}>Modelo</label>
                       <input
@@ -1135,6 +1136,16 @@ export default function RecursosPage() {
                       value={editTrans.contacto || ""}
                       onChange={(e) => setEditTrans({ ...editTrans, contacto: e.target.value })}
                       placeholder="0414-0000000"
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.labelNormal}>Cédula del conductor (validación combustible)</label>
+                    <input
+                      type="text"
+                      value={editTrans.cedula || ""}
+                      onChange={(e) => setEditTrans({ ...editTrans, cedula: e.target.value })}
+                      placeholder="V-12345678"
                       style={styles.input}
                     />
                   </div>
@@ -1186,7 +1197,7 @@ export default function RecursosPage() {
               </div>
             </div>
 
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button type="button" style={styles.btnSecondary} onClick={() => setEditTrans(null)}>
                 Cancelar
               </button>
@@ -1200,8 +1211,8 @@ export default function RecursosPage() {
 
       {/* MODAL MEDICO */}
       {editMedico && (
-        <div style={styles.modalOverlay}>
-          <form onSubmit={handleGuardarMedico} style={styles.modal}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <form onSubmit={handleGuardarMedico} style={styles.modal} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3>{editMedico.id === "nuevo" ? "Crear Médico" : "Editar Ficha Médica"}</h3>
               <button type="button" style={styles.closeBtn} onClick={() => setEditMedico(null)}><X size={18} /></button>
@@ -1251,7 +1262,7 @@ export default function RecursosPage() {
                 </label>
               </div>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button type="button" style={styles.btnSecondary} onClick={() => setEditMedico(null)}>Cancelar</button>
               <button type="submit" style={styles.btnPrimary}>Guardar Ficha</button>
             </div>
@@ -1261,8 +1272,8 @@ export default function RecursosPage() {
 
       {/* MODAL ACOPIO */}
       {editAcopio && (
-        <div style={styles.modalOverlay}>
-          <form onSubmit={handleGuardarAcopio} style={styles.modalAcopio}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <form onSubmit={handleGuardarAcopio} style={styles.modalAcopio} className="ops-modal ops-modal-wide">
             <div style={styles.modalHeader}>
               <h3 style={{ margin: 0, fontSize: "17px" }}>
                 {editAcopio.id === "nuevo" ? "Crear Centro de Acopio" : "Editar Centro de Acopio"}
@@ -1316,7 +1327,7 @@ export default function RecursosPage() {
                   Ubicación en mapa
                 </h4>
                 <div style={styles.modalSectionContent}>
-                  <div style={styles.fieldRow}>
+                  <div style={styles.fieldRow} className="ops-form-row">
                     <div style={{ ...styles.formField, minWidth: 0 }}>
                       <label style={styles.labelNormal}>Latitud</label>
                       <input
@@ -1448,7 +1459,7 @@ export default function RecursosPage() {
               </label>
             </div>
 
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button type="button" style={styles.btnSecondary} onClick={() => setEditAcopio(null)}>
                 Cancelar
               </button>
@@ -1462,8 +1473,8 @@ export default function RecursosPage() {
 
       {/* MODAL INVENTARIO ITEM */}
       {editInv && (
-        <div style={styles.modalOverlay}>
-          <form onSubmit={handleGuardarInv} style={styles.modal}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <form onSubmit={handleGuardarInv} style={styles.modal} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3>{editInv.id === "nuevo" ? "Agregar Insumo" : "Editar Cantidad Insumo"}</h3>
               <button type="button" style={styles.closeBtn} onClick={() => setEditInv(null)}><X size={18} /></button>
@@ -1490,7 +1501,7 @@ export default function RecursosPage() {
                 <input type="text" value={editInv.unidad || ""} onChange={(e) => setEditInv({ ...editInv, unidad: e.target.value })} placeholder="cajas, botellas, sobres, tabletas..." style={styles.input} />
               </div>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               <button type="button" style={styles.btnSecondary} onClick={() => setEditInv(null)}>Cancelar</button>
               <button type="submit" style={styles.btnPrimary}>Guardar Insumo</button>
             </div>
@@ -1499,8 +1510,8 @@ export default function RecursosPage() {
       )}
       {/* Modal de Alerta / Confirmación Personalizado */}
       {customModal && customModal.show && (
-        <div style={styles.modalOverlay}>
-          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3 style={{ margin: 0 }}>{customModal.title}</h3>
               <button 
@@ -1517,7 +1528,7 @@ export default function RecursosPage() {
             <div style={styles.modalBody}>
               <p style={{ margin: 0, fontSize: "14px", color: "var(--text)" }}>{customModal.message}</p>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               {customModal.type === "confirm" && (
                 <button 
                   type="button" 
@@ -1850,8 +1861,6 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "12px",
   },
   fieldRow: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
     gap: "10px",
   },
   mapPickerWrap: {

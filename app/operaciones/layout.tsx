@@ -19,10 +19,13 @@ import {
   Menu,
   X, 
   AlertCircle,
-  Package
+  Package,
+  Fuel,
+  Settings,
 } from "lucide-react";
 
 import { OperationsAuthContext } from "./AuthContext";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function OperationsLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -171,6 +174,12 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
     };
   }, [perfil]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [menuOpen]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
@@ -189,6 +198,7 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
   if (loading) {
     return (
       <div style={styles.loadingScreen}>
+        <BrandLogo size={64} />
         <div style={styles.spinner}></div>
         <p style={styles.loadingText}>Cargando entorno logístico...</p>
       </div>
@@ -214,6 +224,7 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
       return [
         { label: "Cola de Validación", href: "/operaciones/cola", icon: <ClipboardCheck size={18} /> },
         { label: "Tablero Despacho", href: "/operaciones/despacho", icon: <Truck size={18} /> },
+        { label: "Combustible", href: "/operaciones/combustible", icon: <Fuel size={18} /> },
         { label: "Reglas Ruteo", href: "/operaciones/reglas", icon: <Sliders size={18} /> },
         { label: "Recursos y Fichas", href: "/operaciones/recursos", icon: <Briefcase size={18} /> },
         { label: "Historial Auditoría", href: "/operaciones/auditoria", icon: <History size={18} /> },
@@ -221,6 +232,7 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
     } else if (perfil.rol === "transportista") {
       return [
         { label: "Mis Viajes", href: "/operaciones/mis-viajes", icon: <Truck size={18} /> },
+        { label: "Configuración", href: "/operaciones/configuracion", icon: <Settings size={18} /> },
       ];
     } else if (perfil.rol === "medico") {
       return [
@@ -239,24 +251,24 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
 
   return (
     <OperationsAuthContext.Provider value={{ session, perfil, loading, actualizarPerfil: () => cargarPerfil(session.user.id) }}>
-      <div className="ops-wrapper">
+      <div className={`ops-wrapper${perfil.rol === "admin" ? " ops-has-banner" : ""}`}>
         {/* Banner admin */}
         {perfil.rol === "admin" && (
-          <div style={styles.adminBanner}>
+          <div style={styles.adminBanner} className="ops-admin-banner">
             <AlertCircle size={16} />
             <span>Ningún ticket notifica hacia afuera hasta que lo apruebes en la cola.</span>
           </div>
         )}
 
-        <header style={styles.header}>
-          <div style={styles.headerBrand}>
+        <header style={styles.header} className="ops-header">
+          <div style={styles.headerBrand} className="ops-header-brand">
             <button className="ops-menu-toggle" onClick={() => setMenuOpen(!menuOpen)}>
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
-            <div style={styles.logo}>🛡️</div>
+            <BrandLogo size={32} />
             <div>
-              <h1 style={styles.headerTitle}>Rescate VE</h1>
-              <p style={styles.headerRole}>
+              <h1 style={styles.headerTitle} className="ops-header-title">Rescate VE</h1>
+              <p style={styles.headerRole} className="ops-header-role">
                 {perfil.rol === "admin" ? "Consola Operaciones (Admin)" : `Consola ${perfil.rol}`}
               </p>
             </div>
@@ -277,7 +289,7 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
               </button>
 
               {showNotifPanel && (
-                <div style={styles.notifDropdown}>
+                <div style={styles.notifDropdown} className="ops-notif-dropdown">
                   <div style={styles.notifHeader}>
                     <span>Notificaciones Recientes</span>
                     <button style={styles.closeNotifBtn} onClick={() => setShowNotifPanel(false)}><X size={14} /></button>
@@ -306,9 +318,9 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
               )}
             </div>
 
-            <div style={styles.profileBadge}>
+            <div style={styles.profileBadge} className="ops-profile-badge">
               <User size={16} />
-              <span style={styles.profileName}>{perfil.nombre || session.user.email}</span>
+              <span style={styles.profileName} className="ops-profile-name">{perfil.nombre || session.user.email}</span>
             </div>
 
             <button onClick={handleLogout} style={styles.logoutBtn} title="Cerrar sesión">
@@ -318,6 +330,14 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
         </header>
 
         <div className="ops-container">
+          {menuOpen && (
+            <button
+              type="button"
+              className="ops-sidebar-backdrop"
+              onClick={() => setMenuOpen(false)}
+              aria-label="Cerrar menú"
+            />
+          )}
           {/* Sidebar */}
           <aside className={`ops-sidebar ${menuOpen ? "open" : ""}`}>
             <nav style={styles.nav}>
@@ -396,9 +416,6 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none",
     cursor: "pointer",
     color: "var(--text)",
-  },
-  logo: {
-    fontSize: "24px",
   },
   headerTitle: {
     margin: 0,

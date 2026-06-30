@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { Ticket, Transporte } from "@/lib/types-operations";
 import { useOperationsAuth } from "../AuthContext";
+import { BANCOS_PAGO_MOVIL, costoEstimadoUSD, tipoVehiculoDesdeTransporte } from "@/lib/combustible-utils";
+import { uploadEntregaImage, validateImageFile } from "@/lib/image-utils";
 import { 
   Truck, 
   MapPin, 
@@ -14,6 +16,9 @@ import {
   Play,
   RotateCcw,
   Compass,
+  Fuel,
+  Camera,
+  ImagePlus,
   X
 } from "lucide-react";
 
@@ -22,6 +27,26 @@ export default function MisViajesPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [transporteFicha, setTransporteFicha] = useState<Transporte | null>(null);
   const [loading, setLoading] = useState(true);
+  const [gasTicket, setGasTicket] = useState<Ticket | null>(null);
+  const [gasLoading, setGasLoading] = useState(false);
+  const [gasError, setGasError] = useState("");
+  const [gasForm, setGasForm] = useState({
+    nombre: "",
+    apellido: "",
+    cedula: "",
+    telefono: "",
+    banco: "0102",
+    litros: "",
+    marca: "",
+  });
+  const [solicitudesPendientes, setSolicitudesPendientes] = useState<Set<string>>(new Set());
+  const [fotoRecordatorioOpen, setFotoRecordatorioOpen] = useState(false);
+  const [entregaTicket, setEntregaTicket] = useState<Ticket | null>(null);
+  const [entregaFile, setEntregaFile] = useState<File | null>(null);
+  const [entregaPreview, setEntregaPreview] = useState<string | null>(null);
+  const [entregaLoading, setEntregaLoading] = useState(false);
+  const [entregaError, setEntregaError] = useState("");
+  const entregaFileRef = useRef<HTMLInputElement>(null);
   // Modal de Alerta / Confirmación personalizado
   const [customModal, setCustomModal] = useState<{
     show: boolean;
@@ -90,6 +115,22 @@ export default function MisViajesPage() {
 
         if (error) throw error;
         setTickets((ticketsData || []) as Ticket[]);
+
+        const ids = (ticketsData || []).map((t) => t.id);
+        if (ids.length > 0) {
+          const { data: sols } = await supabase
+            .from("solicitudes_gasolina")
+            .select("ticket_id")
+            .in("ticket_id", ids)
+            .in("estado", ["pendiente", "pendiente_autorizacion"]);
+          setSolicitudesPendientes(new Set((sols || []).map((s) => s.ticket_id).filter(Boolean)));
+        } else {
+          setSolicitudesPendientes(new Set());
+        }
+      } else {
+        setTransporteFicha(null);
+        setTickets([]);
+        setSolicitudesPendientes(new Set());
       }
     } catch (err) {
       console.error("Error al cargar viajes:", err);
@@ -110,6 +151,60 @@ export default function MisViajesPage() {
     return () => { supabase.removeChannel(ch); };
   }, [perfil]);
 
+  const openGasolinaModal = (t: Ticket) => {
+    if (!transporteFicha) return;
+    setGasForm({
+      nombre: "",
+      apellido: "",
+      cedula: "",
+      telefono: "",
+      banco: "0102",
+      litros: "",
+      marca: transporteFicha.nombre,
+    });
+    setGasError("");
+    setGasTicket(t);
+  };
+
+  const submitGasolina = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!gasTicket || !transporteFicha) return;
+    setGasError("");
+    setGasLoading(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Sesión expirada. Vuelva a iniciar sesión.");
+
+      const res = await fetch("/api/combustible/solicitar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          ticketId: gasTicket.id,
+          ...gasForm,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al enviar solicitud.");
+
+      setGasTicket(null);
+      await showCustomAlert(
+        data.requiereAutorizacion
+          ? "Solicitud registrada. Supera el límite de litros y requiere autorización del administrador antes del pago."
+          : "Solicitud enviada al administrador. Recibirá el pago en la gasolinera una vez aprobada."
+      );
+      cargarDatos();
+    } catch (err: any) {
+      setGasError(err.message);
+    } finally {
+      setGasLoading(false);
+    }
+  };
+
   const handleCambiarEstado = async (ticketId: string, nuevoEstado: string) => {
     const confirmMsg = nuevoEstado === "rechazado" 
       ? "¿Está seguro de rechazar este viaje? Se devolverá a la cola del administrador."
@@ -124,10 +219,87 @@ export default function MisViajesPage() {
       });
 
       if (error) throw error;
+
+      if (nuevoEstado === "aceptado") {
+        await supabase.rpc("actualizar_disponibilidad_transporte", { p_en_standby: false });
+      }
+
       showCustomAlert("Estado actualizado correctamente.");
       cargarDatos();
     } catch (err: any) {
       showCustomAlert(`Error al actualizar estado: ${err.message}`);
+    }
+  };
+
+  const iniciarViaje = async (ticketId: string) => {
+    if (!(await showCustomConfirm("¿Confirma que va en camino hacia el punto de entrega?"))) return;
+
+    try {
+      const { error } = await supabase.rpc("actualizar_estado_ticket", {
+        p_id: ticketId,
+        p_estado: "en_camino",
+      });
+      if (error) throw error;
+      await cargarDatos();
+      setFotoRecordatorioOpen(true);
+    } catch (err: any) {
+      showCustomAlert(`Error al iniciar viaje: ${err.message}`);
+    }
+  };
+
+  const openEntregaModal = (t: Ticket) => {
+    setEntregaTicket(t);
+    setEntregaFile(null);
+    setEntregaPreview(null);
+    setEntregaError("");
+  };
+
+  const handleEntregaFile = (file: File | null) => {
+    if (!file) {
+      setEntregaFile(null);
+      setEntregaPreview(null);
+      return;
+    }
+    const err = validateImageFile(file);
+    if (err) {
+      setEntregaError(err);
+      return;
+    }
+    setEntregaError("");
+    setEntregaFile(file);
+    setEntregaPreview(URL.createObjectURL(file));
+  };
+
+  const submitEntrega = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!entregaTicket || !entregaFile) {
+      setEntregaError("Debe adjuntar una foto de la entrega realizada.");
+      return;
+    }
+
+    setEntregaLoading(true);
+    setEntregaError("");
+
+    try {
+      const url = await uploadEntregaImage(entregaTicket.id, entregaFile);
+      const { error } = await supabase.rpc("actualizar_estado_ticket", {
+        p_id: entregaTicket.id,
+        p_estado: "completado",
+        p_evidencia_url: url,
+      });
+      if (error) throw error;
+
+      await supabase.rpc("actualizar_disponibilidad_transporte", { p_en_standby: true });
+
+      setEntregaTicket(null);
+      setEntregaFile(null);
+      setEntregaPreview(null);
+      await showCustomAlert("Entrega registrada con éxito. ¡Gracias por su trabajo!");
+      cargarDatos();
+    } catch (err: any) {
+      setEntregaError(err.message || "Error al registrar entrega.");
+    } finally {
+      setEntregaLoading(false);
     }
   };
 
@@ -151,11 +323,17 @@ export default function MisViajesPage() {
   const completados = tickets.filter(t => t.estado === "completado");
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="ops-page">
       <div style={styles.header}>
         <div>
           <h2 style={styles.title}>Mis Viajes Asignados</h2>
-          <p style={styles.subtitle}>Vehículo: <strong>{transporteFicha.nombre}</strong> | Tipo: {transporteFicha.tipo.toUpperCase()}</p>
+          <p style={styles.subtitle}>
+            Vehículo: <strong>{transporteFicha.nombre}</strong> | Tipo: {transporteFicha.tipo.toUpperCase()}
+            {" · "}
+            <span style={{ color: transporteFicha.en_standby ? "var(--success)" : "var(--warning)", fontWeight: 700 }}>
+              {transporteFicha.en_standby ? "Disponible para traslados" : "Inactivo en despacho"}
+            </span>
+          </p>
         </div>
       </div>
 
@@ -202,6 +380,13 @@ export default function MisViajesPage() {
                       <span><strong>Contacto:</strong> {t.contacto_solicitante || "No registrado"}</span>
                     </div>
                   </div>
+
+                  {t.estado === "en_camino" && (
+                    <div style={styles.fotoBanner}>
+                      <Camera size={18} />
+                      <span>Al entregar, tome una <strong>foto del insumo entregado</strong> como comprobante.</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Acciones */}
@@ -227,14 +412,25 @@ export default function MisViajesPage() {
                   )}
 
                   {t.estado === "aceptado" && (
-                    <button style={styles.btnSuccess} onClick={() => handleCambiarEstado(t.id, "en_camino")}>
+                    <button style={styles.btnSuccess} onClick={() => iniciarViaje(t.id)}>
                       <Play size={16} />
                       <span>Iniciar Viaje (En camino)</span>
                     </button>
                   )}
 
+                  {(t.estado === "aceptado" || t.estado === "en_camino") && (
+                    solicitudesPendientes.has(t.id) ? (
+                      <span style={styles.btnGasPending}>⛽ Solicitud pendiente de aprobación</span>
+                    ) : (
+                      <button style={styles.btnGas} onClick={() => openGasolinaModal(t)}>
+                        <Fuel size={16} />
+                        <span>Solicitar Combustible</span>
+                      </button>
+                    )
+                  )}
+
                   {t.estado === "en_camino" && (
-                    <button style={styles.btnSuccess} onClick={() => handleCambiarEstado(t.id, "completado")}>
+                    <button style={styles.btnSuccess} onClick={() => openEntregaModal(t)}>
                       <CheckCircle size={16} />
                       <span>Marcar Entregado</span>
                     </button>
@@ -251,13 +447,14 @@ export default function MisViajesPage() {
       {completados.length === 0 ? (
         <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", fontStyle: "italic" }}>No has completado entregas recientemente.</p>
       ) : (
-        <div style={styles.tableWrapper}>
+        <div style={styles.tableWrapper} className="ops-table-wrap">
           <table style={styles.table}>
             <thead>
               <tr>
                 <th style={styles.th}>Fecha</th>
                 <th style={styles.th}>Detalle de Entrega</th>
                 <th style={styles.th}>Ubicación</th>
+                <th style={styles.th}>Evidencia</th>
                 <th style={styles.th}>Estado</th>
               </tr>
             </thead>
@@ -270,6 +467,15 @@ export default function MisViajesPage() {
                     {c.cantidad && <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Carga: {c.cantidad}</div>}
                   </td>
                   <td style={styles.td}>{c.origen_ref || "En mapa"}</td>
+                  <td style={styles.td}>
+                    {c.evidencia_entrega_url ? (
+                      <a href={c.evidencia_entrega_url} target="_blank" rel="noopener noreferrer" style={styles.evidenciaLink}>
+                        📷 Ver foto
+                      </a>
+                    ) : (
+                      <span style={{ color: "var(--text-muted)", fontSize: "11px" }}>—</span>
+                    )}
+                  </td>
                   <td style={styles.td}><span style={styles.completedTag}>Entregado</span></td>
                 </tr>
               ))}
@@ -277,10 +483,188 @@ export default function MisViajesPage() {
           </table>
         </div>
       )}
+      {/* Modal grande: recordatorio de foto al ir en camino */}
+      {fotoRecordatorioOpen && (
+        <div style={styles.fotoAlertOverlay}>
+          <div style={styles.fotoAlertModal}>
+            <div style={styles.fotoAlertIconWrap}>
+              <Camera size={48} strokeWidth={1.5} />
+            </div>
+            <h2 style={styles.fotoAlertTitle}>¡Importante!</h2>
+            <p style={styles.fotoAlertText}>
+              Cuando realice la entrega del insumo, <strong>debe tomar una fotografía</strong> en el momento como comprobante.
+            </p>
+            <p style={styles.fotoAlertSub}>
+              Al marcar como entregado, el sistema le pedirá cargar esa foto. Sin ella no podrá cerrar el viaje.
+            </p>
+            <button type="button" style={styles.fotoAlertBtn} onClick={() => setFotoRecordatorioOpen(false)}>
+              Entendido, tomaré la foto
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal evidencia de entrega */}
+      {entregaTicket && (
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={{ ...styles.modal, maxWidth: "440px", width: "95%" }} className="ops-modal">
+            <div style={styles.modalHeader}>
+              <h3 style={{ margin: 0 }}>📦 Confirmar entrega</h3>
+              <button type="button" style={styles.closeBtn} onClick={() => setEntregaTicket(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={submitEntrega}>
+              <div style={styles.modalBody}>
+                <p style={{ margin: "0 0 12px", fontSize: "13px", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                  Suba una foto que demuestre que el insumo fue entregado en destino.
+                </p>
+                <p style={{ margin: "0 0 16px", fontSize: "13px", fontWeight: 600 }}>
+                  {entregaTicket.descripcion?.slice(0, 100)}
+                  {(entregaTicket.descripcion?.length || 0) > 100 ? "…" : ""}
+                </p>
+
+                {entregaError && (
+                  <p style={{ color: "var(--emergency)", fontSize: "13px", margin: "0 0 12px" }}>{entregaError}</p>
+                )}
+
+                <input
+                  ref={entregaFileRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: "none" }}
+                  onChange={(e) => handleEntregaFile(e.target.files?.[0] || null)}
+                />
+
+                {entregaPreview ? (
+                  <div style={styles.previewWrap}>
+                    <img src={entregaPreview} alt="Vista previa entrega" style={styles.previewImg} />
+                    <button
+                      type="button"
+                      style={styles.previewChangeBtn}
+                      onClick={() => entregaFileRef.current?.click()}
+                    >
+                      Cambiar foto
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    style={styles.uploadZone}
+                    onClick={() => entregaFileRef.current?.click()}
+                  >
+                    <ImagePlus size={36} color="var(--brand)" />
+                    <span style={{ fontWeight: 700, fontSize: "15px", color: "var(--brand)" }}>
+                      Tomar o seleccionar foto
+                    </span>
+                    <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                      JPG, PNG · máx. 5 MB
+                    </span>
+                  </button>
+                )}
+              </div>
+              <div style={styles.modalActions} className="ops-modal-actions">
+                <button type="button" style={styles.btnSecondary} onClick={() => setEntregaTicket(null)}>
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  style={{ ...styles.btnPrimary, opacity: entregaFile ? 1 : 0.5 }}
+                  disabled={entregaLoading || !entregaFile}
+                >
+                  {entregaLoading ? "Subiendo…" : "Confirmar entrega"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal combustible — datos de la gasolinera */}
+      {gasTicket && transporteFicha && (
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={{ ...styles.modal, maxWidth: "480px", width: "95%" }} className="ops-modal">
+            <div style={styles.modalHeader}>
+              <h3 style={{ margin: 0 }}>⛽ Solicitar Combustible</h3>
+              <button type="button" style={styles.closeBtn} onClick={() => setGasTicket(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={submitGasolina}>
+              <div style={{ ...styles.modalBody, maxHeight: "65vh", overflowY: "auto" }}>
+                <p style={{ margin: "0 0 12px", fontSize: "13px", color: "var(--emergency)", background: "var(--emergency-soft)", padding: "10px", borderRadius: "var(--radius-sm)" }}>
+                  Ingrese el <strong>Pago Móvil de la gasolinera</strong>, no sus datos personales. El pago se enviará directamente a la estación de servicio.
+                </p>
+
+                {gasError && (
+                  <p style={{ color: "var(--emergency)", fontSize: "13px", margin: "0 0 12px" }}>{gasError}</p>
+                )}
+
+                <div style={styles.formSection}>
+                  <p style={styles.formSectionTitle}>Datos Pago Móvil — Gasolinera</p>
+                  <div style={styles.formRow} className="ops-form-row">
+                    <div style={styles.formField}>
+                      <label style={styles.label}>Nombre titular</label>
+                      <input style={styles.input} value={gasForm.nombre} onChange={(e) => setGasForm({ ...gasForm, nombre: e.target.value })} required />
+                    </div>
+                    <div style={styles.formField}>
+                      <label style={styles.label}>Apellido titular</label>
+                      <input style={styles.input} value={gasForm.apellido} onChange={(e) => setGasForm({ ...gasForm, apellido: e.target.value })} required />
+                    </div>
+                  </div>
+                  <div style={styles.formRow} className="ops-form-row">
+                    <div style={styles.formField}>
+                      <label style={styles.label}>Cédula titular cuenta</label>
+                      <input style={styles.input} value={gasForm.cedula} onChange={(e) => setGasForm({ ...gasForm, cedula: e.target.value })} placeholder="V-12345678" required />
+                    </div>
+                    <div style={styles.formField}>
+                      <label style={styles.label}>Teléfono Pago Móvil</label>
+                      <input style={styles.input} value={gasForm.telefono} onChange={(e) => setGasForm({ ...gasForm, telefono: e.target.value })} placeholder="0414-0000000" required />
+                    </div>
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.label}>Banco</label>
+                    <select style={styles.input} value={gasForm.banco} onChange={(e) => setGasForm({ ...gasForm, banco: e.target.value })} required>
+                      {BANCOS_PAGO_MOVIL.map((b) => (
+                        <option key={b.code} value={b.code}>{b.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={styles.formSection}>
+                  <p style={styles.formSectionTitle}>Su vehículo (referencia)</p>
+                  <p style={{ margin: 0, fontSize: "13px" }}>
+                    {transporteFicha.nombre} · Placa {transporteFicha.placa || "S/D"} · {transporteFicha.modelo || "—"} · {tipoVehiculoDesdeTransporte(transporteFicha).toUpperCase()}
+                  </p>
+                </div>
+
+                <div style={styles.formField}>
+                  <label style={styles.label}>Litros a cargar</label>
+                  <input type="number" style={styles.input} min="1" step="0.1" value={gasForm.litros} onChange={(e) => setGasForm({ ...gasForm, litros: e.target.value })} required />
+                  {gasForm.litros && !isNaN(parseFloat(gasForm.litros)) && (
+                    <p style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "6px" }}>
+                      Costo estimado: <strong>${costoEstimadoUSD(parseFloat(gasForm.litros)).toFixed(2)} USD</strong>
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div style={styles.modalActions} className="ops-modal-actions">
+                <button type="button" style={styles.btnSecondary} onClick={() => setGasTicket(null)}>Cancelar</button>
+                <button type="submit" style={styles.btnPrimary} disabled={gasLoading}>
+                  {gasLoading ? "Enviando…" : "Enviar al Administrador"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Alerta / Confirmación Personalizado */}
       {customModal && customModal.show && (
-        <div style={styles.modalOverlay}>
-          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }}>
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }} className="ops-modal">
             <div style={styles.modalHeader}>
               <h3 style={{ margin: 0 }}>{customModal.title}</h3>
               <button 
@@ -297,7 +681,7 @@ export default function MisViajesPage() {
             <div style={styles.modalBody}>
               <p style={{ margin: 0, fontSize: "14px", color: "var(--text)" }}>{customModal.message}</p>
             </div>
-            <div style={styles.modalActions}>
+            <div style={styles.modalActions} className="ops-modal-actions">
               {customModal.type === "confirm" && (
                 <button 
                   type="button" 
@@ -499,6 +883,65 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: "6px",
   },
+  btnGas: {
+    background: "var(--brand-soft)",
+    color: "var(--brand)",
+    border: "1px solid rgba(15,76,129,.15)",
+    padding: "8px 16px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "var(--text-sm)",
+    fontWeight: 700,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  btnGasPending: {
+    background: "var(--warning-soft)",
+    color: "var(--warning)",
+    border: "1px solid rgba(217,119,6,.2)",
+    padding: "8px 16px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "var(--text-sm)",
+    fontWeight: 600,
+    display: "inline-flex",
+    alignItems: "center",
+  },
+  formSection: {
+    background: "var(--surface-2)",
+    padding: "12px",
+    borderRadius: "var(--radius-sm)",
+    marginBottom: "12px",
+  },
+  formSectionTitle: {
+    margin: "0 0 10px",
+    fontSize: "12px",
+    fontWeight: 700,
+    color: "var(--text-muted)",
+    textTransform: "uppercase",
+  },
+  formRow: {
+    gap: "10px",
+    marginBottom: "10px",
+  },
+  formField: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+    marginBottom: "10px",
+  },
+  label: {
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "var(--text-muted)",
+  },
+  input: {
+    padding: "8px 10px",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "14px",
+    background: "var(--surface)",
+  },
   tableWrapper: {
     background: "var(--surface)",
     border: "1px solid var(--border)",
@@ -611,5 +1054,122 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "var(--text-sm)",
     fontWeight: 600,
     cursor: "pointer",
-  }
+  },
+  fotoBanner: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    background: "var(--warning-soft)",
+    border: "1px solid rgba(217,119,6,.25)",
+    borderRadius: "var(--radius-sm)",
+    padding: "10px 12px",
+    fontSize: "12px",
+    color: "var(--text)",
+    lineHeight: 1.4,
+  },
+  fotoAlertOverlay: {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(15, 23, 42, 0.75)",
+    backdropFilter: "blur(6px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20000,
+    padding: "20px",
+  },
+  fotoAlertModal: {
+    background: "var(--surface)",
+    borderRadius: "var(--radius)",
+    padding: "32px 28px",
+    maxWidth: "400px",
+    width: "100%",
+    textAlign: "center",
+    boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+    border: "2px solid var(--warning)",
+  },
+  fotoAlertIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: "50%",
+    background: "var(--warning-soft)",
+    color: "var(--warning)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0 auto 20px",
+  },
+  fotoAlertTitle: {
+    margin: "0 0 12px",
+    fontSize: "24px",
+    fontWeight: 900,
+    color: "var(--text)",
+  },
+  fotoAlertText: {
+    margin: "0 0 12px",
+    fontSize: "16px",
+    lineHeight: 1.55,
+    color: "var(--text)",
+  },
+  fotoAlertSub: {
+    margin: "0 0 24px",
+    fontSize: "13px",
+    color: "var(--text-muted)",
+    lineHeight: 1.45,
+  },
+  fotoAlertBtn: {
+    width: "100%",
+    padding: "14px 20px",
+    background: "var(--brand)",
+    color: "#fff",
+    border: "none",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "15px",
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+  uploadZone: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    width: "100%",
+    minHeight: "180px",
+    border: "2px dashed var(--brand)",
+    borderRadius: "var(--radius)",
+    background: "var(--brand-soft)",
+    cursor: "pointer",
+    padding: "24px",
+  },
+  previewWrap: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    alignItems: "center",
+  },
+  previewImg: {
+    width: "100%",
+    maxHeight: "240px",
+    objectFit: "contain",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--border)",
+    background: "var(--surface-2)",
+  },
+  previewChangeBtn: {
+    background: "none",
+    border: "1px solid var(--border)",
+    padding: "8px 16px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    color: "var(--text)",
+  },
+  evidenciaLink: {
+    fontSize: "12px",
+    fontWeight: 700,
+    color: "var(--brand)",
+    textDecoration: "none",
+  },
 };

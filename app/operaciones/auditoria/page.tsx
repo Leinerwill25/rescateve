@@ -133,9 +133,9 @@ export default function AuditoriaLogisticaPage() {
   const currentCasos = activeTab === "completados" ? casosCompletados : casosSolventados;
 
   return (
-    <div style={S.page}>
+    <div style={S.page} className="ops-page">
       {/* Header */}
-      <div style={S.pageHeader}>
+      <div style={S.pageHeader} className="ops-page-header">
         <div style={S.headerInner}>
           <div style={S.headerIcon}>
             <History size={22} color="#fff" />
@@ -158,7 +158,7 @@ export default function AuditoriaLogisticaPage() {
       )}
 
       {/* Stats summary */}
-      <div style={S.statsRow}>
+      <div style={S.statsRow} className="ops-stats-row">
         <div style={S.statCard}>
           <div style={{ ...S.statDot, background: "var(--brand)" }} />
           <div>
@@ -183,7 +183,7 @@ export default function AuditoriaLogisticaPage() {
       </div>
 
       {/* Tabs */}
-      <div style={S.tabsRow}>
+      <div style={S.tabsRow} className="ops-tabs">
         {[
           { key: "auditoria", icon: <History size={15} />, label: "Registro de Acciones" },
           { key: "completados", icon: <CheckCircle size={15} />, label: `Completados (${casosCompletados.length})` },
@@ -204,15 +204,15 @@ export default function AuditoriaLogisticaPage() {
       {activeTab === "auditoria" && (
         <>
           <div style={S.filtersBar}>
-            <div style={S.filterField}>
+            <div style={S.filterField} className="ops-filter-field">
               <Search size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
               <input value={searchTicket} onChange={e => setSearchTicket(e.target.value)} placeholder="ID de ticket..." style={S.filterInput} />
             </div>
-            <div style={S.filterField}>
+            <div style={S.filterField} className="ops-filter-field">
               <User size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
               <input value={searchActor} onChange={e => setSearchActor(e.target.value)} placeholder="Actor / Operador..." style={S.filterInput} />
             </div>
-            <div style={S.filterField}>
+            <div style={S.filterField} className="ops-filter-field">
               <Filter size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
               <select value={filterAccion} onChange={e => setFilterAccion(e.target.value)} style={S.filterSelect}>
                 <option value="todos">Todas las acciones</option>
@@ -273,7 +273,7 @@ export default function AuditoriaLogisticaPage() {
           </div>
 
           {loading ? <Spinner /> : currentCasos.length === 0 ? <Empty message="No hay casos en este estado con los filtros indicados." /> : (
-            <div style={S.cardsGrid}>
+            <div style={S.cardsGrid} className="ops-cards-grid">
               {currentCasos.map(c => {
                 const op = parseOperador(c.operador);
                 const tipo = getTipoInfo(c.tipo);
@@ -401,7 +401,7 @@ const S: Record<string, React.CSSProperties> = {
     borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600,
     display: "flex", alignItems: "center", gap: 8,
   },
-  statsRow: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 },
+  statsRow: { gap: 12 },
   statCard: {
     background: "var(--surface)", border: "1px solid var(--border)",
     borderRadius: "var(--radius)", padding: "16px 20px",
@@ -478,7 +478,7 @@ const S: Record<string, React.CSSProperties> = {
     padding: "2px 6px", borderRadius: 4, fontSize: 11, color: "var(--text-muted)",
   },
   // Cards (completados/solventados)
-  cardsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 },
+  cardsGrid: { gap: 16 },
   caseCard: {
     background: "var(--surface)", border: "1px solid var(--border)",
     borderRadius: "var(--radius)", overflow: "hidden",
