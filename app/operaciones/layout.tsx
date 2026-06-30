@@ -22,6 +22,7 @@ import {
   Package,
   Fuel,
   Settings,
+  Gift,
 } from "lucide-react";
 
 import { OperationsAuthContext } from "./AuthContext";
@@ -241,6 +242,10 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
     } else if (perfil.rol === "acopio") {
       return [
         { label: "Mi Almacén e Inventario", href: "/operaciones/mi-acopio", icon: <Package size={18} /> },
+      ];
+    } else if (perfil.rol === "donante") {
+      return [
+        { label: "Mis Donaciones", href: "/operaciones/mis-donaciones", icon: <Gift size={18} /> },
       ];
     }
     return [];

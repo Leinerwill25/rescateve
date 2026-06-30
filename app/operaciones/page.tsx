@@ -24,6 +24,8 @@ export default function OperationsPage() {
       router.push("/operaciones/mis-solicitudes");
     } else if (perfil.rol === "acopio") {
       router.push("/operaciones/mi-acopio");
+    } else if (perfil.rol === "donante") {
+      router.push("/operaciones/mis-donaciones");
     } else {
       router.push("/login");
     }

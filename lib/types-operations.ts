@@ -1,4 +1,4 @@
-export type RolUsuario = "admin" | "transportista" | "medico" | "acopio";
+export type RolUsuario = "admin" | "transportista" | "medico" | "acopio" | "donante";
 
 export type Perfil = {
   id: string;
@@ -84,6 +84,52 @@ export type InventarioMovimiento = {
   retirado_por: string | null;
   created_at: string;
   creado_por: string | null;
+};
+
+export type Donante = {
+  id: string;
+  perfil_id: string;
+  nombre: string;
+  apellido: string;
+  cedula: string;
+  telefono: string;
+  email_login: string;
+  activo: boolean;
+  created_at: string;
+};
+
+export type DonacionInsumo = {
+  id: string;
+  donante_id: string;
+  perfil_id: string;
+  descripcion: string;
+  categoria: string | null;
+  cantidad: string | null;
+  unidad: string;
+  estado: "disponible" | "reservado" | "entregado" | "cancelado";
+  notas: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DonacionComunidad = {
+  id: string;
+  descripcion: string;
+  categoria: string | null;
+  cantidad: string | null;
+  unidad: string;
+  estado: string;
+  created_at: string;
+};
+
+export type NecesidadComunidad = {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  prioridad: "alta" | "media" | "baja";
+  activo: boolean;
+  orden: number;
+  created_at: string;
 };
 
 export type ReglaClasificacion = {

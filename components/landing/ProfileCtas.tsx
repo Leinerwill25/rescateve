@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Truck, UserPlus, Warehouse, ArrowRight } from "lucide-react";
+import { Truck, UserPlus, Warehouse, Gift, ArrowRight } from "lucide-react";
 import Kicker from "./Kicker";
 import Reveal from "./Reveal";
 
@@ -31,6 +31,13 @@ const PROFILES = [
     desc: "Gestiona inventario y movimientos desde la consola. Contacta a operaciones para activar tu cuenta.",
     action: "login" as const,
     href: "/login",
+  },
+  {
+    icon: Gift,
+    title: "Quiero donar desde casa",
+    desc: "Ofrece insumos que tengas disponibles. Nosotros coordinamos el traslado hacia quien lo necesite.",
+    action: "donantes" as const,
+    href: "/donantes",
   },
 ];
 
@@ -66,6 +73,11 @@ export default function ProfileCtas({ onSolicitarTraslado, onVerMapa, onEmergenc
                       <ArrowRight size={16} aria-hidden="true" />
                     </button>
                   ) : p.action === "voluntarios" ? (
+                    <Link href={p.href!} className="btn btn--primary btn--block">
+                      Registrarme
+                      <ArrowRight size={16} aria-hidden="true" />
+                    </Link>
+                  ) : p.action === "donantes" ? (
                     <Link href={p.href!} className="btn btn--primary btn--block">
                       Registrarme
                       <ArrowRight size={16} aria-hidden="true" />

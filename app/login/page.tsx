@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { LogIn, ShieldAlert, CheckCircle } from "lucide-react";
+import { LogIn, ShieldAlert, CheckCircle, Eye, EyeOff } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -30,8 +31,23 @@ export default function LoginPage() {
     setSuccess(false);
 
     try {
+      let loginEmail = email.trim();
+
+      if (!loginEmail.includes("@")) {
+        const { data: emailResuelto, error: cedulaErr } = await supabase.rpc(
+          "obtener_email_donante_por_cedula",
+          { p_cedula: loginEmail }
+        );
+        if (cedulaErr || !emailResuelto) {
+          setError("No encontramos una cuenta con esa cédula. Verifica el número o regístrate en Donar desde casa.");
+          setLoading(false);
+          return;
+        }
+        loginEmail = emailResuelto;
+      }
+
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
+        email: loginEmail,
         password,
       });
 
@@ -84,31 +100,43 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} style={styles.form}>
           <div style={styles.inputGroup}>
-            <label htmlFor="email" style={styles.label}>Correo Electrónico</label>
+            <label htmlFor="email" style={styles.label}>Correo o cédula</label>
             <input
               id="email"
-              type="email"
-              placeholder="ejemplo@organizacion.org"
+              type="text"
+              placeholder="ejemplo@organizacion.org o V-12345678"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading || success}
               style={styles.input}
+              autoComplete="username"
             />
           </div>
 
           <div style={styles.inputGroup}>
             <label htmlFor="password" style={styles.label}>Contraseña</label>
-            <input
-              id="password"
-              type="password"
-              placeholder="••••••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading || success}
-              style={styles.input}
-            />
+            <div style={styles.passwordWrap}>
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading || success}
+                style={{ ...styles.input, paddingRight: 44 }}
+              />
+              <button
+                type="button"
+                style={styles.eyeBtn}
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                disabled={loading || success}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button
@@ -123,8 +151,9 @@ export default function LoginPage() {
 
         <div style={styles.footer}>
           <p style={styles.footerText}>
-            Acceso exclusivo para personal autorizado de la red logística Juntos por Venezuela.
+            Operadores de la red: usa tu correo institucional. Donantes: inicia con tu cédula y contraseña.
           </p>
+          <a href="/donantes" style={styles.backLink}>Registrarme como donante</a>
           <a href="/" style={styles.backLink}>Volver al mapa público</a>
         </div>
       </div>
@@ -211,6 +240,23 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text)",
     transition: "border-color var(--transition)",
     height: "44px",
+    width: "100%",
+  },
+  passwordWrap: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: 10,
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    color: "var(--text-muted)",
+    display: "flex",
+    alignItems: "center",
+    padding: 4,
   },
   submitBtn: {
     display: "flex",
