@@ -23,6 +23,7 @@ import ProfileCtas from "@/components/landing/ProfileCtas";
 import AlliesSection from "@/components/landing/AlliesSection";
 import LogisticsKpisSection from "@/components/landing/LogisticsKpisSection";
 import VolunteersSection from "@/components/landing/VolunteersSection";
+import NuestrosEnviosSection from "@/components/landing/NuestrosEnviosSection";
 import QuipuSection from "@/components/landing/QuipuSection";
 import { useLiveStats } from "@/hooks/useLiveStats";
 
@@ -173,6 +174,7 @@ export default function Home() {
               onEmergencia={() => setTab("ayuda")}
             />
             <VolunteersSection />
+            <NuestrosEnviosSection />
             <AlliesSection />
             <QuipuSection />
             <SiteFooter onNav={handleSiteNav} />
