@@ -233,10 +233,10 @@ export default function ReglasClasificacionPage() {
 
   return (
     <div style={styles.page} className="ops-page">
-      <div style={styles.header}>
+      <div style={styles.header} className="ops-page-header">
         <div>
-          <h2 style={styles.title}>Reglas de Clasificación Automática</h2>
-          <p style={styles.subtitle}>Configure palabras clave para entrenar el ruteo sugerido de necesidades.</p>
+          <h2 style={styles.title} className="ops-page-title">Reglas de Clasificación Automática</h2>
+          <p style={styles.subtitle} className="ops-page-subtitle">Configure palabras clave para entrenar el ruteo sugerido de necesidades.</p>
         </div>
         <button style={styles.btnPrimary} onClick={openCrear}>
           <Plus size={16} />

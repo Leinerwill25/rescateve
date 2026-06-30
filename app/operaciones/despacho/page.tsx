@@ -284,10 +284,10 @@ export default function TableroDespachoPage() {
 
   return (
     <div style={styles.page} className="ops-page">
-      <div style={styles.header}>
+      <div style={styles.header} className="ops-page-header">
         <div>
-          <h2 style={styles.title}>Tablero de Despacho Logístico</h2>
-          <p style={styles.subtitle}>Gestione rutas, asigne transportes, médicos y acopios a tickets aprobados.</p>
+          <h2 style={styles.title} className="ops-page-title">Tablero de Despacho Logístico</h2>
+          <p style={styles.subtitle} className="ops-page-subtitle">Gestione rutas, asigne transportes, médicos y acopios a tickets aprobados.</p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end" }}>
           <div style={styles.filterGroup}>

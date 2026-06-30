@@ -258,7 +258,7 @@ export default function RecursosPage() {
   // CRUD TRANSPORTES
   // -------------------------------------------------------------
   const openCrearTrans = () => {
-    setEditTrans({ id: "nuevo", perfil_id: "", nombre: "", tipo: "carga", zona: "", contacto: "", cedula: "", en_standby: true, activo: true, modelo: "", placa: "" });
+    setEditTrans({ id: "nuevo", perfil_id: "", nombre: "", tipo: "carga", zona: "", contacto: "", cedula: "", en_standby: true, activo: true, modelo: "", placa: "", mostrar_publico: false, nombre_publico: "", ciudad: "" });
   };
 
   const handleGuardarTrans = async (e: React.FormEvent) => {
@@ -275,7 +275,12 @@ export default function RecursosPage() {
       en_standby: editTrans.en_standby,
       activo: editTrans.activo,
       modelo: editTrans.modelo || null,
-      placa: editTrans.placa || null
+      placa: editTrans.placa || null,
+      mostrar_publico: editTrans.mostrar_publico ?? false,
+      nombre_publico: editTrans.mostrar_publico
+        ? (editTrans.nombre_publico?.trim() || editTrans.nombre.trim().split(/\s+/)[0] || null)
+        : null,
+      ciudad: editTrans.ciudad?.trim() || editTrans.zona || null,
     };
 
     try {
@@ -481,10 +486,10 @@ export default function RecursosPage() {
 
   return (
     <div style={styles.page} className="ops-page">
-      <div style={styles.header}>
+      <div style={styles.header} className="ops-page-header">
         <div>
-          <h2 style={styles.title}>Gestor de Recursos Logísticos</h2>
-          <p style={styles.subtitle}>Administre personal, vehículos, departamentos y almacenes de insumos.</p>
+          <h2 style={styles.title} className="ops-page-title">Gestor de Recursos Logísticos</h2>
+          <p style={styles.subtitle} className="ops-page-subtitle">Administre personal, vehículos, departamentos y almacenes de insumos.</p>
         </div>
       </div>
 
@@ -1195,6 +1200,51 @@ export default function RecursosPage() {
                   <span>Activo en el sistema</span>
                 </label>
               </div>
+
+              <section style={styles.modalSection}>
+                <h4 style={styles.modalSectionTitle}>Listado público (landing)</h4>
+                <div style={styles.modalSectionContent}>
+                  <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 var(--s3)", lineHeight: 1.5 }}>
+                    Los transportistas activos dados de alta aquí aparecen en la landing con su nombre de pila y zona.
+                    Los que se registren en /voluntarios solo aparecen si marcan consentimiento y usted los activa.
+                  </p>
+                  <label style={styles.statusRow}>
+                    <input
+                      type="checkbox"
+                      checked={editTrans.mostrar_publico ?? false}
+                      onChange={(e) => setEditTrans({ ...editTrans, mostrar_publico: e.target.checked })}
+                    />
+                    <span>Mostrar en lista pública (solo con consentimiento del voluntario)</span>
+                  </label>
+                  {editTrans.mostrar_publico && (
+                    <>
+                      <div style={styles.formField}>
+                        <label style={styles.labelNormal}>Nombre de pila (público)</label>
+                        <input
+                          type="text"
+                          value={editTrans.nombre_publico || ""}
+                          onChange={(e) => setEditTrans({ ...editTrans, nombre_publico: e.target.value })}
+                          placeholder="Ej. Juan"
+                          style={styles.input}
+                        />
+                      </div>
+                      <div style={styles.formField}>
+                        <label style={styles.labelNormal}>Ciudad (pública)</label>
+                        <input
+                          type="text"
+                          value={editTrans.ciudad || ""}
+                          onChange={(e) => setEditTrans({ ...editTrans, ciudad: e.target.value })}
+                          placeholder="Ej. Valencia"
+                          style={styles.input}
+                        />
+                      </div>
+                    </>
+                  )}
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                    Nunca se publican cédula, placa ni teléfono.
+                  </span>
+                </div>
+              </section>
             </div>
 
             <div style={styles.modalActions} className="ops-modal-actions">

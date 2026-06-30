@@ -603,15 +603,16 @@ export default function ColaValidacionPage() {
 
   return (
     <div style={styles.page} className="ops-page">
-      <div style={styles.header}>
+      <div style={styles.header} className="ops-page-header">
         <div>
-          <h2 style={styles.title}>Cola de Validación Humana</h2>
-          <p style={styles.subtitle}>Valida y clasifica las solicitudes antes del despacho externo.</p>
+          <h2 style={styles.title} className="ops-page-title">Cola de Validación Humana</h2>
+          <p style={styles.subtitle} className="ops-page-subtitle">Valida y clasifica las solicitudes antes del despacho externo.</p>
         </div>
-        <div style={styles.actions}>
+        <div style={styles.actions} className="ops-action-bar">
           {/* Botón de sincronización con Ayuda en Camino */}
           <button
             id="btn-sincronizar-aec"
+            className="ops-action-btn"
             style={{
               ...styles.btnSecondary,
               background: sincronizando
@@ -643,7 +644,12 @@ export default function ColaValidacionPage() {
                 ? "Sincronizando..."
                 : syncResult !== null
                 ? `✓ ${syncResult.nuevos} nuevos · ${syncResult.actualizados} actualizados`
-                : "Sincronizar con Ayuda en Camino"}
+                : (
+                  <span className="ops-btn-text">
+                    <span className="ops-btn-text__full">Sincronizar con Ayuda en Camino</span>
+                    <span className="ops-btn-text__short">Sincronizar AEC</span>
+                  </span>
+                )}
             </span>
             {/* Indicador de última corrida */}
             {ultimoLog && !sincronizando && syncResult === null && (
@@ -658,11 +664,14 @@ export default function ColaValidacionPage() {
             )}
           </button>
 
-          <button style={styles.btnSecondary} onClick={handleImportarPublicas}>
+          <button type="button" className="ops-action-btn" style={styles.btnSecondary} onClick={handleImportarPublicas}>
             <Download size={16} />
-            <span>Importar de Mapa Público</span>
+            <span className="ops-btn-text">
+              <span className="ops-btn-text__full">Importar de Mapa Público</span>
+              <span className="ops-btn-text__short">Importar mapa</span>
+            </span>
           </button>
-          <button style={styles.btnPrimary} onClick={() => setShowManualForm(!showManualForm)}>
+          <button type="button" className="ops-action-btn ops-action-btn--primary" style={styles.btnPrimary} onClick={() => setShowManualForm(!showManualForm)}>
             <Plus size={16} />
             <span>Nuevo Ticket Manual</span>
           </button>
@@ -830,7 +839,7 @@ export default function ColaValidacionPage() {
             </div>
           </div>
 
-          <div style={styles.formActions}>
+          <div style={styles.formActions} className="ops-form-actions">
             <button type="button" onClick={() => setShowManualForm(false)} style={styles.btnSecondary}>Cancelar</button>
             <button type="submit" style={styles.btnPrimary}>Crear Ticket y Auto-clasificar</button>
           </div>
@@ -838,67 +847,63 @@ export default function ColaValidacionPage() {
       )}
 
       {/* Barra de Filtros Ingesta e Indicador de Sincronización */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}>
-        <div style={{ ...styles.filterBar, marginBottom: 0 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Filtrar por Origen / Tipo</span>
-            <div style={styles.filterGroup}>
+      <div className="ops-filter-stack">
+        <div className="ops-filter-bar">
+          <span className="ops-filter-label">Filtrar por Origen / Tipo</span>
+            <div className="ops-filter-group">
               <button 
                 type="button"
-                style={filtroOrigen === "todos" ? styles.filterBtnActive : styles.filterBtn}
+                className={`ops-filter-btn${filtroOrigen === "todos" ? " ops-filter-btn--active" : ""}`}
                 onClick={() => setFiltroOrigen("todos")}
               >
                 Todos los Tickets ({conteos.total})
               </button>
               <button 
                 type="button"
-                style={filtroOrigen === "traslados" ? styles.filterBtnActive : styles.filterBtn}
+                className={`ops-filter-btn${filtroOrigen === "traslados" ? " ops-filter-btn--active" : ""}`}
                 onClick={() => setFiltroOrigen("traslados")}
               >
                 Solo Traslados Logísticos ({conteos.traslados})
               </button>
               <button 
                 type="button"
-                style={filtroOrigen === "ayuda_en_camino" ? styles.filterBtnActive : styles.filterBtn}
+                className={`ops-filter-btn${filtroOrigen === "ayuda_en_camino" ? " ops-filter-btn--active" : ""}`}
                 onClick={() => setFiltroOrigen("ayuda_en_camino")}
               >
                 Solo Ayuda en Camino ({conteos.aec})
               </button>
             </div>
-          </div>
         </div>
 
         {(filtroOrigen === "ayuda_en_camino" || filtroOrigen === "todos") && (
-        <div style={{ ...styles.filterBar, marginBottom: 0 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Filtrar por Estado en la Fuente (Ayuda en Camino)</span>
-            <div style={styles.filterGroup}>
+        <div className="ops-filter-bar">
+          <span className="ops-filter-label">Filtrar por Estado en la Fuente (Ayuda en Camino)</span>
+            <div className="ops-filter-group">
               <button 
                 type="button"
-                style={filtroExterno === "todos" ? styles.filterBtnActive : styles.filterBtn}
+                className={`ops-filter-btn${filtroExterno === "todos" ? " ops-filter-btn--active" : ""}`}
                 onClick={() => setFiltroExterno("todos")}
               >
                 Todas ({conteosExterno.todos})
               </button>
               <button 
                 type="button"
-                style={filtroExterno === "pendiente" ? styles.filterBtnActive : styles.filterBtn}
+                className={`ops-filter-btn${filtroExterno === "pendiente" ? " ops-filter-btn--active" : ""}`}
                 onClick={() => setFiltroExterno("pendiente")}
               >
                 Pendientes ({conteosExterno.pendiente})
               </button>
               <button 
                 type="button"
-                style={filtroExterno === "cubierta" ? styles.filterBtnActive : styles.filterBtn}
+                className={`ops-filter-btn${filtroExterno === "cubierta" ? " ops-filter-btn--active" : ""}`}
                 onClick={() => setFiltroExterno("cubierta")}
               >
                 Cubiertas ({conteosExterno.cubierta})
               </button>
             </div>
-          </div>
           
           {ultimoLog && (
-            <div style={styles.syncIndicator}>
+            <div style={styles.syncIndicator} className="ops-filter-sync">
               <Clock size={14} />
               <span>
                 Sincronizado {getMinutosTranscurridos() === 0 ? "hace menos de 1 min" : getMinutosTranscurridos() !== null ? `hace ${getMinutosTranscurridos()} min` : "recientemente"}
@@ -908,34 +913,32 @@ export default function ColaValidacionPage() {
         </div>
         )}
 
-        <div style={{ ...styles.filterBar, marginBottom: 0 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Ordenar / Prioridad</span>
-            <div style={styles.filterGroup}>
+        <div className="ops-filter-bar">
+          <span className="ops-filter-label">Ordenar / Prioridad</span>
+            <div className="ops-filter-group">
               <button
                 type="button"
-                style={filtroOrden === "recientes" ? styles.filterBtnActive : styles.filterBtn}
+                className={`ops-filter-btn${filtroOrden === "recientes" ? " ops-filter-btn--active" : ""}`}
                 onClick={() => setFiltroOrden("recientes")}
               >
                 Más recientes
               </button>
               <button
                 type="button"
-                style={filtroOrden === "importantes" ? styles.filterBtnActive : styles.filterBtn}
+                className={`ops-filter-btn${filtroOrden === "importantes" ? " ops-filter-btn--active" : ""}`}
                 onClick={() => setFiltroOrden("importantes")}
               >
                 Más importantes ({conteoImportantes})
               </button>
               <button
                 type="button"
-                style={filtroOrden === "criticos" ? styles.filterBtnActive : styles.filterBtn}
+                className={`ops-filter-btn${filtroOrden === "criticos" ? " ops-filter-btn--active" : ""}`}
                 onClick={() => setFiltroOrden("criticos")}
               >
                 Críticos +24h ({conteoCriticos})
               </button>
             </div>
-          </div>
-          <div style={{ fontSize: "13px", color: "var(--text-muted)", fontWeight: 600 }}>
+          <div className="ops-filter-meta">
             {paginacion.total === 0
               ? "0 tickets"
               : `Mostrando ${paginacion.inicio}–${paginacion.fin} de ${paginacion.total}`}
@@ -1019,7 +1022,7 @@ export default function ColaValidacionPage() {
               </div>
 
               <div style={styles.cardBody}>
-                <h4 style={styles.cardDesc}>{t.descripcion}</h4>
+                <h4 style={styles.cardDesc} className="ops-card-desc">{t.descripcion}</h4>
                 
                 {t.ubicacion_externa && (
                   <p style={styles.externaInfo}>
@@ -1063,7 +1066,7 @@ export default function ColaValidacionPage() {
                 </div>
               </div>
 
-              <div style={styles.cardActions}>
+              <div style={styles.cardActions} className="ops-card-actions">
                 <button style={styles.btnSecondary} onClick={() => handleRechazar(t.id)}>
                   <Trash2 size={14} />
                   <span>Descartar</span>

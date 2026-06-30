@@ -21,8 +21,8 @@ import HowItWorks from "@/components/landing/HowItWorks";
 import ProblemSection from "@/components/landing/ProblemSection";
 import ProfileCtas from "@/components/landing/ProfileCtas";
 import AlliesSection from "@/components/landing/AlliesSection";
-import ImpactSection from "@/components/landing/ImpactSection";
-import ShareSection from "@/components/landing/ShareSection";
+import LogisticsKpisSection from "@/components/landing/LogisticsKpisSection";
+import VolunteersSection from "@/components/landing/VolunteersSection";
 import QuipuSection from "@/components/landing/QuipuSection";
 import { useLiveStats } from "@/hooks/useLiveStats";
 
@@ -164,6 +164,7 @@ export default function Home() {
               onSolicitarTraslado={() => setTab("traslados")}
               onVerMapa={() => setTab("mapa")}
             />
+            <LogisticsKpisSection />
             <HowItWorks />
             <ProblemSection />
             <ProfileCtas
@@ -171,9 +172,8 @@ export default function Home() {
               onVerMapa={() => setTab("mapa")}
               onEmergencia={() => setTab("ayuda")}
             />
-            <ImpactSection stats={liveStats} />
+            <VolunteersSection />
             <AlliesSection />
-            <ShareSection />
             <QuipuSection />
             <SiteFooter onNav={handleSiteNav} />
           </div>

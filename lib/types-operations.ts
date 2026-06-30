@@ -32,6 +32,11 @@ export type Transporte = {
   modelo?: string | null;
   placa?: string | null;
   cedula?: string | null;
+  mostrar_publico?: boolean;
+  nombre_publico?: string | null;
+  ciudad?: string | null;
+  origen?: "admin" | "publico";
+  created_at?: string;
 };
 
 export type PersonalMedico = {

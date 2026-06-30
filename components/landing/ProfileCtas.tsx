@@ -21,9 +21,9 @@ const PROFILES = [
   {
     icon: UserPlus,
     title: "Soy transportista voluntario",
-    desc: "Únete a la red de conductores verificados y recibe asignaciones desde la consola.",
-    action: "login" as const,
-    href: "/login",
+    desc: "Registra tu vehículo y únete a la red de conductores que mueven la ayuda.",
+    action: "voluntarios" as const,
+    href: "/voluntarios",
   },
   {
     icon: Warehouse,
@@ -65,6 +65,11 @@ export default function ProfileCtas({ onSolicitarTraslado, onVerMapa, onEmergenc
                       Solicitar ahora
                       <ArrowRight size={16} aria-hidden="true" />
                     </button>
+                  ) : p.action === "voluntarios" ? (
+                    <Link href={p.href!} className="btn btn--primary btn--block">
+                      Registrarme
+                      <ArrowRight size={16} aria-hidden="true" />
+                    </Link>
                   ) : (
                     <Link href={p.href!} className="btn btn--outline btn--block">
                       Acceder a la consola

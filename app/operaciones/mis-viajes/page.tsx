@@ -324,10 +324,10 @@ export default function MisViajesPage() {
 
   return (
     <div style={styles.page} className="ops-page">
-      <div style={styles.header}>
+      <div style={styles.header} className="ops-page-header">
         <div>
-          <h2 style={styles.title}>Mis Viajes Asignados</h2>
-          <p style={styles.subtitle}>
+          <h2 style={styles.title} className="ops-page-title">Mis Viajes Asignados</h2>
+          <p style={styles.subtitle} className="ops-page-subtitle">
             Vehículo: <strong>{transporteFicha.nombre}</strong> | Tipo: {transporteFicha.tipo.toUpperCase()}
             {" · "}
             <span style={{ color: transporteFicha.en_standby ? "var(--success)" : "var(--warning)", fontWeight: 700 }}>
@@ -390,7 +390,7 @@ export default function MisViajesPage() {
                 </div>
 
                 {/* Acciones */}
-                <div style={styles.cardActions}>
+                <div style={styles.cardActions} className="ops-card-actions">
                   {mapUrl && (
                     <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={styles.btnNav}>
                       <Compass size={16} />

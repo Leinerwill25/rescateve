@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { Wrench, Stethoscope, ExternalLink, Bus, HeartHandshake } from "lucide-react";
 import Kicker from "./Kicker";
 import Reveal from "./Reveal";
+import RouteThread from "./RouteThread";
 
 type AllyCategory = "transporte" | "salud";
 
@@ -94,7 +95,7 @@ function AllyLogo({ ally }: { ally: Ally }) {
   const Icon = ally.icon ?? Wrench;
   return (
     <span className="ally-card__logo-fallback" aria-hidden="true">
-      <Icon size={24} strokeWidth={1.75} />
+      <Icon size={22} strokeWidth={1.75} />
       <span>{initials(ally.name)}</span>
     </span>
   );
@@ -105,27 +106,31 @@ export default function AlliesSection() {
   const visible = ALLIES.filter((a) => filter === "todos" || a.category === filter);
 
   return (
-    <section className="landing-section landing-section--clean" aria-labelledby="allies-title">
-      <div className="landing-section__inner">
+    <section className="allies-band" aria-labelledby="allies-title">
+      <div className="allies-band__bg" aria-hidden="true" />
+      <RouteThread variant="footer" className="allies-band__route" />
+      <div className="allies-band__inner">
         <Reveal>
-          <header className="landing-section__header landing-section__header--center">
-            <Kicker className="landing-section__kicker-center">Quienes lo hacen posible</Kicker>
-            <h2 id="allies-title" className="landing-section__title landing-section__title--center">
+          <header className="allies-band__header">
+            <Kicker light className="allies-band__kicker">
+              Quienes lo hacen posible
+            </Kicker>
+            <h2 id="allies-title" className="allies-band__title">
               Aliados de transporte y salud
             </h2>
-            <p className="landing-section__lead landing-section__lead--center">
+            <p className="allies-band__lead">
               Empresas y equipos que aportan operación y alcance para mover ayuda con rapidez.
             </p>
           </header>
         </Reveal>
 
         <Reveal delay={60}>
-          <div className="filter-pills" role="group" aria-label="Filtrar aliados">
+          <div className="allies-band__filters" role="group" aria-label="Filtrar aliados">
             {FILTERS.map((f) => (
               <button
                 key={f.id}
                 type="button"
-                className={`filter-pill${filter === f.id ? " filter-pill--active" : ""}`}
+                className={`allies-band__filter${filter === f.id ? " allies-band__filter--active" : ""}`}
                 onClick={() => setFilter(f.id)}
               >
                 {f.label}
@@ -137,33 +142,30 @@ export default function AlliesSection() {
         <ul className="ally-grid">
           {visible.map((a, index) => (
             <li key={a.name} className="ally-grid__item">
-              <Reveal delay={index * 60} className="ally-grid__cell">
+              <Reveal delay={index * 50} className="ally-grid__cell">
                 <article className="ally-card">
-                  <span className="ally-card__tag">
-                    {a.category === "salud" ? "Salud" : "Transporte"}
-                  </span>
-                  <div className="ally-card__main">
+                  <div className="ally-card__top">
                     <div className="ally-card__logo-wrap">
                       <AllyLogo ally={a} />
                     </div>
-                    <div className="ally-card__body">
-                      <h3 className="ally-card__name">{a.name}</h3>
-                      <p className="ally-card__role">{a.role}</p>
-                    </div>
+                    <span
+                      className={`ally-card__tag ally-card__tag--${a.category}`}
+                    >
+                      {a.category === "salud" ? "Salud" : "Transporte"}
+                    </span>
                   </div>
+                  <h3 className="ally-card__name">{a.name}</h3>
+                  <p className="ally-card__role">{a.role}</p>
                   {a.href && (
                     <a
                       href={a.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="ally-card__visit"
+                      className="ally-card__link"
                       aria-label={`Visitar ${a.name} en ${a.host}`}
                     >
-                      <span className="ally-card__visit-text">
-                        <span className="ally-card__visit-label">{a.name}</span>
-                        <span className="ally-card__visit-host">{a.host}</span>
-                      </span>
-                      <ExternalLink size={15} className="ally-card__visit-icon" aria-hidden="true" />
+                      <span>{a.host}</span>
+                      <ExternalLink size={14} aria-hidden="true" />
                     </a>
                   )}
                 </article>
@@ -172,7 +174,7 @@ export default function AlliesSection() {
           ))}
         </ul>
 
-        <p className="landing-section__footnote">
+        <p className="allies-band__footnote">
           Parte de la red <strong>Juntos por Venezuela</strong> · Cada asignación es trazable y verificable.
         </p>
       </div>

@@ -238,8 +238,8 @@ export default function CombustibleAdminPage() {
           <div style={styles.headerTitleRow}>
             <div style={styles.headerIcon}><Fuel size={22} /></div>
             <div>
-              <h2 style={styles.title}>Combustible</h2>
-              <p style={styles.subtitle}>
+              <h2 style={styles.title} className="ops-page-title">Combustible</h2>
+              <p style={styles.subtitle} className="ops-page-subtitle">
                 Apruebe solicitudes y el pago se envía al Pago Móvil de la <strong>gasolinera</strong> vía Muney.
               </p>
             </div>

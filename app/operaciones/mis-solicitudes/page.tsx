@@ -167,10 +167,10 @@ export default function MisSolicitudesPage() {
 
   return (
     <div style={styles.page} className="ops-page">
-      <div style={styles.header}>
+      <div style={styles.header} className="ops-page-header">
         <div>
-          <h2 style={styles.title}>Consola de Atención Médica</h2>
-          <p style={styles.subtitle}>
+          <h2 style={styles.title} className="ops-page-title">Consola de Atención Médica</h2>
+          <p style={styles.subtitle} className="ops-page-subtitle">
             Médico: <strong>{medicoFicha.nombre}</strong> | Especialidad: {medicoFicha.especialidad || "General"} | Roster: {medicoFicha.verificado ? "✅ Verificado SafeCare" : "❌ Pendiente Validación"}
           </p>
         </div>
@@ -229,7 +229,7 @@ export default function MisSolicitudesPage() {
               </div>
 
               {/* Acciones */}
-              <div style={styles.cardActions}>
+              <div style={styles.cardActions} className="ops-card-actions">
                 {t.estado === "asignado" && (
                   <>
                     <button style={styles.btnDanger} onClick={() => handleCambiarEstado(t.id, "rechazado")}>
