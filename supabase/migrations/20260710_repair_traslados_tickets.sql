@@ -51,9 +51,8 @@ begin
       and id <> p_traslado.id
     limit 1;
 
-    if v_orphan_id is not null then
-      delete from public.tickets where id = v_orphan_id;
-    end if;
+    -- No borrar: el ticket huérfano puede tener historial; solo crear/actualizar el canónico
+    null;
   end if;
 
   select * into v_cat from public.clasificar_tipo_traslado(p_traslado.tipo);

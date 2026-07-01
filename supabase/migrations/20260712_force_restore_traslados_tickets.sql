@@ -1,26 +1,15 @@
 -- Restauración FORZADA traslados → tickets (sin depender de importar_traslado_a_ticket)
--- Ejecutar en Supabase SQL Editor. Al final muestra filas con el resultado.
+-- ⚠️ NO USAR paso 1 (DELETE huérfanos) — borraba tickets válidos.
+-- Usar 20260713_restore_rescatistas_safe_sync.sql en su lugar.
 --
 -- Qué hace:
--- 1. Borra tickets huérfanos (id distinto al traslado pero mismo fuente_id)
+-- 1. ~~Borra tickets huérfanos~~  (ELIMINADO — era destructivo)
 -- 2. INSERT tickets faltantes (id = traslado.id)
 -- 3. UPDATE tickets existentes → en_validacion si el traslado sigue solicitado
 -- 4. SELECT de verificación
 
--- ── 1. Limpiar huérfanos que bloquean la restauración ──
-with deleted as (
-  delete from public.tickets tk
-  where tk.fuente = 'traslado'
-    and tk.fuente_id is not null
-    and exists (
-      select 1 from public.traslados t
-      where t.id::text = tk.fuente_id
-        and tk.id <> t.id
-    )
-  returning tk.id
-)
-select count(*) as huerfanos_eliminados from deleted;
-
+-- ── 1. (omitido) No borrar tickets huérfanos ──
+select 0 as huerfanos_eliminados;
 -- ── 2. Crear tickets que faltan ──
 with inserted as (
   insert into public.tickets (
