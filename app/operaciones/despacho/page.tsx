@@ -17,9 +17,12 @@ import {
   UserCheck,
   Package,
   Calendar,
-  X
+  X,
+  UserPlus
 } from "lucide-react";
 import { esTicketTraslado, esTicketAEC, contarPorOrigen, buildTrasladoCtx, TrasladoFilterContext } from "@/lib/ticket-filters";
+import OperadorRegistroModal from "@/components/OperadorRegistroModal";
+import { EMPTY_OPERADOR, OperadorData, tipoTransporteParaCategoria } from "@/lib/operador";
 
 export default function TableroDespachoPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -89,6 +92,11 @@ export default function TableroDespachoPage() {
 
   // WhatsApp Handoff modal/texto
   const [whatsappText, setWhatsappText] = useState<string | null>(null);
+
+  // Registro rápido de conductor nuevo desde la card de despacho
+  const [nuevoConductorTicketId, setNuevoConductorTicketId] = useState<string | null>(null);
+  const [operadorData, setOperadorData] = useState<OperadorData>(EMPTY_OPERADOR);
+  const [guardandoConductor, setGuardandoConductor] = useState(false);
 
   const cargarDatos = async () => {
     setLoading(true);
@@ -191,6 +199,67 @@ export default function TableroDespachoPage() {
     if (!t.en_standby) partes.push("no disponible");
     else if (!tipoSugeridoParaCategoria(categoria, t.tipo)) partes.push("otro tipo");
     return partes.join(" · ");
+  };
+
+  const abrirNuevoConductor = (ticketId: string) => {
+    setOperadorData(EMPTY_OPERADOR);
+    setNuevoConductorTicketId(ticketId);
+  };
+
+  const handleGuardarNuevoConductor = async () => {
+    if (!nuevoConductorTicketId) return;
+    if (!operadorData.nombre.trim()) {
+      await showCustomAlert("Ingrese al menos el nombre del conductor o entidad.");
+      return;
+    }
+
+    const ticket = tickets.find((t) => t.id === nuevoConductorTicketId);
+    const tipo = tipoTransporteParaCategoria(ticket?.categoria_final ?? null);
+    const ticketId = nuevoConductorTicketId;
+
+    setGuardandoConductor(true);
+    try {
+      const { data: nuevoTransporte, error } = await supabase
+        .from("transportes")
+        .insert({
+          nombre: operadorData.nombre.trim(),
+          tipo,
+          contacto: operadorData.telefono.trim() || null,
+          cedula: operadorData.cedula.trim() || null,
+          modelo: operadorData.modelo.trim() || null,
+          placa: operadorData.placa.trim() || null,
+          zona: operadorData.ciudad.trim() || operadorData.estado.trim() || null,
+          ciudad: operadorData.ciudad.trim() || null,
+          en_standby: true,
+          activo: true,
+          perfil_id: null,
+        })
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      if (ticket && (ticket.fuente === "traslado" || esTicketTraslado(ticket, trasladoCtx))) {
+        const trasladoId = ticket.fuente_id || ticket.id;
+        await supabase
+          .from("traslados")
+          .update({ operador: JSON.stringify(operadorData) })
+          .eq("id", trasladoId);
+      }
+
+      setTransportes((prev) => [...prev, nuevoTransporte as Transporte]);
+      setSelectedTransporte((prev) => ({ ...prev, [ticketId]: nuevoTransporte.id }));
+      setNuevoConductorTicketId(null);
+      setOperadorData(EMPTY_OPERADOR);
+      await showCustomAlert(
+        "Conductor registrado y seleccionado. Revise los demás recursos y pulse Confirmar Despacho.",
+        "Conductor agregado"
+      );
+    } catch (err: any) {
+      await showCustomAlert(`Error al registrar conductor: ${err.message}`);
+    } finally {
+      setGuardandoConductor(false);
+    }
   };
 
   // ASIGNAR RECURSOS
@@ -575,22 +644,33 @@ export default function TableroDespachoPage() {
                     {/* Transporte */}
                     <div style={styles.selectGroup}>
                       <label style={styles.selectLabel}>Asignar Transportista (Sugerido)</label>
-                      <select
-                        value={selectedTransporte[t.id] || t.transporte_id || ""}
-                        onChange={(e) => setSelectedTransporte({ ...selectedTransporte, [t.id]: e.target.value })}
-                        style={styles.select}
-                      >
-                        <option value="">-- Sin transporte asignado --</option>
-                        {transportesAsignables.length === 0 ? (
-                          <option value="" disabled>Sin transportistas disponibles</option>
-                        ) : (
-                          transportesAsignables.map((tr) => (
-                            <option key={tr.id} value={tr.id}>
-                              {etiquetaTransporte(tr, t.categoria_final)}
-                            </option>
-                          ))
-                        )}
-                      </select>
+                      <div style={styles.selectRow}>
+                        <select
+                          value={selectedTransporte[t.id] || t.transporte_id || ""}
+                          onChange={(e) => setSelectedTransporte({ ...selectedTransporte, [t.id]: e.target.value })}
+                          style={{ ...styles.select, flex: 1, minWidth: 0 }}
+                        >
+                          <option value="">-- Sin transporte asignado --</option>
+                          {transportesAsignables.length === 0 ? (
+                            <option value="" disabled>Sin transportistas disponibles</option>
+                          ) : (
+                            transportesAsignables.map((tr) => (
+                              <option key={tr.id} value={tr.id}>
+                                {etiquetaTransporte(tr, t.categoria_final)}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        <button
+                          type="button"
+                          style={styles.btnNuevoConductor}
+                          onClick={() => abrirNuevoConductor(t.id)}
+                          title="Registrar un conductor nuevo con datos del vehículo"
+                        >
+                          <UserPlus size={14} />
+                          <span>Nuevo conductor</span>
+                        </button>
+                      </div>
                     </div>
 
                     {/* Personal Médico */}
@@ -714,6 +794,22 @@ export default function TableroDespachoPage() {
           </div>
         </div>
       )}
+      <OperadorRegistroModal
+        open={!!nuevoConductorTicketId}
+        title="Registrar nuevo conductor"
+        subtitle="Complete los datos del conductor y del vehículo. Quedará disponible para asignar a este despacho."
+        data={operadorData}
+        onChange={setOperadorData}
+        onClose={() => {
+          if (guardandoConductor) return;
+          setNuevoConductorTicketId(null);
+          setOperadorData(EMPTY_OPERADOR);
+        }}
+        onSave={handleGuardarNuevoConductor}
+        saving={guardandoConductor}
+        saveLabel="Registrar y seleccionar"
+      />
+
       {/* Modal de Alerta / Confirmación Personalizado */}
       {customModal && customModal.show && (
         <div style={styles.modalOverlay} className="ops-modal-overlay">
@@ -998,6 +1094,27 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: "4px",
+  },
+  selectRow: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "stretch",
+    flexWrap: "wrap",
+  },
+  btnNuevoConductor: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "8px 12px",
+    borderRadius: "var(--radius-sm)",
+    border: "1px dashed var(--brand)",
+    background: "var(--surface)",
+    color: "var(--brand)",
+    fontSize: "11px",
+    fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
   },
   selectLabel: {
     fontSize: "10px",

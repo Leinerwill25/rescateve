@@ -7,19 +7,8 @@ import { Traslado, TIPOS_TRASLADO, tipoTrasladoInfo, SolicitudGasolina } from "@
 import { getReporterToken } from "@/lib/reporter-token";
 import LocationPicker from "./LocationPicker";
 import { MapPin, Navigation, Truck, MessageCircle } from "lucide-react";
-
-interface OperadorData {
-  nombre: string;
-  cedula: string;
-  telefono: string;
-  modelo: string;
-  placa: string;
-  unidad: string;
-  puestos: string;
-  ciudad: string;
-  linea: string;
-  estado: string;
-}
+import OperadorRegistroModal from "./OperadorRegistroModal";
+import { EMPTY_OPERADOR, OperadorData } from "@/lib/operador";
 
 export default function TrasladosView() {
   const [traslados, setTraslados] = useState<Traslado[]>([]);
@@ -50,7 +39,7 @@ export default function TrasladosView() {
   
   // Prompt Modal
   const [operadorModal, setOperadorModal] = useState<{id: string, nuevoEstado: string, currentOperador?: string} | null>(null);
-  const [operadorData, setOperadorData] = useState<OperadorData>({ nombre: "", cedula: "", telefono: "", modelo: "", placa: "", unidad: "", puestos: "", ciudad: "", linea: "", estado: "" });
+  const [operadorData, setOperadorData] = useState<OperadorData>(EMPTY_OPERADOR);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   
   // View Operador Modal
@@ -351,9 +340,9 @@ export default function TrasladosView() {
           // fallthrough
         }
         // Legacy string
-        setOperadorData({ nombre: currentOperador, cedula: "", telefono: "", modelo: "", placa: "", unidad: "", puestos: "", ciudad: "", linea: "", estado: "" });
+        setOperadorData({ ...EMPTY_OPERADOR, nombre: currentOperador });
       } else {
-        setOperadorData({ nombre: "", cedula: "", telefono: "", modelo: "", placa: "", unidad: "", puestos: "", ciudad: "", linea: "", estado: "" });
+        setOperadorData(EMPTY_OPERADOR);
       }
       return;
     }
@@ -736,84 +725,17 @@ export default function TrasladosView() {
       )}
 
       {/* MODAL OPERADOR */}
-      {operadorModal && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <div className="modal__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 className="modal__title" style={{ margin: 0 }}>¿Quién toma este traslado?</h3>
-              <button className="modal__icon-close" onClick={() => setOperadorModal(null)}>✕</button>
-            </div>
-            <div className="modal__body" style={{ maxHeight: "70vh", overflowY: "auto" }}>
-              <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", marginBottom: "var(--s4)" }}>
-                Ingresa los datos del conductor, voluntario o entidad que realizará este traslado.
-              </p>
-              
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "var(--s3)" }}>
-                <div>
-                  <label className="form__label">Nombre completo / Entidad</label>
-                  <input type="text" className="form__input" placeholder="Ej. Yummy, Ridery, Voluntario Carlos" value={operadorData.nombre} onChange={e => setOperadorData({...operadorData, nombre: e.target.value})} autoFocus />
-                </div>
-                
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s3)" }}>
-                  <div>
-                    <label className="form__label">Cédula</label>
-                    <input type="text" className="form__input" placeholder="V-12345678" value={operadorData.cedula} onChange={e => setOperadorData({...operadorData, cedula: e.target.value})} />
-                  </div>
-                  <div>
-                    <label className="form__label">Teléfono</label>
-                    <input type="text" className="form__input" placeholder="0414-0000000" value={operadorData.telefono} onChange={e => setOperadorData({...operadorData, telefono: e.target.value})} />
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s3)" }}>
-                  <div>
-                    <label className="form__label">Modelo del vehículo</label>
-                    <input type="text" className="form__input" placeholder="Toyota Corolla" value={operadorData.modelo} onChange={e => setOperadorData({...operadorData, modelo: e.target.value})} />
-                  </div>
-                  <div>
-                    <label className="form__label">Placa</label>
-                    <input type="text" className="form__input" placeholder="AB123CD" value={operadorData.placa} onChange={e => setOperadorData({...operadorData, placa: e.target.value})} />
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s3)" }}>
-                  <div>
-                    <label className="form__label">Nº de Unidad</label>
-                    <input type="text" className="form__input" placeholder="001" value={operadorData.unidad} onChange={e => setOperadorData({...operadorData, unidad: e.target.value})} />
-                  </div>
-                  <div>
-                    <label className="form__label">Puestos</label>
-                    <input type="text" className="form__input" placeholder="4" value={operadorData.puestos} onChange={e => setOperadorData({...operadorData, puestos: e.target.value})} />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="form__label">Línea (si aplica)</label>
-                  <input type="text" className="form__input" placeholder="Ej. Línea Los Rápidos, Yummy Rides" value={operadorData.linea} onChange={e => setOperadorData({...operadorData, linea: e.target.value})} />
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s3)" }}>
-                  <div>
-                    <label className="form__label">Estado</label>
-                    <input type="text" className="form__input" placeholder="Miranda" value={operadorData.estado} onChange={e => setOperadorData({...operadorData, estado: e.target.value})} />
-                  </div>
-                  <div>
-                    <label className="form__label">Ciudad</label>
-                    <input type="text" className="form__input" placeholder="Caracas" value={operadorData.ciudad} onChange={e => setOperadorData({...operadorData, ciudad: e.target.value})} />
-                  </div>
-                </div>
-              </div>
-
-            </div>
-            <div className="modal__footer" style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s4)" }}>
-              <button className="btn btn--secondary" style={{ flex: 1 }} onClick={() => setOperadorModal(null)}>Cancelar</button>
-              <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => updateEstado(operadorModal.id, operadorModal.nuevoEstado, JSON.stringify(operadorData))}>
-                Guardar Operador
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <OperadorRegistroModal
+        open={!!operadorModal}
+        data={operadorData}
+        onChange={setOperadorData}
+        onClose={() => setOperadorModal(null)}
+        onSave={() => {
+          if (!operadorModal) return;
+          updateEstado(operadorModal.id, operadorModal.nuevoEstado, JSON.stringify(operadorData));
+        }}
+        saveLabel="Guardar Operador"
+      />
 
       {/* MODAL VER OPERADOR */}
       {viewOperadorModal && (
