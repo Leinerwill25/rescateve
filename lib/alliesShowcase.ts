@@ -43,6 +43,7 @@ export const ALLY_SHOWCASE_SLIDES: AllyShowcaseSlide[] = [
     cardImage: "/Camionetas-transporte.jpg",
     href: EN_LA_PARADA_URL,
     host: "en-la-parada.app",
+    logo: "/FC-Logo-En-la-parada.png",
     icon: Bus,
     stats: [
       { value: "+30 mil", label: "usuarios" },

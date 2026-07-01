@@ -44,12 +44,13 @@ export default function AuditoriaLogisticaPage() {
     try {
       const { data: histData, error: hErr } = await supabase
         .from("ticket_historial")
-        .select(`*, perfil:actor (*)`)
+        .select("*, perfil:perfiles!actor(*)")
         .order("created_at", { ascending: false });
       if (hErr) throw hErr;
       setHistorial((histData || []) as AuditEntry[]);
     } catch (err: any) {
       console.error("Error al cargar historial:", err);
+      setAuditError(`Error al cargar historial: ${err.message || err}`);
     }
 
     try {

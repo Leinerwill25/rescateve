@@ -92,10 +92,26 @@ export default function AlliesSection() {
 
         <div className="allies-showcase__layout">
           <div className="allies-showcase__copy">
-            <span className="allies-showcase__featured-badge">
-              <Sparkles size={14} aria-hidden="true" />
-              Aliado principal
-            </span>
+            <div className="allies-showcase__brand">
+              <span className="allies-showcase__featured-badge">
+                <Sparkles size={14} aria-hidden="true" />
+                Aliado principal
+              </span>
+
+              {slide.logo && (
+                <div className="allies-showcase__logo-wrap">
+                  <Image
+                    src={slide.logo}
+                    alt={`Logo de ${slide.name}`}
+                    width={88}
+                    height={88}
+                    unoptimized
+                    priority
+                    className="allies-showcase__logo"
+                  />
+                </div>
+              )}
+            </div>
 
             <p className="allies-showcase__kicker">{slide.kicker}</p>
             <h3 className="allies-showcase__title">{slide.title}</h3>

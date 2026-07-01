@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import { Ticket, ReglaClasificacion } from "@/lib/types-operations";
 import { useRouter } from "next/navigation";
@@ -39,6 +40,36 @@ import {
   TrasladoFilterContext,
 } from "@/lib/ticket-filters";
 
+const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
+
+const TIPOS_TRASLADO_MANUAL = [
+  { value: "insumos", label: "Insumos / Carga", emoji: "📦", cat: "insumo_basico", deps: ["acopio", "transporte_carga"] },
+  { value: "personal_medico", label: "Personal Médico", emoji: "🩺", cat: "traslado_personal", deps: ["personal_medico"] },
+] as const;
+
+function clasificarTiposTraslado(tipos: string[]) {
+  const known = tipos.filter((t) => TIPOS_TRASLADO_MANUAL.some((o) => o.value === t));
+  if (known.length === 0) return { cat: "otro" as const, deps: ["otro"], label: "Otro" };
+
+  const deps = Array.from(new Set(known.flatMap((t) => TIPOS_TRASLADO_MANUAL.find((o) => o.value === t)!.deps)));
+  const label = known.map((t) => TIPOS_TRASLADO_MANUAL.find((o) => o.value === t)!.label).join(" + ");
+  const cat = known.length > 1
+    ? "multiple" as const
+    : TIPOS_TRASLADO_MANUAL.find((o) => o.value === known[0])!.cat;
+
+  return { cat, deps, label };
+}
+
+function parseTiposTraslado(tipo: string) {
+  return tipo.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function formatCuandoTraslado(cuando: string, horaSalida: string) {
+  const base = cuando.trim() || "Lo antes posible";
+  const hora = horaSalida.trim();
+  return hora ? `${base} · Salida: ${hora}` : base;
+}
+
 export default function ColaValidacionPage() {
   const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -54,16 +85,17 @@ export default function ColaValidacionPage() {
   const [manualDesc, setManualDesc] = useState("");
   const [manualContacto, setManualContacto] = useState("");
   const [manualRef, setManualRef] = useState("");
-  const [manualLat, setManualLat] = useState("");
-  const [manualLng, setManualLng] = useState("");
+  const [manualLat, setManualLat] = useState<number | null>(null);
+  const [manualLng, setManualLng] = useState<number | null>(null);
   const [manualDestRef, setManualDestRef] = useState("");
-  const [manualDestLat, setManualDestLat] = useState("");
-  const [manualDestLng, setManualDestLng] = useState("");
+  const [manualDestLat, setManualDestLat] = useState<number | null>(null);
+  const [manualDestLng, setManualDestLng] = useState<number | null>(null);
   const [manualCantidad, setManualCantidad] = useState("");
   const [manualPrioridad, setManualPrioridad] = useState("media");
   const [manualEsTraslado, setManualEsTraslado] = useState(false);
-  const [manualTipoTraslado, setManualTipoTraslado] = useState("insumos");
+  const [manualTiposTraslado, setManualTiposTraslado] = useState<string[]>([]);
   const [manualCuando, setManualCuando] = useState("Lo antes posible");
+  const [manualHoraSalida, setManualHoraSalida] = useState("");
   
   // Filtro de origen
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("traslados");
@@ -276,6 +308,12 @@ export default function ColaValidacionPage() {
     );
   };
 
+  const toggleTipoTraslado = (tipo: string) => {
+    setManualTiposTraslado((prev) =>
+      prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
+    );
+  };
+
   const handleReclasificar = async () => {
     if (!reclasificarTicket) return;
     try {
@@ -355,17 +393,14 @@ export default function ColaValidacionPage() {
 
       if (updErr) throw updErr;
 
-      // Registrar historial de división
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await supabase.from("ticket_historial").insert({
-          ticket_id: dividirTicket.id,
-          actor: session.user.id,
-          accion: "dividido",
-          a_valor: createdIds.join(", "),
-          nota: "Ticket dividido por el despachador."
-        });
-      }
+      const { error: histErr } = await supabase.rpc("registrar_historial_ticket_admin", {
+        p_ticket_id: dividirTicket.id,
+        p_accion: "dividido",
+        p_nota: "Ticket dividido por el despachador.",
+        p_de_valor: null,
+        p_a_valor: createdIds.join(", "),
+      });
+      if (histErr) throw histErr;
 
       setDividirTicket(null);
       cargarTickets();
@@ -380,25 +415,11 @@ export default function ColaValidacionPage() {
     if (notas === null) return; // canceló
 
     try {
-      const { error: updErr } = await supabase
-        .from("tickets")
-        .update({
-          estado: "rechazado",
-          notas_admin: notas || "Descartado sin notas adicionales."
-        })
-        .eq("id", ticketId);
-
-      if (updErr) throw updErr;
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await supabase.from("ticket_historial").insert({
-          ticket_id: ticketId,
-          actor: session.user.id,
-          accion: "rechazado",
-          nota: notas || "Descartado sin notas."
-        });
-      }
+      const { error: rpcErr } = await supabase.rpc("rechazar_ticket_admin", {
+        p_id: ticketId,
+        p_nota: notas || "Descartado sin notas adicionales.",
+      });
+      if (rpcErr) throw rpcErr;
 
       cargarTickets();
     } catch (err: any) {
@@ -410,13 +431,22 @@ export default function ColaValidacionPage() {
   const handleCreateManual = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualDesc.trim()) return;
+    if (manualEsTraslado && manualTiposTraslado.length === 0) {
+      showCustomAlert("Marca al menos un tipo de traslado: insumos y/o personal médico.");
+      return;
+    }
+    if (manualEsTraslado && (manualLat == null || manualLng == null || manualDestLat == null || manualDestLng == null)) {
+      showCustomAlert("Marca el origen y el destino en los mapas para el traslado logístico.");
+      return;
+    }
 
     try {
       let cat = null;
       let deps = null;
       if (manualEsTraslado) {
-        cat = manualTipoTraslado === "insumos" ? "insumo_basico" : "traslado_personal";
-        deps = manualTipoTraslado === "insumos" ? ["acopio", "transporte_carga"] : ["personal_medico"];
+        const clasif = clasificarTiposTraslado(manualTiposTraslado);
+        cat = clasif.cat;
+        deps = clasif.deps;
       }
 
       const { error: insErr } = await supabase.from("tickets").insert({
@@ -424,14 +454,14 @@ export default function ColaValidacionPage() {
         descripcion: manualDesc,
         contacto_solicitante: manualContacto || null,
         origen_ref: manualRef || null,
-        origen_lat: manualLat ? parseFloat(manualLat) : null,
-        origen_lng: manualLng ? parseFloat(manualLng) : null,
-        destino_ref: manualDestRef || null,
-        destino_lat: manualDestLat ? parseFloat(manualDestLat) : null,
-        destino_lng: manualDestLng ? parseFloat(manualDestLng) : null,
+        origen_lat: manualLat,
+        origen_lng: manualLng,
+        destino_ref: manualEsTraslado ? (manualDestRef || null) : null,
+        destino_lat: manualEsTraslado ? manualDestLat : null,
+        destino_lng: manualEsTraslado ? manualDestLng : null,
         cantidad: manualCantidad || null,
         prioridad: manualPrioridad,
-        cuando: manualEsTraslado ? manualCuando : null,
+        cuando: manualEsTraslado ? formatCuandoTraslado(manualCuando, manualHoraSalida) : null,
         categoria_sugerida: cat,
         categoria_final: cat,
         departamentos_sugeridos: deps,
@@ -446,15 +476,17 @@ export default function ColaValidacionPage() {
       setManualDesc("");
       setManualContacto("");
       setManualRef("");
-      setManualLat("");
-      setManualLng("");
+      setManualLat(null);
+      setManualLng(null);
       setManualDestRef("");
-      setManualDestLat("");
-      setManualDestLng("");
+      setManualDestLat(null);
+      setManualDestLng(null);
       setManualCantidad("");
       setManualPrioridad("media");
       setManualEsTraslado(false);
+      setManualTiposTraslado([]);
       setManualCuando("Lo antes posible");
+      setManualHoraSalida("");
       setShowManualForm(false);
       
       cargarTickets();
@@ -553,9 +585,9 @@ export default function ColaValidacionPage() {
 
       // 7. Insertar traslados logísticos pendientes
       for (const t of trasPendientes) {
-        const catSugerida = (t.tipo === "insumos") ? "insumo_basico" : (t.tipo === "personal_medico") ? "traslado_personal" : "otro";
-        const depsSugeridos = (t.tipo === "insumos") ? ["acopio", "transporte_carga"] : (t.tipo === "personal_medico") ? ["personal_medico"] : ["otro"];
-        const descCompleta = `[Traslado Público: ${t.tipo === 'insumos' ? 'Insumos' : t.tipo === 'personal_medico' ? 'Personal Médico' : 'Otro'}] ${t.descripcion || "(Sin descripción)"}`;
+        const tipos = parseTiposTraslado(t.tipo);
+        const { cat: catSugerida, deps: depsSugeridos, label } = clasificarTiposTraslado(tipos.length ? tipos : [t.tipo]);
+        const descCompleta = `[Traslado Público: ${label}] ${t.descripcion || "(Sin descripción)"}`;
 
         const { error: insErr } = await supabase.from("tickets").insert({
           fuente: "traslado",
@@ -734,14 +766,21 @@ export default function ColaValidacionPage() {
               <>
                 <div style={styles.formField}>
                   <label style={styles.label}>¿Qué necesitas trasladar?</label>
-                  <select
-                    value={manualTipoTraslado}
-                    onChange={(e) => setManualTipoTraslado(e.target.value)}
-                    style={styles.select}
-                  >
-                    <option value="insumos">📦 Insumos / Carga</option>
-                    <option value="personal_medico">🩺 Personal Médico</option>
-                  </select>
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 8px 0" }}>
+                    Opcional: puedes marcar una o ambas opciones.
+                  </p>
+                  <div style={styles.checkboxList}>
+                    {TIPOS_TRASLADO_MANUAL.map((opt) => (
+                      <label key={opt.value} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={manualTiposTraslado.includes(opt.value)}
+                          onChange={() => toggleTipoTraslado(opt.value)}
+                        />
+                        <span>{opt.emoji} {opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
 
                 <div style={styles.formField}>
@@ -754,89 +793,77 @@ export default function ColaValidacionPage() {
                     style={styles.input}
                   />
                 </div>
+
+                <div style={styles.formField}>
+                  <label style={styles.label}>Hora de salida</label>
+                  <input
+                    type="time"
+                    value={manualHoraSalida}
+                    onChange={(e) => setManualHoraSalida(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
               </>
             )}
 
-            <div style={styles.formField}>
-              <label style={styles.label}>Referencia Origen (Dirección)</label>
+            <div style={{ ...styles.formField, ...styles.locationSection, gridColumn: "1 / -1" }}>
+              <label style={{ ...styles.label, color: "#1E3A8A" }}>📍 Punto de origen</label>
+              <p style={styles.locationHint}>Busca la dirección en el mapa o arrastra el pin. Las coordenadas se guardan automáticamente.</p>
               <input
                 type="text"
                 value={manualRef}
                 onChange={(e) => setManualRef(e.target.value)}
-                placeholder="Sector / Calle / Edificio"
+                placeholder="Referencia del origen (Ej: Hospital Pérez Carreño, puerta principal)"
                 style={styles.input}
               />
+              <div style={styles.mapPickerWrap}>
+                <LocationPicker
+                  lat={manualLat}
+                  lng={manualLng}
+                  onChange={(lat, lng) => {
+                    setManualLat(lat);
+                    setManualLng(lng);
+                  }}
+                />
+              </div>
             </div>
 
-            <div style={styles.formField}>
-              <label style={styles.label}>Latitud Origen</label>
-              <input
-                type="number"
-                step="any"
-                value={manualLat}
-                onChange={(e) => setManualLat(e.target.value)}
-                placeholder="10.48"
-                style={styles.input}
-              />
-            </div>
+            {manualEsTraslado && (
+              <div style={{ ...styles.formField, ...styles.locationSectionDest, gridColumn: "1 / -1" }}>
+                <label style={{ ...styles.label, color: "#166534" }}>🏁 Punto de destino</label>
+                <p style={styles.locationHint}>Indica dónde debe llegar la carga o el personal.</p>
+                <input
+                  type="text"
+                  value={manualDestRef}
+                  onChange={(e) => setManualDestRef(e.target.value)}
+                  placeholder="Referencia del destino (Ej: Centro de acopio UCV)"
+                  style={styles.input}
+                />
+                <div style={styles.mapPickerWrap}>
+                  <LocationPicker
+                    lat={manualDestLat}
+                    lng={manualDestLng}
+                    onChange={(lat, lng) => {
+                      setManualDestLat(lat);
+                      setManualDestLng(lng);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
-            <div style={styles.formField}>
-              <label style={styles.label}>Longitud Origen</label>
-              <input
-                type="number"
-                step="any"
-                value={manualLng}
-                onChange={(e) => setManualLng(e.target.value)}
-                placeholder="-66.86"
-                style={styles.input}
-              />
-            </div>
-
-            <div style={styles.formField}>
-              <label style={styles.label}>Referencia Destino (Traslado)</label>
-              <input
-                type="text"
-                value={manualDestRef}
-                onChange={(e) => setManualDestRef(e.target.value)}
-                placeholder="Hospital / Centro Acopio Destino"
-                style={styles.input}
-              />
-            </div>
-
-            <div style={styles.formField}>
-              <label style={styles.label}>Latitud Destino</label>
-              <input
-                type="number"
-                step="any"
-                value={manualDestLat}
-                onChange={(e) => setManualDestLat(e.target.value)}
-                placeholder="10.49"
-                style={styles.input}
-              />
-            </div>
-
-            <div style={styles.formField}>
-              <label style={styles.label}>Longitud Destino</label>
-              <input
-                type="number"
-                step="any"
-                value={manualDestLng}
-                onChange={(e) => setManualDestLng(e.target.value)}
-                placeholder="-66.85"
-                style={styles.input}
-              />
-            </div>
-
-            <div style={styles.formField}>
-              <label style={styles.label}>Cantidad / Detalles Insumos</label>
-              <input
-                type="text"
-                value={manualCantidad}
-                onChange={(e) => setManualCantidad(e.target.value)}
-                placeholder="5 cajas de agua, 3 kits médicos..."
-                style={styles.input}
-              />
-            </div>
+            {manualEsTraslado && (
+              <div style={styles.formField}>
+                <label style={styles.label}>Cantidad / Detalles Insumos</label>
+                <input
+                  type="text"
+                  value={manualCantidad}
+                  onChange={(e) => setManualCantidad(e.target.value)}
+                  placeholder="5 cajas de agua, 3 kits médicos..."
+                  style={styles.input}
+                />
+              </div>
+            )}
           </div>
 
           <div style={styles.formActions} className="ops-form-actions">
@@ -1368,6 +1395,31 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: "var(--s1)",
+  },
+  locationSection: {
+    padding: "14px",
+    background: "#EFF6FF",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid #BFDBFE",
+    gap: "10px",
+  },
+  locationSectionDest: {
+    padding: "14px",
+    background: "#F0FDF4",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid #BBF7D0",
+    gap: "10px",
+  },
+  locationHint: {
+    margin: 0,
+    fontSize: 12,
+    color: "var(--text-muted)",
+  },
+  mapPickerWrap: {
+    borderRadius: "var(--radius-sm)",
+    overflow: "hidden",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
   },
   label: {
     fontSize: "11px",
