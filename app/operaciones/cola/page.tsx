@@ -70,6 +70,112 @@ function formatCuandoTraslado(cuando: string, horaSalida: string) {
   return hora ? `${base} · Salida: ${hora}` : base;
 }
 
+function buildTicketDesdeTraslado(t: Record<string, unknown>) {
+  const tipos = parseTiposTraslado(String(t.tipo ?? ""));
+  const { cat, deps, label } = clasificarTiposTraslado(tipos.length ? tipos : [String(t.tipo ?? "otro")]);
+  const trasladoId = t.id as string;
+  return {
+    id: trasladoId,
+    fuente: "traslado" as const,
+    fuente_id: trasladoId,
+    descripcion: `[Traslado: ${label}] ${(t.descripcion as string) || "(Sin descripción)"}`,
+    categoria_sugerida: cat,
+    categoria_final: cat,
+    departamentos_sugeridos: deps,
+    departamentos_final: deps,
+    contacto_solicitante: (t.contacto as string) || null,
+    origen_ref: (t.origen_ref as string) || "Ubicación no especificada",
+    origen_lat: (t.origen_lat as number) ?? null,
+    origen_lng: (t.origen_lng as number) ?? null,
+    destino_ref: (t.destino_ref as string) || null,
+    destino_lat: (t.destino_lat as number) ?? null,
+    destino_lng: (t.destino_lng as number) ?? null,
+    cantidad: (t.cantidad as string) || null,
+    cuando: (t.cuando as string) || null,
+    prioridad: (t.prioridad as string) || "media",
+    estado: "en_validacion" as const,
+    requiere_revision: true,
+  };
+}
+
+async function importarTrasladosPendientes(): Promise<number> {
+  const { data: traslados, error: trasErr } = await supabase
+    .from("traslados")
+    .select("*")
+    .eq("estado", "solicitado");
+  if (trasErr) throw trasErr;
+
+  const { data: importadas, error: impErr } = await supabase
+    .from("tickets")
+    .select("fuente_id")
+    .eq("fuente", "traslado");
+  if (impErr) throw impErr;
+
+  const idsImportados = new Set(
+    (importadas || []).map((i) => i.fuente_id).filter(Boolean)
+  );
+  const pendientes = (traslados || []).filter((t) => !idsImportados.has(t.id));
+
+  let creadas = 0;
+  for (const t of pendientes) {
+    const { error } = await supabase
+      .from("tickets")
+      .upsert(buildTicketDesdeTraslado(t), { onConflict: "id" });
+    if (error) {
+      console.error("Error importando traslado", t.id, error);
+    } else {
+      creadas++;
+    }
+  }
+  return creadas;
+}
+
+function buildTicketManualPayload(input: {
+  descripcion: string;
+  contacto: string;
+  origenRef: string;
+  origenLat: number | null;
+  origenLng: number | null;
+  destinoRef: string;
+  destinoLat: number | null;
+  destinoLng: number | null;
+  cantidad: string;
+  prioridad: string;
+  esTraslado: boolean;
+  tiposTraslado: string[];
+  cuando: string;
+  horaSalida: string;
+}) {
+  let cat: string | null = null;
+  let deps: string[] | null = null;
+  if (input.esTraslado) {
+    const clasif = clasificarTiposTraslado(input.tiposTraslado);
+    cat = clasif.cat;
+    deps = clasif.deps;
+  }
+
+  return {
+    fuente: "manual" as const,
+    descripcion: input.descripcion.trim(),
+    contacto_solicitante: input.contacto.trim() || null,
+    origen_ref: input.origenRef.trim() || null,
+    origen_lat: input.origenLat,
+    origen_lng: input.origenLng,
+    destino_ref: input.esTraslado ? (input.destinoRef.trim() || null) : null,
+    destino_lat: input.esTraslado ? input.destinoLat : null,
+    destino_lng: input.esTraslado ? input.destinoLng : null,
+    cantidad: input.esTraslado ? (input.cantidad.trim() || null) : null,
+    prioridad: input.prioridad,
+    cuando: input.esTraslado ? formatCuandoTraslado(input.cuando, input.horaSalida) : null,
+    categoria_sugerida: cat,
+    categoria_final: cat,
+    departamentos_sugeridos: deps,
+    departamentos_final: deps,
+    requiere_revision: !input.esTraslado,
+    estado: "en_validacion" as const,
+  };
+}
+
 export default function ColaValidacionPage() {
   const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -215,13 +321,16 @@ export default function ColaValidacionPage() {
     setLoading(true);
     setError(null);
     try {
+      await importarTrasladosPendientes();
+
       const { data, error: fetchErr } = await supabase
         .from("tickets")
         .select("*")
         .eq("estado", "en_validacion")
         .order("requiere_revision", { ascending: false })
         .order("prioridad", { ascending: false })
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(5000);
 
       if (fetchErr) throw fetchErr;
       setTickets((data || []) as Ticket[]);
@@ -441,34 +550,28 @@ export default function ColaValidacionPage() {
     }
 
     try {
-      let cat = null;
-      let deps = null;
-      if (manualEsTraslado) {
-        const clasif = clasificarTiposTraslado(manualTiposTraslado);
-        cat = clasif.cat;
-        deps = clasif.deps;
-      }
-
-      const { error: insErr } = await supabase.from("tickets").insert({
-        fuente: "manual",
+      const payload = buildTicketManualPayload({
         descripcion: manualDesc,
-        contacto_solicitante: manualContacto || null,
-        origen_ref: manualRef || null,
-        origen_lat: manualLat,
-        origen_lng: manualLng,
-        destino_ref: manualEsTraslado ? (manualDestRef || null) : null,
-        destino_lat: manualEsTraslado ? manualDestLat : null,
-        destino_lng: manualEsTraslado ? manualDestLng : null,
-        cantidad: manualCantidad || null,
+        contacto: manualContacto,
+        origenRef: manualRef,
+        origenLat: manualLat,
+        origenLng: manualLng,
+        destinoRef: manualDestRef,
+        destinoLat: manualDestLat,
+        destinoLng: manualDestLng,
+        cantidad: manualCantidad,
         prioridad: manualPrioridad,
-        cuando: manualEsTraslado ? formatCuandoTraslado(manualCuando, manualHoraSalida) : null,
-        categoria_sugerida: cat,
-        categoria_final: cat,
-        departamentos_sugeridos: deps,
-        departamentos_final: deps,
-        requiere_revision: !manualEsTraslado,
-        estado: "en_validacion"
+        esTraslado: manualEsTraslado,
+        tiposTraslado: manualTiposTraslado,
+        cuando: manualCuando,
+        horaSalida: manualHoraSalida,
       });
+
+      const { data: created, error: insErr } = await supabase
+        .from("tickets")
+        .insert(payload)
+        .select("id")
+        .single();
 
       if (insErr) throw insErr;
       
@@ -488,6 +591,13 @@ export default function ColaValidacionPage() {
       setManualCuando("Lo antes posible");
       setManualHoraSalida("");
       setShowManualForm(false);
+
+      await showCustomAlert(
+        manualEsTraslado
+          ? `Traslado registrado en la cola (ticket ${created?.id?.slice(0, 8) ?? ""}…). Visible para todo el equipo admin.`
+          : `Ticket creado en la cola (id ${created?.id?.slice(0, 8) ?? ""}…).`,
+        "Ticket guardado"
+      );
       
       cargarTickets();
     } catch (err: any) {
@@ -585,28 +695,9 @@ export default function ColaValidacionPage() {
 
       // 7. Insertar traslados logísticos pendientes
       for (const t of trasPendientes) {
-        const tipos = parseTiposTraslado(t.tipo);
-        const { cat: catSugerida, deps: depsSugeridos, label } = clasificarTiposTraslado(tipos.length ? tipos : [t.tipo]);
-        const descCompleta = `[Traslado Público: ${label}] ${t.descripcion || "(Sin descripción)"}`;
-
-        const { error: insErr } = await supabase.from("tickets").insert({
-          fuente: "traslado",
-          fuente_id: t.id,
-          descripcion: descCompleta,
-          categoria_sugerida: catSugerida,
-          departamentos_sugeridos: depsSugeridos,
-          contacto_solicitante: t.contacto || null,
-          origen_ref: t.origen_ref || "Ubicación en mapa",
-          origen_lat: t.origen_lat,
-          origen_lng: t.origen_lng,
-          destino_ref: t.destino_ref,
-          destino_lat: t.destino_lat,
-          destino_lng: t.destino_lng,
-          prioridad: t.prioridad || "media",
-          estado: "en_validacion",
-          requiere_revision: true
-        });
-
+        const { error: insErr } = await supabase
+          .from("tickets")
+          .upsert(buildTicketDesdeTraslado(t), { onConflict: "id" });
         if (!insErr) creadas++;
       }
 
@@ -1030,6 +1121,8 @@ export default function ColaValidacionPage() {
                     </>
                   ) : t.fuente === "traslado" ? (
                     <span style={styles.badgeAEC}>Traslado Público</span>
+                  ) : t.fuente === "manual" && t.cuando ? (
+                    <span style={styles.badgeAEC}>Traslado Admin</span>
                   ) : (
                     <span style={styles.badgeFuente}>
                       Fuente: {t.fuente.toUpperCase()}

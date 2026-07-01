@@ -15,15 +15,15 @@ const MS_24H = 24 * 60 * 60 * 1000;
 
 /**
  * Traslado logístico real:
- * - Ticket importado de un traslado público (fuente=traslado + reporter_token en traslados)
+ * - Ticket vinculado a public.traslados (fuente=traslado, importado o con mismo id)
  * - Ticket manual marcado como traslado en operaciones (fuente=manual + cuando)
  */
 export function esTicketTraslado(
   t: Ticket,
-  ctx: TrasladoFilterContext = EMPTY_CTX
+  _ctx: TrasladoFilterContext = EMPTY_CTX
 ): boolean {
   if (t.fuente === "traslado") {
-    return ctx.idsTrasladoPublico.has(t.id);
+    return true;
   }
   if (t.fuente === "manual" && t.cuando) {
     return true;
