@@ -315,7 +315,7 @@ $$ language plpgsql security definer;
 -- Reparar / restaurar todos los traslados activos en cola
 do $$
 declare
-  r record;
+  r public.traslados;
   v_count int := 0;
 begin
   for r in

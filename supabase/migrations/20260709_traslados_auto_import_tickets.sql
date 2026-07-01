@@ -147,7 +147,7 @@ create trigger trg_importar_traslado_a_ticket
 -- Backfill: traslados activos sin ticket en cola
 do $$
 declare
-  r record;
+  r public.traslados;
   v_count int := 0;
 begin
   for r in
