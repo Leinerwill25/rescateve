@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import { Ticket, ReglaClasificacion } from "@/lib/types-operations";
@@ -310,6 +310,8 @@ export default function ColaValidacionPage() {
   const [sincronizando, setSincronizando] = useState(false);
   const [syncResult, setSyncResult] = useState<{ nuevos: number; actualizados: number } | null>(null);
   const [trasladoCtx, setTrasladoCtx] = useState<TrasladoFilterContext>(buildTrasladoCtx([]));
+  const cargandoRef = useRef(false);
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getMinutosTranscurridos = () => {
     if (!ultimoLog || !ultimoLog.corrida_at) return null;
@@ -318,11 +320,15 @@ export default function ColaValidacionPage() {
     return diffMins;
   };
 
-  const cargarTickets = async () => {
+  const cargarTickets = useCallback(async (opts?: { importTraslados?: boolean }) => {
+    if (cargandoRef.current) return;
+    cargandoRef.current = true;
     setLoading(true);
     setError(null);
     try {
-      await importarTrasladosPendientes();
+      if (opts?.importTraslados !== false) {
+        await importarTrasladosPendientes();
+      }
 
       const { data, error: fetchErr } = await supabase
         .from("tickets")
@@ -342,7 +348,6 @@ export default function ColaValidacionPage() {
         .not("reporter_token", "is", null);
       setTrasladoCtx(buildTrasladoCtx((trasladosPub || []).map((r) => r.id)));
 
-      // Cargar último log de ingesta
       const { data: logData } = await supabase
         .from("ingesta_log")
         .select("corrida_at")
@@ -357,9 +362,10 @@ export default function ColaValidacionPage() {
       console.error(err);
       setError("Error al cargar la cola de validación.");
     } finally {
+      cargandoRef.current = false;
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     setPaginaActual(1);
@@ -372,16 +378,21 @@ export default function ColaValidacionPage() {
   }, [filtroOrigen, filtroExterno]);
 
   useEffect(() => {
-    cargarTickets();
-    // Suscripción en tiempo real
+    cargarTickets({ importTraslados: true });
     const ch = supabase
       .channel("cola_validacion")
       .on("postgres_changes", { event: "*", schema: "public", table: "tickets" }, () => {
-        cargarTickets();
+        if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+        reloadTimerRef.current = setTimeout(() => {
+          cargarTickets({ importTraslados: false });
+        }, 600);
       })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, []);
+    return () => {
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+      supabase.removeChannel(ch);
+    };
+  }, [cargarTickets]);
 
   // 1. APROBAR DIRECTAMENTE
   const handleAprobarDirecto = async (ticket: Ticket) => {

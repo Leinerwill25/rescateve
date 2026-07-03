@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getApiSession } from "@/lib/auth-api";
 import { runIngestaAyudaEnCamino } from "@/lib/adapters/ayudaEnCamino";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 async function isAuthorized(req: Request): Promise<boolean> {
   const authHeader = req.headers.get("authorization");
@@ -11,41 +10,8 @@ async function isAuthorized(req: Request): Promise<boolean> {
     return true;
   }
 
-  if (!authHeader?.startsWith("Bearer ")) {
-    return false;
-  }
-
-  const token = authHeader.slice(7);
-  if (!token || (cronSecret && token === cronSecret)) {
-    return false;
-  }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    "";
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return false;
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) {
-    return false;
-  }
-
-  const { data: perfil } = await getSupabaseAdmin()
-    .from("perfiles")
-    .select("rol")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  return perfil?.rol === "admin";
+  const session = await getApiSession(req);
+  return session?.rol === "admin";
 }
 
 export async function GET(req: Request) {

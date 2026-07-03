@@ -44,10 +44,31 @@ export default function AuditoriaLogisticaPage() {
     try {
       const { data: histData, error: hErr } = await supabase
         .from("ticket_historial")
-        .select("*, perfil:perfiles!actor(*)")
-        .order("created_at", { ascending: false });
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1000);
       if (hErr) throw hErr;
-      setHistorial((histData || []) as AuditEntry[]);
+
+      const actorIds = [
+        ...new Set((histData || []).map((h) => h.actor).filter(Boolean)),
+      ] as string[];
+
+      let perfilMap = new Map<string, Perfil>();
+      if (actorIds.length > 0) {
+        const { data: perfiles, error: pErr } = await supabase
+          .from("perfiles")
+          .select("id, nombre, rol, telefono, activo, created_at")
+          .in("id", actorIds);
+        if (pErr) throw pErr;
+        perfilMap = new Map((perfiles || []).map((p) => [p.id, p as Perfil]));
+      }
+
+      setHistorial(
+        (histData || []).map((h) => ({
+          ...h,
+          perfil: h.actor ? perfilMap.get(h.actor) ?? null : null,
+        })) as AuditEntry[]
+      );
     } catch (err: any) {
       console.error("Error al cargar historial:", err);
       setAuditError(`Error al cargar historial: ${err.message || err}`);
