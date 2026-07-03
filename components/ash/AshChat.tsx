@@ -2,7 +2,6 @@
 
 import "./ash.css";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import { Minus, Send, X, Phone } from "lucide-react";
 import { getReporterToken } from "@/lib/reporter-token";
 import {
@@ -19,8 +18,7 @@ import {
 import { loadAshDraft, saveAshDraft, clearAshDraft } from "@/lib/ash-storage";
 import { detectarEmergenciaVital, MENSAJE_EMERGENCIA_171 } from "@/lib/ash-emergency";
 import AshAvatar from "./AshAvatar";
-
-const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
+import AshLocationStep from "./AshLocationStep";
 
 type Props = {
   open: boolean;
@@ -246,13 +244,12 @@ export default function AshChat({ open, onClose, onMinimize }: Props) {
       </div>
 
       {draft.step === "ubicacion" && (
-        <div className="ash-widget">
-          <p className="ash-widget__label">Marca dónde se necesita la ayuda</p>
-          <LocationPicker lat={locLat} lng={locLng} onChange={(la, ln) => { setLocLat(la); setLocLng(ln); }} />
-          <button type="button" className="ash-btn ash-btn--primary" onClick={handleUbicacionConfirm}>
-            Confirmar ubicación
-          </button>
-        </div>
+        <AshLocationStep
+          lat={locLat}
+          lng={locLng}
+          onChange={(la, ln) => { setLocLat(la); setLocLng(ln); }}
+          onConfirm={handleUbicacionConfirm}
+        />
       )}
 
       {draft.step === "contacto" && (

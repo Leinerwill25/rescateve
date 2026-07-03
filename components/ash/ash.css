@@ -266,6 +266,15 @@
   color: var(--text-muted);
 }
 
+.ash-widget__loading {
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ash-widget .picker-map,
 .ash-widget .leaflet-container {
   height: 180px !important;
   border-radius: var(--radius-sm);
