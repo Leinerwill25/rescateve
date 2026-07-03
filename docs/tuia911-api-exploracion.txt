@@ -1,0 +1,2018 @@
+================================================================================
+  Tuia911 - API de integracion de acopio
+  Documento de exploracion de endpoints (api.http)
+  Generado: 2026-07-03T00:15:53.021Z
+  Base URL: https://api.tuia911.com
+================================================================================
+
+NOTA: El archivo api.http actual contiene endpoints de INSUMOS y CENTROS DE
+ACOPIO (Tuia911). No incluye endpoints de DONANTES. Si existe otra coleccion
+HTTP para donantes, compartela para documentarla por separado.
+
+RESUMEN EJECUTIVO
+-----------------
+- Autenticacion: header X-API-Key o Authorization: Bearer <api_key>
+- Formato respuesta: { message, data, meta? }
+- /api/insumos: inventario consolidado (entradas - salidas) por articulo y centro
+- /api/centros: centros de acopio y puntos de atencion activos
+- Sin API key en /api/centros responde HTTP 401
+
+
+================================================================================
+ENDPOINT #01
+================================================================================
+Metodo:      GET
+URL:         https://api.tuia911.com/
+Auth:        Ninguna (publico)
+HTTP Status: 200
+Tamano body: 77 bytes
+
+ESTRUCTURA DE RESPUESTA:
+  message: "Tuia911 Â· API de integraciÃ³n de acopio"
+  data: objeto
+
+CONTENIDO data:
+{
+  "status": "ok"
+}
+
+RESPUESTA JSON COMPLETA:
+{
+  "message": "Tuia911 Â· API de integraciÃ³n de acopio",
+  "data": {
+    "status": "ok"
+  }
+}
+
+================================================================================
+ENDPOINT #11
+================================================================================
+Metodo:      GET
+URL:         https://api.tuia911.com/api/insumos?limit=50
+Auth:        X-API-Key
+HTTP Status: 200
+Tamano body: 11070 bytes
+
+ESTRUCTURA DE RESPUESTA:
+  message: "ok"
+  meta: {"limit":50,"offset":0,"count":50,"has_more":true}
+  data: array con 50 registros
+
+CAMPOS DE CADA REGISTRO (schema):
+  centro_id: string, centro_nombre: string, articulo: string, categoria: string, subcategoria: string, unidad: string, disponible: number
+
+EJEMPLO COMPLETO (primer registro):
+{
+  "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+  "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+  "articulo": "Aceite",
+  "categoria": "alimento",
+  "subcategoria": "no_perecederos",
+  "unidad": "litros",
+  "disponible": 3
+}
+
+Categorias unicas en esta respuesta: agua, alimento, lenceria, medicina
+Subcategorias unicas (muestra): agua_potable, analgesicos, antibioticos, cronicos, no_perecederos, otros, primeros_auxilios
+Centros unicos en respuesta: Ccn  NiÃ±os Los Chaguramos
+Rango disponible: min=1, max=750
+
+MUESTRA ADICIONAL (hasta 5 registros):
+  [1] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"Aceite","categoria":"alimento","subcategoria":"no_perecederos","unidad":"litros","disponible":3}
+  [2] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n + Clorfeniramina + CafeÃ­na 325mg/4mg/32mg","categoria":"medicina","subcategoria":"analgesicos","unidad":"unidades","disponible":2}
+  [3] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n + Clorfeniramina Maleato 500mg","categoria":"medicina","subcategoria":"analgesicos","unidad":"unidades","disponible":3}
+  [4] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n 120/5ml","categoria":"medicina","subcategoria":"cronicos","unidad":"unidades","disponible":9}
+  [5] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n 150/5ml","categoria":"medicina","subcategoria":"cronicos","unidad":"unidades","disponible":6}
+
+RESPUESTA JSON COMPLETA:
+{
+  "message": "ok",
+  "data": [
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Aceite",
+      "categoria": "alimento",
+      "subcategoria": "no_perecederos",
+      "unidad": "litros",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n + Clorfeniramina + CafeÃ­na 325mg/4mg/32mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n + Clorfeniramina Maleato 500mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 120/5ml",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 9
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 150/5ml",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 6
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 160/5ml",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 500 mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 500mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 7
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 650 mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 63
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 650 mg",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 50
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Acetaminofen Pediatrico 120 Ml 120 MGS",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Acetaminofen Pediatrico 120 Ml 180 MGS",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n pediÃ¡trico 160/5ml",
+      "categoria": "medicina",
+      "subcategoria": "otros",
+      "unidad": "unidades",
+      "disponible": 4
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Ãcido fÃ³lico",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 6
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Adhesivo de Tela",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 4
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua 1.5 Litros",
+      "categoria": "agua",
+      "subcategoria": "agua_potable",
+      "unidad": "cajas",
+      "disponible": 7
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua 300 ml",
+      "categoria": "agua",
+      "subcategoria": "agua_potable",
+      "unidad": "cajas",
+      "disponible": 5
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua 5 litros",
+      "categoria": "agua",
+      "subcategoria": "agua_potable",
+      "unidad": "unidades",
+      "disponible": 1
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua 5 Litros",
+      "categoria": "agua",
+      "subcategoria": "agua_potable",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua Oxigenada 1 Litro",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 1
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua Oxigenada 120 ml",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 14
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua Oxigenada 240 ml",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua Oxigenada 500 ml",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 1000 Ml 70%",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 1
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 500 Ml 70%",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 70% (galÃ³n)",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "litros",
+      "disponible": 1
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 70% 1 Litro",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 1
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 70% 120 ml",
+      "categoria": "medicina",
+      
+... [truncado, ver archivo JSON en docs/tuia911-api-responses/02_insumos_limit50_status200.json]
+
+
+================================================================================
+ENDPOINT #21
+================================================================================
+Metodo:      GET
+URL:         https://api.tuia911.com/api/insumos?centro=0cbde146-47b3-467e-89ec-247b4a5e2bfc&limit=100
+Auth:        X-API-Key
+HTTP Status: 200
+Tamano body: 25774 bytes
+
+ESTRUCTURA DE RESPUESTA:
+  message: "ok"
+  meta: {"limit":100,"offset":0,"count":100,"has_more":true}
+  data: array con 100 registros
+
+CAMPOS DE CADA REGISTRO (schema):
+  centro_id: string, centro_nombre: string, articulo: string, categoria: string, subcategoria: string, unidad: string, disponible: number
+
+EJEMPLO COMPLETO (primer registro):
+{
+  "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+  "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+  "articulo": "Acetaminofen 120 mg/5ml",
+  "categoria": "medicina",
+  "subcategoria": "analgesicos",
+  "unidad": "unidades",
+  "disponible": 3
+}
+
+Categorias unicas en esta respuesta: agua, alimento, higiene, lenceria, medicina
+Subcategorias unicas (muestra): analgesicos, antibioticos, cronicos, descartables, insumos_medicos, medicamentos, otros
+Centros unicos en respuesta: FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS
+Rango disponible: min=1, max=126
+
+MUESTRA ADICIONAL (hasta 5 registros):
+  [1] {"centro_id":"0cbde146-47b3-467e-89ec-247b4a5e2bfc","centro_nombre":"FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS","articulo":"Acetaminofen 120 mg/5ml","categoria":"medicina","subcategoria":"analgesicos","unidad":"unidades","disponible":3}
+  [2] {"centro_id":"0cbde146-47b3-467e-89ec-247b4a5e2bfc","centro_nombre":"FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS","articulo":"Acetaminofen 120 mg/5ml","categoria":"medicina","subcategoria":null,"unidad":"unidades","disponible":2}
+  [3] {"centro_id":"0cbde146-47b3-467e-89ec-247b4a5e2bfc","centro_nombre":"FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS","articulo":"Acetaminofen 650 mg","categoria":"medicina","subcategoria":"analgesicos","unidad":"unidades","disponible":16}
+  [4] {"centro_id":"0cbde146-47b3-467e-89ec-247b4a5e2bfc","centro_nombre":"FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS","articulo":"ACETAMINOFEN PEDIATRICO 150 MGS","categoria":"medicina","subcategoria":"medicamentos","unidad":"unidades","disponible":2}
+  [5] {"centro_id":"0cbde146-47b3-467e-89ec-247b4a5e2bfc","centro_nombre":"FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS","articulo":"ÃCIDO FÃLICO 10mg (30 unid)","categoria":"medicina","subcategoria":"medicamentos","unidad":"unidades","disponible":3}
+
+RESPUESTA JSON COMPLETA:
+{
+  "message": "ok",
+  "data": [
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "Acetaminofen 120 mg/5ml",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "Acetaminofen 120 mg/5ml",
+      "categoria": "medicina",
+      "subcategoria": null,
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "Acetaminofen 650 mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 16
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "ACETAMINOFEN PEDIATRICO 150 MGS",
+      "categoria": "medicina",
+      "subcategoria": "medicamentos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "ÃCIDO FÃLICO 10mg (30 unid)",
+      "categoria": "medicina",
+      "subcategoria": "medicamentos",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "Ãcido FÃ³lico 5 mg",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "Adhesivo de tela 1 pulgada (2.54 cm)",
+      "categoria": "medicina",
+      "subcategoria": "otros",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AGUA GARRAFÃN 5L",
+      "categoria": "alimento",
+      "subcategoria": null,
+      "unidad": "unidades",
+      "disponible": 21
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AGUA MINALBA 1.5L",
+      "categoria": "alimento",
+      "subcategoria": null,
+      "unidad": "unidades",
+      "disponible": 126
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AGUA MINALBA MEDIANA",
+      "categoria": "alimento",
+      "subcategoria": null,
+      "unidad": "unidades",
+      "disponible": 36
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AGUA MINALBA PEQUEÃA",
+      "categoria": "alimento",
+      "subcategoria": null,
+      "unidad": "unidades",
+      "disponible": 72
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AGUA OXIGENADA 240 ML",
+      "categoria": "medicina",
+      "subcategoria": "descartables",
+      "unidad": "unidades",
+      "disponible": 8
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AGUAS",
+      "categoria": "agua",
+      "subcategoria": null,
+      "unidad": "unidades",
+      "disponible": 27
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "ALCOHOL 120 ML 70%",
+      "categoria": "medicina",
+      "subcategoria": "descartables",
+      "unidad": "unidades",
+      "disponible": 31
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "ALCOHOL 120 ML 96%",
+      "categoria": "medicina",
+      "subcategoria": "descartables",
+      "unidad": "unidades",
+      "disponible": 5
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "ALCOHOL 240 ML 70%",
+      "categoria": "medicina",
+      "subcategoria": "descartables",
+      "unidad": "unidades",
+      "disponible": 6
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "ALCOHOL 240 ML 96%",
+      "categoria": "medicina",
+      "subcategoria": "descartables",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AlgodÃ³n No estÃ©ril",
+      "categoria": "medicina",
+      "subcategoria": "otros",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AMLODIPINA 5mg (30 unid)",
+      "categoria": "medicina",
+      "subcategoria": "medicamentos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AMOXI FLEX 500 MGS",
+      "categoria": "medicina",
+      "subcategoria": "medicamentos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "Amoxicilina (CÃ¡psulas) 500 mg",
+      "categoria": "medicina",
+      "subcategoria": "antibioticos",
+      "unidad": "cajas",
+      "disponible": 1
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AMOXICILINA + ÃCIDO CLAVULÃNICO 875mg",
+      "categoria": "medicina",
+      "subcategoria": "medicamentos",
+      "unidad": "unidades",
+      "disponible": 1
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AMOXICILINA 500mg",
+      "categoria": "medicina",
+      "subcategoria": "medicamentos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "AMPOLLA HIPERTENSIÃN -",
+      "categoria": "medicina",
+      "subcategoria": "medicamentos",
+      "unidad": "unidades",
+      "disponible": 1
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "ApÃ³sito ocular",
+      "categoria": "medicina",
+  
+... [truncado, ver archivo JSON en docs/tuia911-api-responses/03_insumos_centro_status200.json]
+
+
+================================================================================
+ENDPOINT #31
+================================================================================
+Metodo:      GET
+URL:         https://api.tuia911.com/api/insumos?categoria=medicina&limit=50
+Auth:        X-API-Key
+HTTP Status: 200
+Tamano body: 11150 bytes
+
+ESTRUCTURA DE RESPUESTA:
+  message: "ok"
+  meta: {"limit":50,"offset":0,"count":50,"has_more":true}
+  data: array con 50 registros
+
+CAMPOS DE CADA REGISTRO (schema):
+  centro_id: string, centro_nombre: string, articulo: string, categoria: string, subcategoria: string, unidad: string, disponible: number
+
+EJEMPLO COMPLETO (primer registro):
+{
+  "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+  "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+  "articulo": "AcetaminofÃ©n + Clorfeniramina + CafeÃ­na 325mg/4mg/32mg",
+  "categoria": "medicina",
+  "subcategoria": "analgesicos",
+  "unidad": "unidades",
+  "disponible": 2
+}
+
+Categorias unicas en esta respuesta: medicina
+Subcategorias unicas (muestra): analgesicos, antibioticos, cronicos, otros, primeros_auxilios
+Centros unicos en respuesta: Ccn  NiÃ±os Los Chaguramos
+Rango disponible: min=1, max=750
+
+MUESTRA ADICIONAL (hasta 5 registros):
+  [1] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n + Clorfeniramina + CafeÃ­na 325mg/4mg/32mg","categoria":"medicina","subcategoria":"analgesicos","unidad":"unidades","disponible":2}
+  [2] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n + Clorfeniramina Maleato 500mg","categoria":"medicina","subcategoria":"analgesicos","unidad":"unidades","disponible":3}
+  [3] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n 120/5ml","categoria":"medicina","subcategoria":"cronicos","unidad":"unidades","disponible":9}
+  [4] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n 150/5ml","categoria":"medicina","subcategoria":"cronicos","unidad":"unidades","disponible":6}
+  [5] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n 160/5ml","categoria":"medicina","subcategoria":"cronicos","unidad":"unidades","disponible":2}
+
+RESPUESTA JSON COMPLETA:
+{
+  "message": "ok",
+  "data": [
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n + Clorfeniramina + CafeÃ­na 325mg/4mg/32mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n + Clorfeniramina Maleato 500mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 120/5ml",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 9
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 150/5ml",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 6
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 160/5ml",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 500 mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 500mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 7
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 650 mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 63
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 650 mg",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 50
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Acetaminofen Pediatrico 120 Ml 120 MGS",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Acetaminofen Pediatrico 120 Ml 180 MGS",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n pediÃ¡trico 160/5ml",
+      "categoria": "medicina",
+      "subcategoria": "otros",
+      "unidad": "unidades",
+      "disponible": 4
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Ãcido fÃ³lico",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 6
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Adhesivo de Tela",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 4
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua Oxigenada 1 Litro",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 1
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua Oxigenada 120 ml",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 14
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua Oxigenada 240 ml",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Agua Oxigenada 500 ml",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 1000 Ml 70%",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 1
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 500 Ml 70%",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 70% (galÃ³n)",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "litros",
+      "disponible": 1
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 70% 1 Litro",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 1
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 70% 120 ml",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 13
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 70% 240 ml",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 11
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 70% 450ml",
+      "categoria": "medicina",
+      "subcategoria": "otros",
+      "unidad": "unidades",
+      "disponible": 1
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 70% 500 ml",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 8
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Alcohol 96% 120 ml",
+      "categoria": "medicina",
+      "subcategoria": "primeros_auxilios",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "ar
+... [truncado, ver archivo JSON en docs/tuia911-api-responses/04_insumos_categoria_medicina_status200.json]
+
+
+================================================================================
+ENDPOINT #41
+================================================================================
+Metodo:      GET
+URL:         https://api.tuia911.com/api/insumos?q=harina
+Auth:        X-API-Key
+HTTP Status: 200
+Tamano body: 1805 bytes
+
+ESTRUCTURA DE RESPUESTA:
+  message: "ok"
+  meta: {"limit":50,"offset":0,"count":8,"has_more":false}
+  data: array con 8 registros
+
+CAMPOS DE CADA REGISTRO (schema):
+  centro_id: string, centro_nombre: string, articulo: string, categoria: string, subcategoria: string, unidad: string, disponible: number
+
+EJEMPLO COMPLETO (primer registro):
+{
+  "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+  "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+  "articulo": "Harina pan",
+  "categoria": "alimento",
+  "subcategoria": "no_perecederos",
+  "unidad": "kg",
+  "disponible": 62
+}
+
+Categorias unicas en esta respuesta: alimento
+Subcategorias unicas (muestra): alimentos secos, no_perecederos, secos
+Centros unicos en respuesta: Ccn  NiÃ±os Los Chaguramos | Ccn Los Chaguaramos | Centro de Acopio âManos Solidariasâ | Centro de acopio principal | FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS
+Rango disponible: min=1, max=100
+
+MUESTRA ADICIONAL (hasta 5 registros):
+  [1] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"Harina pan","categoria":"alimento","subcategoria":"no_perecederos","unidad":"kg","disponible":62}
+  [2] {"centro_id":"021544e3-93b1-45ec-abe0-80b180cc5b35","centro_nombre":"Ccn Los Chaguaramos","articulo":"Harina de trigo","categoria":"alimento","subcategoria":"no_perecederos","unidad":"unidades","disponible":30}
+  [3] {"centro_id":"021544e3-93b1-45ec-abe0-80b180cc5b35","centro_nombre":"Ccn Los Chaguaramos","articulo":"Harina Pan","categoria":"alimento","subcategoria":"no_perecederos","unidad":"kg","disponible":30}
+  [4] {"centro_id":"c85eccf1-1836-4024-a891-ae92ba5c47f3","centro_nombre":"Centro de Acopio âManos Solidariasâ","articulo":"Harina de maÃ­z precocida","categoria":"alimento","subcategoria":"alimentos secos","unidad":"kg","disponible":100}
+  [5] {"centro_id":"d87f40e8-60f7-4056-80ef-6b3d56eeecb9","centro_nombre":"Centro de acopio principal","articulo":"Harina","categoria":"alimento","subcategoria":"no_perecederos","unidad":"unidades","disponible":2}
+
+RESPUESTA JSON COMPLETA:
+{
+  "message": "ok",
+  "data": [
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Harina pan",
+      "categoria": "alimento",
+      "subcategoria": "no_perecederos",
+      "unidad": "kg",
+      "disponible": 62
+    },
+    {
+      "centro_id": "021544e3-93b1-45ec-abe0-80b180cc5b35",
+      "centro_nombre": "Ccn Los Chaguaramos",
+      "articulo": "Harina de trigo",
+      "categoria": "alimento",
+      "subcategoria": "no_perecederos",
+      "unidad": "unidades",
+      "disponible": 30
+    },
+    {
+      "centro_id": "021544e3-93b1-45ec-abe0-80b180cc5b35",
+      "centro_nombre": "Ccn Los Chaguaramos",
+      "articulo": "Harina Pan",
+      "categoria": "alimento",
+      "subcategoria": "no_perecederos",
+      "unidad": "kg",
+      "disponible": 30
+    },
+    {
+      "centro_id": "c85eccf1-1836-4024-a891-ae92ba5c47f3",
+      "centro_nombre": "Centro de Acopio âManos Solidariasâ",
+      "articulo": "Harina de maÃ­z precocida",
+      "categoria": "alimento",
+      "subcategoria": "alimentos secos",
+      "unidad": "kg",
+      "disponible": 100
+    },
+    {
+      "centro_id": "d87f40e8-60f7-4056-80ef-6b3d56eeecb9",
+      "centro_nombre": "Centro de acopio principal",
+      "articulo": "Harina",
+      "categoria": "alimento",
+      "subcategoria": "no_perecederos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "d87f40e8-60f7-4056-80ef-6b3d56eeecb9",
+      "centro_nombre": "Centro de acopio principal",
+      "articulo": "Harina de maÃ­z 1kg",
+      "categoria": "alimento",
+      "subcategoria": "secos",
+      "unidad": "unidades",
+      "disponible": 1
+    },
+    {
+      "centro_id": "d87f40e8-60f7-4056-80ef-6b3d56eeecb9",
+      "centro_nombre": "Centro de acopio principal",
+      "articulo": "Harina de maÃ­z 1kg",
+      "categoria": "alimento",
+      "subcategoria": "secos",
+      "unidad": "kg",
+      "disponible": 50
+    },
+    {
+      "centro_id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "centro_nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "articulo": "HARINA UNDS",
+      "categoria": "alimento",
+      "subcategoria": null,
+      "unidad": "unidades",
+      "disponible": 90
+    }
+  ],
+  "meta": {
+    "limit": 50,
+    "offset": 0,
+    "count": 8,
+    "has_more": false
+  }
+}
+
+================================================================================
+ENDPOINT #51
+================================================================================
+Metodo:      GET
+URL:         https://api.tuia911.com/api/insumos?limit=10
+Auth:        Authorization: Bearer
+HTTP Status: 200
+Tamano body: 2312 bytes
+
+ESTRUCTURA DE RESPUESTA:
+  message: "ok"
+  meta: {"limit":10,"offset":0,"count":10,"has_more":true}
+  data: array con 10 registros
+
+CAMPOS DE CADA REGISTRO (schema):
+  centro_id: string, centro_nombre: string, articulo: string, categoria: string, subcategoria: string, unidad: string, disponible: number
+
+EJEMPLO COMPLETO (primer registro):
+{
+  "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+  "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+  "articulo": "Aceite",
+  "categoria": "alimento",
+  "subcategoria": "no_perecederos",
+  "unidad": "litros",
+  "disponible": 3
+}
+
+Categorias unicas en esta respuesta: alimento, medicina
+Subcategorias unicas (muestra): analgesicos, cronicos, no_perecederos
+Centros unicos en respuesta: Ccn  NiÃ±os Los Chaguramos
+Rango disponible: min=2, max=63
+
+MUESTRA ADICIONAL (hasta 5 registros):
+  [1] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"Aceite","categoria":"alimento","subcategoria":"no_perecederos","unidad":"litros","disponible":3}
+  [2] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n + Clorfeniramina + CafeÃ­na 325mg/4mg/32mg","categoria":"medicina","subcategoria":"analgesicos","unidad":"unidades","disponible":2}
+  [3] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n + Clorfeniramina Maleato 500mg","categoria":"medicina","subcategoria":"analgesicos","unidad":"unidades","disponible":3}
+  [4] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n 120/5ml","categoria":"medicina","subcategoria":"cronicos","unidad":"unidades","disponible":9}
+  [5] {"centro_id":"c4721e5f-5488-40c1-a386-643cb3d69ead","centro_nombre":"Ccn  NiÃ±os Los Chaguramos","articulo":"AcetaminofÃ©n 150/5ml","categoria":"medicina","subcategoria":"cronicos","unidad":"unidades","disponible":6}
+
+RESPUESTA JSON COMPLETA:
+{
+  "message": "ok",
+  "data": [
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "Aceite",
+      "categoria": "alimento",
+      "subcategoria": "no_perecederos",
+      "unidad": "litros",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n + Clorfeniramina + CafeÃ­na 325mg/4mg/32mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n + Clorfeniramina Maleato 500mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 120/5ml",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 9
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 150/5ml",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 6
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 160/5ml",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 2
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 500 mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 3
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 500mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 7
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 650 mg",
+      "categoria": "medicina",
+      "subcategoria": "analgesicos",
+      "unidad": "unidades",
+      "disponible": 63
+    },
+    {
+      "centro_id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "centro_nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "articulo": "AcetaminofÃ©n 650 mg",
+      "categoria": "medicina",
+      "subcategoria": "cronicos",
+      "unidad": "unidades",
+      "disponible": 50
+    }
+  ],
+  "meta": {
+    "limit": 10,
+    "offset": 0,
+    "count": 10,
+    "has_more": true
+  }
+}
+
+================================================================================
+ENDPOINT #61
+================================================================================
+Metodo:      GET
+URL:         https://api.tuia911.com/api/centros?limit=100
+Auth:        X-API-Key
+HTTP Status: 200
+Tamano body: 5538 bytes
+
+ESTRUCTURA DE RESPUESTA:
+  message: "ok"
+  meta: {"limit":100,"offset":0,"count":17,"has_more":false}
+  data: array con 17 registros
+
+CAMPOS DE CADA REGISTRO (schema):
+  id: string, nombre: string, tipo: string, estado_geo: string, municipio: string, direccion: string, lat: null, lng: null, telefono: string, activo: boolean, created_at: string
+
+EJEMPLO COMPLETO (primer registro):
+{
+  "id": "74f7eee6-ae42-4652-90dc-7ed04cb799c4",
+  "nombre": "Ambulatorio Carlos Soublette (Solicitud Ken Rodriguez)",
+  "tipo": "atencion",
+  "estado_geo": "La Guaira",
+  "municipio": "Vargas (Caraballeda)",
+  "direccion": "Ambulatorio Tipo II Carlos Soublette, Caraballeda",
+  "lat": null,
+  "lng": null,
+  "telefono": "04146034592",
+  "activo": true,
+  "created_at": "2026-07-01T14:50:53.927982Z"
+}
+
+Tipos de centro: acopio, atencion
+Estados geograficos: Aragua Maracay, BAJA CALIFORNIA, Baja California, Carabobo, Distrito Capital, La Guaira, Miranda, Miranda,, miranda
+
+MUESTRA ADICIONAL (hasta 5 registros):
+  [1] {"id":"74f7eee6-ae42-4652-90dc-7ed04cb799c4","nombre":"Ambulatorio Carlos Soublette (Solicitud Ken Rodriguez)","tipo":"atencion","estado_geo":"La Guaira","municipio":"Vargas (Caraballeda)","direccion":"Ambulatorio Tipo II Carlos Soublette, Caraballeda","lat":null,"lng":null,"telefono":"04146034592","activo":true,"created_at":"2026-07-01T14:50:53.927982Z"}
+  [2] {"id":"c4721e5f-5488-40c1-a386-643cb3d69ead","nombre":"Ccn  NiÃ±os Los Chaguramos","tipo":"acopio","estado_geo":"Miranda","municipio":"Municipio Libertador","direccion":"C.C Los Chaguramos","lat":10.485747,"lng":-66.8849252,"telefono":"04241261447","activo":true,"created_at":"2026-06-29T22:38:38.928145Z"}
+  [3] {"id":"021544e3-93b1-45ec-abe0-80b180cc5b35","nombre":"Ccn Los Chaguaramos","tipo":"acopio","estado_geo":"Miranda,","municipio":"Libertador","direccion":"C.C Los Chaguaramos","lat":10.4993917,"lng":-66.8863647,"telefono":"04241261447","activo":true,"created_at":"2026-07-01T20:43:43.874727Z"}
+  [4] {"id":"c85eccf1-1836-4024-a891-ae92ba5c47f3","nombre":"Centro de Acopio âManos Solidariasâ","tipo":"acopio","estado_geo":"Carabobo","municipio":"Valencia","direccion":"Calle 123, Edificio La Esperanza, Local 5","lat":null,"lng":null,"telefono":"+58 424 567 8901","activo":true,"created_at":"2026-06-28T02:10:01.948327Z"}
+  [5] {"id":"e11f524f-677e-4bb4-9bdb-46d168afaac5","nombre":"Centro de Acopio Las Mercedes","tipo":"acopio","estado_geo":"Miranda","municipio":"Baruta","direccion":"Av. Principal de Las Mercedes, Centro Comercial TolÃ³n, nivel PB, local 12","lat":null,"lng":null,"telefono":"584125558899","activo":true,"created_at":"2026-06-28T00:32:24.483907Z"}
+
+RESPUESTA JSON COMPLETA:
+{
+  "message": "ok",
+  "data": [
+    {
+      "id": "74f7eee6-ae42-4652-90dc-7ed04cb799c4",
+      "nombre": "Ambulatorio Carlos Soublette (Solicitud Ken Rodriguez)",
+      "tipo": "atencion",
+      "estado_geo": "La Guaira",
+      "municipio": "Vargas (Caraballeda)",
+      "direccion": "Ambulatorio Tipo II Carlos Soublette, Caraballeda",
+      "lat": null,
+      "lng": null,
+      "telefono": "04146034592",
+      "activo": true,
+      "created_at": "2026-07-01T14:50:53.927982Z"
+    },
+    {
+      "id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Municipio Libertador",
+      "direccion": "C.C Los Chaguramos",
+      "lat": 10.485747,
+      "lng": -66.8849252,
+      "telefono": "04241261447",
+      "activo": true,
+      "created_at": "2026-06-29T22:38:38.928145Z"
+    },
+    {
+      "id": "021544e3-93b1-45ec-abe0-80b180cc5b35",
+      "nombre": "Ccn Los Chaguaramos",
+      "tipo": "acopio",
+      "estado_geo": "Miranda,",
+      "municipio": "Libertador",
+      "direccion": "C.C Los Chaguaramos",
+      "lat": 10.4993917,
+      "lng": -66.8863647,
+      "telefono": "04241261447",
+      "activo": true,
+      "created_at": "2026-07-01T20:43:43.874727Z"
+    },
+    {
+      "id": "c85eccf1-1836-4024-a891-ae92ba5c47f3",
+      "nombre": "Centro de Acopio âManos Solidariasâ",
+      "tipo": "acopio",
+      "estado_geo": "Carabobo",
+      "municipio": "Valencia",
+      "direccion": "Calle 123, Edificio La Esperanza, Local 5",
+      "lat": null,
+      "lng": null,
+      "telefono": "+58 424 567 8901",
+      "activo": true,
+      "created_at": "2026-06-28T02:10:01.948327Z"
+    },
+    {
+      "id": "e11f524f-677e-4bb4-9bdb-46d168afaac5",
+      "nombre": "Centro de Acopio Las Mercedes",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Av. Principal de Las Mercedes, Centro Comercial TolÃ³n, nivel PB, local 12",
+      "lat": null,
+      "lng": null,
+      "telefono": "584125558899",
+      "activo": true,
+      "created_at": "2026-06-28T00:32:24.483907Z"
+    },
+    {
+      "id": "b089626a-e6c3-4bb9-b8ec-a11e6f8faf41",
+      "nombre": "Centro de acopio Plaza Alfredo Sadel",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Plaza Alfredo Sadel â AlcaldÃ­a de Baruta",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T00:27:32.504914Z"
+    },
+    {
+      "id": "d87f40e8-60f7-4056-80ef-6b3d56eeecb9",
+      "nombre": "Centro de acopio principal",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Concesionario Energy Automotor C.A., Torre Ãvila, Calle California, Las Mercedes.",
+      "lat": 10.4837213,
+      "lng": -66.8672049,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-26T19:09:55.963465Z"
+    },
+    {
+      "id": "dbbff4c4-62ad-4b9c-80fe-2dcdae40d420",
+      "nombre": "Centro de Acopio Tijuana",
+      "tipo": "acopio",
+      "estado_geo": "Baja California",
+      "municipio": "Tijuana",
+      "direccion": "Sta Martha de las Flores 4351 2B",
+      "lat": null,
+      "lng": null,
+      "telefono": "6621191223",
+      "activo": true,
+      "created_at": "2026-06-30T19:28:19.897102Z"
+    },
+    {
+      "id": "cfadf5a3-f6d4-4f5f-a892-274b4779e151",
+      "nombre": "Centro de Acopio Tijuana",
+      "tipo": "acopio",
+      "estado_geo": "BAJA CALIFORNIA",
+      "municipio": "TIJUANA",
+      "direccion": "STA MARTHA DE LAS FLORES 4351, 2B",
+      "lat": null,
+      "lng": null,
+      "telefono": "6631191223",
+      "activo": true,
+      "created_at": "2026-06-30T19:50:40.287755Z"
+    },
+    {
+      "id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "tipo": "acopio",
+      "estado_geo": "Distrito Capital",
+      "municipio": "Libertador",
+      "direccion": "C.C. Los Chaguaramos, Los Chaguaramos, Caracas",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T19:54:24.724742Z"
+    },
+    {
+      "id": "c2098742-4b71-423e-b427-74f3c6b30968",
+      "nombre": "Hospital Estadal Dr. Luis Salazar DomÃ­nguez (IVSS) â Guarenas",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Guarenas",
+      "direccion": "Hospital Estadal Dr. Luis Salazar DomÃ­nguez, IVSS, Guarenas",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T17:55:53.264102Z"
+    },
+    {
+      "id": "254a4225-8c5b-4229-9952-36375374ec84",
+      "nombre": "Irda",
+      "tipo": "acopio",
+      "estado_geo": "Aragua Maracay",
+      "municipio": "Mario BriseÃ±o",
+      "direccion": "Avenida universidad",
+      "lat": 10.2945677374251,
+      "lng": -67.6277160644531,
+      "telefono": "04243387489",
+      "activo": true,
+      "created_at": "2026-06-30T14:27:07.098499Z"
+    },
+    {
+      "id": "2a616932-7b84-4d24-9972-cbef4a9ae66c",
+      "nombre": "Maxiautos",
+      "tipo": "acopio",
+      "estado_geo": "Distrito Capital",
+      "municipio": "Chacao",
+      "direccion": "Urb Bello Campo, al lado de Tacos Pancho Villa",
+      "lat": 10.4912483939971,
+      "lng": -66.850189268589,
+      "telefono": "04242797070",
+      "activo": true,
+      "created_at": "2026-06-30T14:27:04.492991Z"
+    },
+    {
+      "id": "67d912da-3edf-4803-898c-ae182bfd13d4",
+      "nombre": "no se",
+      "tipo": "atencion",
+      "estado_geo": "miranda",
+      "municipio": "creo que plaza",
+      "direccion": "menca",
+      "lat": 10.4724209,
+      "lng": -66.6079383,
+      "telefono": "04241451777",
+      "activo": true,
+      "created_at": "2026-07-01T20:52:22.482321Z"
+    },
+    {
+      "id": "5dbfcaa3-7a1b-430b-aecd-3783e388c242",
+      "nombre": "Parques de Miravila",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Sucre",
+      "direccion": "Parques de miravila",
+      "lat": 10.4604115,
+      "lng": -66.7500868,
+      "telefono": "04140129111",
+      "activo": true,
+      "created_at": "2026-06-28T23:01:08.512274Z"
+    },
+    {
+      "id": "48218299-40fb-4bd0-8757-b3bb4e65d381",
+      "nombre": "Polideportivo rafael vidal",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Hoyo De La Puerta Km 14 Sector Piedras Azules",
+      "lat": 10.4333532,
+      "lng": -66.8678469,
+      "telefono": "04241301990",
+      "activo": true,
+      "created_at": "2026-07-02T12:43:56.019373Z"
+    },
+    {
+      "id": "f454354e-b5af-4d96-aea5-ff443dca648e",
+      "nombre": "SNTP â Sindicato Nacional de Trabajadores de la Prensa",
+      "tipo": "acopio",
+      "estado_geo": "Distrito Capital",
+      "municipio": "Caracas",
+      "direccion": "Sede del Colegio Nacional de Periodistas, Av. AndrÃ©s Bello, Caracas",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T00:27:32.504914Z"
+    }
+  ],
+  "meta": {
+    "limit": 100,
+    "offset": 0,
+    "count": 17,
+    "has_more": false
+  }
+}
+
+================================================================================
+ENDPOINT #71
+================================================================================
+Metodo:      GET
+URL:         https://api.tuia911.com/api/centros?activo=all
+Auth:        X-API-Key
+HTTP Status: 200
+Tamano body: 5537 bytes
+
+ESTRUCTURA DE RESPUESTA:
+  message: "ok"
+  meta: {"limit":50,"offset":0,"count":17,"has_more":false}
+  data: array con 17 registros
+
+CAMPOS DE CADA REGISTRO (schema):
+  id: string, nombre: string, tipo: string, estado_geo: string, municipio: string, direccion: string, lat: null, lng: null, telefono: string, activo: boolean, created_at: string
+
+EJEMPLO COMPLETO (primer registro):
+{
+  "id": "74f7eee6-ae42-4652-90dc-7ed04cb799c4",
+  "nombre": "Ambulatorio Carlos Soublette (Solicitud Ken Rodriguez)",
+  "tipo": "atencion",
+  "estado_geo": "La Guaira",
+  "municipio": "Vargas (Caraballeda)",
+  "direccion": "Ambulatorio Tipo II Carlos Soublette, Caraballeda",
+  "lat": null,
+  "lng": null,
+  "telefono": "04146034592",
+  "activo": true,
+  "created_at": "2026-07-01T14:50:53.927982Z"
+}
+
+Tipos de centro: acopio, atencion
+Estados geograficos: Aragua Maracay, BAJA CALIFORNIA, Baja California, Carabobo, Distrito Capital, La Guaira, Miranda, Miranda,, miranda
+
+MUESTRA ADICIONAL (hasta 5 registros):
+  [1] {"id":"74f7eee6-ae42-4652-90dc-7ed04cb799c4","nombre":"Ambulatorio Carlos Soublette (Solicitud Ken Rodriguez)","tipo":"atencion","estado_geo":"La Guaira","municipio":"Vargas (Caraballeda)","direccion":"Ambulatorio Tipo II Carlos Soublette, Caraballeda","lat":null,"lng":null,"telefono":"04146034592","activo":true,"created_at":"2026-07-01T14:50:53.927982Z"}
+  [2] {"id":"c4721e5f-5488-40c1-a386-643cb3d69ead","nombre":"Ccn  NiÃ±os Los Chaguramos","tipo":"acopio","estado_geo":"Miranda","municipio":"Municipio Libertador","direccion":"C.C Los Chaguramos","lat":10.485747,"lng":-66.8849252,"telefono":"04241261447","activo":true,"created_at":"2026-06-29T22:38:38.928145Z"}
+  [3] {"id":"021544e3-93b1-45ec-abe0-80b180cc5b35","nombre":"Ccn Los Chaguaramos","tipo":"acopio","estado_geo":"Miranda,","municipio":"Libertador","direccion":"C.C Los Chaguaramos","lat":10.4993917,"lng":-66.8863647,"telefono":"04241261447","activo":true,"created_at":"2026-07-01T20:43:43.874727Z"}
+  [4] {"id":"c85eccf1-1836-4024-a891-ae92ba5c47f3","nombre":"Centro de Acopio âManos Solidariasâ","tipo":"acopio","estado_geo":"Carabobo","municipio":"Valencia","direccion":"Calle 123, Edificio La Esperanza, Local 5","lat":null,"lng":null,"telefono":"+58 424 567 8901","activo":true,"created_at":"2026-06-28T02:10:01.948327Z"}
+  [5] {"id":"e11f524f-677e-4bb4-9bdb-46d168afaac5","nombre":"Centro de Acopio Las Mercedes","tipo":"acopio","estado_geo":"Miranda","municipio":"Baruta","direccion":"Av. Principal de Las Mercedes, Centro Comercial TolÃ³n, nivel PB, local 12","lat":null,"lng":null,"telefono":"584125558899","activo":true,"created_at":"2026-06-28T00:32:24.483907Z"}
+
+RESPUESTA JSON COMPLETA:
+{
+  "message": "ok",
+  "data": [
+    {
+      "id": "74f7eee6-ae42-4652-90dc-7ed04cb799c4",
+      "nombre": "Ambulatorio Carlos Soublette (Solicitud Ken Rodriguez)",
+      "tipo": "atencion",
+      "estado_geo": "La Guaira",
+      "municipio": "Vargas (Caraballeda)",
+      "direccion": "Ambulatorio Tipo II Carlos Soublette, Caraballeda",
+      "lat": null,
+      "lng": null,
+      "telefono": "04146034592",
+      "activo": true,
+      "created_at": "2026-07-01T14:50:53.927982Z"
+    },
+    {
+      "id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Municipio Libertador",
+      "direccion": "C.C Los Chaguramos",
+      "lat": 10.485747,
+      "lng": -66.8849252,
+      "telefono": "04241261447",
+      "activo": true,
+      "created_at": "2026-06-29T22:38:38.928145Z"
+    },
+    {
+      "id": "021544e3-93b1-45ec-abe0-80b180cc5b35",
+      "nombre": "Ccn Los Chaguaramos",
+      "tipo": "acopio",
+      "estado_geo": "Miranda,",
+      "municipio": "Libertador",
+      "direccion": "C.C Los Chaguaramos",
+      "lat": 10.4993917,
+      "lng": -66.8863647,
+      "telefono": "04241261447",
+      "activo": true,
+      "created_at": "2026-07-01T20:43:43.874727Z"
+    },
+    {
+      "id": "c85eccf1-1836-4024-a891-ae92ba5c47f3",
+      "nombre": "Centro de Acopio âManos Solidariasâ",
+      "tipo": "acopio",
+      "estado_geo": "Carabobo",
+      "municipio": "Valencia",
+      "direccion": "Calle 123, Edificio La Esperanza, Local 5",
+      "lat": null,
+      "lng": null,
+      "telefono": "+58 424 567 8901",
+      "activo": true,
+      "created_at": "2026-06-28T02:10:01.948327Z"
+    },
+    {
+      "id": "e11f524f-677e-4bb4-9bdb-46d168afaac5",
+      "nombre": "Centro de Acopio Las Mercedes",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Av. Principal de Las Mercedes, Centro Comercial TolÃ³n, nivel PB, local 12",
+      "lat": null,
+      "lng": null,
+      "telefono": "584125558899",
+      "activo": true,
+      "created_at": "2026-06-28T00:32:24.483907Z"
+    },
+    {
+      "id": "b089626a-e6c3-4bb9-b8ec-a11e6f8faf41",
+      "nombre": "Centro de acopio Plaza Alfredo Sadel",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Plaza Alfredo Sadel â AlcaldÃ­a de Baruta",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T00:27:32.504914Z"
+    },
+    {
+      "id": "d87f40e8-60f7-4056-80ef-6b3d56eeecb9",
+      "nombre": "Centro de acopio principal",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Concesionario Energy Automotor C.A., Torre Ãvila, Calle California, Las Mercedes.",
+      "lat": 10.4837213,
+      "lng": -66.8672049,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-26T19:09:55.963465Z"
+    },
+    {
+      "id": "dbbff4c4-62ad-4b9c-80fe-2dcdae40d420",
+      "nombre": "Centro de Acopio Tijuana",
+      "tipo": "acopio",
+      "estado_geo": "Baja California",
+      "municipio": "Tijuana",
+      "direccion": "Sta Martha de las Flores 4351 2B",
+      "lat": null,
+      "lng": null,
+      "telefono": "6621191223",
+      "activo": true,
+      "created_at": "2026-06-30T19:28:19.897102Z"
+    },
+    {
+      "id": "cfadf5a3-f6d4-4f5f-a892-274b4779e151",
+      "nombre": "Centro de Acopio Tijuana",
+      "tipo": "acopio",
+      "estado_geo": "BAJA CALIFORNIA",
+      "municipio": "TIJUANA",
+      "direccion": "STA MARTHA DE LAS FLORES 4351, 2B",
+      "lat": null,
+      "lng": null,
+      "telefono": "6631191223",
+      "activo": true,
+      "created_at": "2026-06-30T19:50:40.287755Z"
+    },
+    {
+      "id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "tipo": "acopio",
+      "estado_geo": "Distrito Capital",
+      "municipio": "Libertador",
+      "direccion": "C.C. Los Chaguaramos, Los Chaguaramos, Caracas",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T19:54:24.724742Z"
+    },
+    {
+      "id": "c2098742-4b71-423e-b427-74f3c6b30968",
+      "nombre": "Hospital Estadal Dr. Luis Salazar DomÃ­nguez (IVSS) â Guarenas",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Guarenas",
+      "direccion": "Hospital Estadal Dr. Luis Salazar DomÃ­nguez, IVSS, Guarenas",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T17:55:53.264102Z"
+    },
+    {
+      "id": "254a4225-8c5b-4229-9952-36375374ec84",
+      "nombre": "Irda",
+      "tipo": "acopio",
+      "estado_geo": "Aragua Maracay",
+      "municipio": "Mario BriseÃ±o",
+      "direccion": "Avenida universidad",
+      "lat": 10.2945677374251,
+      "lng": -67.6277160644531,
+      "telefono": "04243387489",
+      "activo": true,
+      "created_at": "2026-06-30T14:27:07.098499Z"
+    },
+    {
+      "id": "2a616932-7b84-4d24-9972-cbef4a9ae66c",
+      "nombre": "Maxiautos",
+      "tipo": "acopio",
+      "estado_geo": "Distrito Capital",
+      "municipio": "Chacao",
+      "direccion": "Urb Bello Campo, al lado de Tacos Pancho Villa",
+      "lat": 10.4912483939971,
+      "lng": -66.850189268589,
+      "telefono": "04242797070",
+      "activo": true,
+      "created_at": "2026-06-30T14:27:04.492991Z"
+    },
+    {
+      "id": "67d912da-3edf-4803-898c-ae182bfd13d4",
+      "nombre": "no se",
+      "tipo": "atencion",
+      "estado_geo": "miranda",
+      "municipio": "creo que plaza",
+      "direccion": "menca",
+      "lat": 10.4724209,
+      "lng": -66.6079383,
+      "telefono": "04241451777",
+      "activo": true,
+      "created_at": "2026-07-01T20:52:22.482321Z"
+    },
+    {
+      "id": "5dbfcaa3-7a1b-430b-aecd-3783e388c242",
+      "nombre": "Parques de Miravila",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Sucre",
+      "direccion": "Parques de miravila",
+      "lat": 10.4604115,
+      "lng": -66.7500868,
+      "telefono": "04140129111",
+      "activo": true,
+      "created_at": "2026-06-28T23:01:08.512274Z"
+    },
+    {
+      "id": "48218299-40fb-4bd0-8757-b3bb4e65d381",
+      "nombre": "Polideportivo rafael vidal",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Hoyo De La Puerta Km 14 Sector Piedras Azules",
+      "lat": 10.4333532,
+      "lng": -66.8678469,
+      "telefono": "04241301990",
+      "activo": true,
+      "created_at": "2026-07-02T12:43:56.019373Z"
+    },
+    {
+      "id": "f454354e-b5af-4d96-aea5-ff443dca648e",
+      "nombre": "SNTP â Sindicato Nacional de Trabajadores de la Prensa",
+      "tipo": "acopio",
+      "estado_geo": "Distrito Capital",
+      "municipio": "Caracas",
+      "direccion": "Sede del Colegio Nacional de Periodistas, Av. AndrÃ©s Bello, Caracas",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T00:27:32.504914Z"
+    }
+  ],
+  "meta": {
+    "limit": 50,
+    "offset": 0,
+    "count": 17,
+    "has_more": false
+  }
+}
+
+================================================================================
+ENDPOINT #81
+================================================================================
+Metodo:      GET
+URL:         https://api.tuia911.com/api/centros?tipo=acopio
+Auth:        X-API-Key
+HTTP Status: 200
+Tamano body: 4909 bytes
+
+ESTRUCTURA DE RESPUESTA:
+  message: "ok"
+  meta: {"limit":50,"offset":0,"count":15,"has_more":false}
+  data: array con 15 registros
+
+CAMPOS DE CADA REGISTRO (schema):
+  id: string, nombre: string, tipo: string, estado_geo: string, municipio: string, direccion: string, lat: number, lng: number, telefono: string, activo: boolean, created_at: string
+
+EJEMPLO COMPLETO (primer registro):
+{
+  "id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+  "nombre": "Ccn  NiÃ±os Los Chaguramos",
+  "tipo": "acopio",
+  "estado_geo": "Miranda",
+  "municipio": "Municipio Libertador",
+  "direccion": "C.C Los Chaguramos",
+  "lat": 10.485747,
+  "lng": -66.8849252,
+  "telefono": "04241261447",
+  "activo": true,
+  "created_at": "2026-06-29T22:38:38.928145Z"
+}
+
+Tipos de centro: acopio
+Estados geograficos: Aragua Maracay, BAJA CALIFORNIA, Baja California, Carabobo, Distrito Capital, Miranda, Miranda,
+
+MUESTRA ADICIONAL (hasta 5 registros):
+  [1] {"id":"c4721e5f-5488-40c1-a386-643cb3d69ead","nombre":"Ccn  NiÃ±os Los Chaguramos","tipo":"acopio","estado_geo":"Miranda","municipio":"Municipio Libertador","direccion":"C.C Los Chaguramos","lat":10.485747,"lng":-66.8849252,"telefono":"04241261447","activo":true,"created_at":"2026-06-29T22:38:38.928145Z"}
+  [2] {"id":"021544e3-93b1-45ec-abe0-80b180cc5b35","nombre":"Ccn Los Chaguaramos","tipo":"acopio","estado_geo":"Miranda,","municipio":"Libertador","direccion":"C.C Los Chaguaramos","lat":10.4993917,"lng":-66.8863647,"telefono":"04241261447","activo":true,"created_at":"2026-07-01T20:43:43.874727Z"}
+  [3] {"id":"c85eccf1-1836-4024-a891-ae92ba5c47f3","nombre":"Centro de Acopio âManos Solidariasâ","tipo":"acopio","estado_geo":"Carabobo","municipio":"Valencia","direccion":"Calle 123, Edificio La Esperanza, Local 5","lat":null,"lng":null,"telefono":"+58 424 567 8901","activo":true,"created_at":"2026-06-28T02:10:01.948327Z"}
+  [4] {"id":"e11f524f-677e-4bb4-9bdb-46d168afaac5","nombre":"Centro de Acopio Las Mercedes","tipo":"acopio","estado_geo":"Miranda","municipio":"Baruta","direccion":"Av. Principal de Las Mercedes, Centro Comercial TolÃ³n, nivel PB, local 12","lat":null,"lng":null,"telefono":"584125558899","activo":true,"created_at":"2026-06-28T00:32:24.483907Z"}
+  [5] {"id":"b089626a-e6c3-4bb9-b8ec-a11e6f8faf41","nombre":"Centro de acopio Plaza Alfredo Sadel","tipo":"acopio","estado_geo":"Miranda","municipio":"Baruta","direccion":"Plaza Alfredo Sadel â AlcaldÃ­a de Baruta","lat":null,"lng":null,"telefono":null,"activo":true,"created_at":"2026-06-28T00:27:32.504914Z"}
+
+RESPUESTA JSON COMPLETA:
+{
+  "message": "ok",
+  "data": [
+    {
+      "id": "c4721e5f-5488-40c1-a386-643cb3d69ead",
+      "nombre": "Ccn  NiÃ±os Los Chaguramos",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Municipio Libertador",
+      "direccion": "C.C Los Chaguramos",
+      "lat": 10.485747,
+      "lng": -66.8849252,
+      "telefono": "04241261447",
+      "activo": true,
+      "created_at": "2026-06-29T22:38:38.928145Z"
+    },
+    {
+      "id": "021544e3-93b1-45ec-abe0-80b180cc5b35",
+      "nombre": "Ccn Los Chaguaramos",
+      "tipo": "acopio",
+      "estado_geo": "Miranda,",
+      "municipio": "Libertador",
+      "direccion": "C.C Los Chaguaramos",
+      "lat": 10.4993917,
+      "lng": -66.8863647,
+      "telefono": "04241261447",
+      "activo": true,
+      "created_at": "2026-07-01T20:43:43.874727Z"
+    },
+    {
+      "id": "c85eccf1-1836-4024-a891-ae92ba5c47f3",
+      "nombre": "Centro de Acopio âManos Solidariasâ",
+      "tipo": "acopio",
+      "estado_geo": "Carabobo",
+      "municipio": "Valencia",
+      "direccion": "Calle 123, Edificio La Esperanza, Local 5",
+      "lat": null,
+      "lng": null,
+      "telefono": "+58 424 567 8901",
+      "activo": true,
+      "created_at": "2026-06-28T02:10:01.948327Z"
+    },
+    {
+      "id": "e11f524f-677e-4bb4-9bdb-46d168afaac5",
+      "nombre": "Centro de Acopio Las Mercedes",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Av. Principal de Las Mercedes, Centro Comercial TolÃ³n, nivel PB, local 12",
+      "lat": null,
+      "lng": null,
+      "telefono": "584125558899",
+      "activo": true,
+      "created_at": "2026-06-28T00:32:24.483907Z"
+    },
+    {
+      "id": "b089626a-e6c3-4bb9-b8ec-a11e6f8faf41",
+      "nombre": "Centro de acopio Plaza Alfredo Sadel",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Plaza Alfredo Sadel â AlcaldÃ­a de Baruta",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T00:27:32.504914Z"
+    },
+    {
+      "id": "d87f40e8-60f7-4056-80ef-6b3d56eeecb9",
+      "nombre": "Centro de acopio principal",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Concesionario Energy Automotor C.A., Torre Ãvila, Calle California, Las Mercedes.",
+      "lat": 10.4837213,
+      "lng": -66.8672049,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-26T19:09:55.963465Z"
+    },
+    {
+      "id": "cfadf5a3-f6d4-4f5f-a892-274b4779e151",
+      "nombre": "Centro de Acopio Tijuana",
+      "tipo": "acopio",
+      "estado_geo": "BAJA CALIFORNIA",
+      "municipio": "TIJUANA",
+      "direccion": "STA MARTHA DE LAS FLORES 4351, 2B",
+      "lat": null,
+      "lng": null,
+      "telefono": "6631191223",
+      "activo": true,
+      "created_at": "2026-06-30T19:50:40.287755Z"
+    },
+    {
+      "id": "dbbff4c4-62ad-4b9c-80fe-2dcdae40d420",
+      "nombre": "Centro de Acopio Tijuana",
+      "tipo": "acopio",
+      "estado_geo": "Baja California",
+      "municipio": "Tijuana",
+      "direccion": "Sta Martha de las Flores 4351 2B",
+      "lat": null,
+      "lng": null,
+      "telefono": "6621191223",
+      "activo": true,
+      "created_at": "2026-06-30T19:28:19.897102Z"
+    },
+    {
+      "id": "0cbde146-47b3-467e-89ec-247b4a5e2bfc",
+      "nombre": "FederaciÃ³n CCN DEJALOS REIR DEJALOS CRECER C.C. LOS CHAGUARAMOS",
+      "tipo": "acopio",
+      "estado_geo": "Distrito Capital",
+      "municipio": "Libertador",
+      "direccion": "C.C. Los Chaguaramos, Los Chaguaramos, Caracas",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T19:54:24.724742Z"
+    },
+    {
+      "id": "c2098742-4b71-423e-b427-74f3c6b30968",
+      "nombre": "Hospital Estadal Dr. Luis Salazar DomÃ­nguez (IVSS) â Guarenas",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Guarenas",
+      "direccion": "Hospital Estadal Dr. Luis Salazar DomÃ­nguez, IVSS, Guarenas",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T17:55:53.264102Z"
+    },
+    {
+      "id": "254a4225-8c5b-4229-9952-36375374ec84",
+      "nombre": "Irda",
+      "tipo": "acopio",
+      "estado_geo": "Aragua Maracay",
+      "municipio": "Mario BriseÃ±o",
+      "direccion": "Avenida universidad",
+      "lat": 10.2945677374251,
+      "lng": -67.6277160644531,
+      "telefono": "04243387489",
+      "activo": true,
+      "created_at": "2026-06-30T14:27:07.098499Z"
+    },
+    {
+      "id": "2a616932-7b84-4d24-9972-cbef4a9ae66c",
+      "nombre": "Maxiautos",
+      "tipo": "acopio",
+      "estado_geo": "Distrito Capital",
+      "municipio": "Chacao",
+      "direccion": "Urb Bello Campo, al lado de Tacos Pancho Villa",
+      "lat": 10.4912483939971,
+      "lng": -66.850189268589,
+      "telefono": "04242797070",
+      "activo": true,
+      "created_at": "2026-06-30T14:27:04.492991Z"
+    },
+    {
+      "id": "5dbfcaa3-7a1b-430b-aecd-3783e388c242",
+      "nombre": "Parques de Miravila",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Sucre",
+      "direccion": "Parques de miravila",
+      "lat": 10.4604115,
+      "lng": -66.7500868,
+      "telefono": "04140129111",
+      "activo": true,
+      "created_at": "2026-06-28T23:01:08.512274Z"
+    },
+    {
+      "id": "48218299-40fb-4bd0-8757-b3bb4e65d381",
+      "nombre": "Polideportivo rafael vidal",
+      "tipo": "acopio",
+      "estado_geo": "Miranda",
+      "municipio": "Baruta",
+      "direccion": "Hoyo De La Puerta Km 14 Sector Piedras Azules",
+      "lat": 10.4333532,
+      "lng": -66.8678469,
+      "telefono": "04241301990",
+      "activo": true,
+      "created_at": "2026-07-02T12:43:56.019373Z"
+    },
+    {
+      "id": "f454354e-b5af-4d96-aea5-ff443dca648e",
+      "nombre": "SNTP â Sindicato Nacional de Trabajadores de la Prensa",
+      "tipo": "acopio",
+      "estado_geo": "Distrito Capital",
+      "municipio": "Caracas",
+      "direccion": "Sede del Colegio Nacional de Periodistas, Av. AndrÃ©s Bello, Caracas",
+      "lat": null,
+      "lng": null,
+      "telefono": null,
+      "activo": true,
+      "created_at": "2026-06-28T00:27:32.504914Z"
+    }
+  ],
+  "meta": {
+    "limit": 50,
+    "offset": 0,
+    "count": 15,
+    "has_more": false
+  }
+}
+
+================================================================================
+ENDPOINT #91
+================================================================================
+Metodo:      GET
+URL:         https://api.tuia911.com/api/centros
+Auth:        Sin API key (esperado 401)
+HTTP Status: 401
+Tamano body: 0 bytes
+
+RESPUESTA: (cuerpo vacio)
+Comportamiento: Rechaza la peticion sin credenciales.
+
+
+================================================================================
+MAPEO SUGERIDO A RESCATE VE
+================================================================================
+
+1. centros_acopio (Rescate VE)  <->  /api/centros
+   - id              <- id
+   - nombre          <- nombre
+   - direccion       <- direccion
+   - latitud/longitud<- lat, lng
+   - contacto        <- telefono
+   - activo          <- activo
+   - Extra Tuia911: tipo (acopio|atencion), estado_geo, municipio, created_at
+
+2. inventario_acopio (Rescate VE)  <->  /api/insumos
+   - centro_id       <- centro_id
+   - item            <- articulo
+   - cantidad        <- disponible
+   - unidad          <- unidad
+   - Extra Tuia911: categoria, subcategoria, centro_nombre
+
+3. Panel de despacho
+   - Consultar insumos por centro antes de asignar acopio a un ticket
+   - Filtrar por categoria=medicina para tickets insumo_medico
+   - Buscar articulos con q= para matching con descripcion del ticket
+
+4. Sincronizacion recomendada
+   - Cron cada 15-30 min: GET /api/centros?limit=100
+   - Por centro activo: GET /api/insumos?centro={id}&limit=500
+   - Upsert en centros_acopio e inventario_acopio
+

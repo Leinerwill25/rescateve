@@ -23,6 +23,8 @@ import {
   Fuel,
   Settings,
   Gift,
+  Warehouse,
+  Link2,
 } from "lucide-react";
 
 import { OperationsAuthContext } from "./AuthContext";
@@ -226,6 +228,8 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
         { label: "Cola de Validación", href: "/operaciones/cola", icon: <ClipboardCheck size={18} /> },
         { label: "Tablero Despacho", href: "/operaciones/despacho", icon: <Truck size={18} /> },
         { label: "Combustible", href: "/operaciones/combustible", icon: <Fuel size={18} /> },
+        { label: "Acopio Tuia911", href: "/operaciones/tuia-acopio", icon: <Warehouse size={18} /> },
+        { label: "Match Acopio AEC", href: "/operaciones/match-acopio", icon: <Link2 size={18} /> },
         { label: "Reglas Ruteo", href: "/operaciones/reglas", icon: <Sliders size={18} /> },
         { label: "Recursos y Fichas", href: "/operaciones/recursos", icon: <Briefcase size={18} /> },
         { label: "Historial Auditoría", href: "/operaciones/auditoria", icon: <History size={18} /> },
@@ -233,6 +237,7 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
     } else if (perfil.rol === "transportista") {
       return [
         { label: "Mis Viajes", href: "/operaciones/mis-viajes", icon: <Truck size={18} /> },
+        { label: "Match Acopio AEC", href: "/operaciones/match-acopio", icon: <Link2 size={18} /> },
         { label: "Configuración", href: "/operaciones/configuracion", icon: <Settings size={18} /> },
       ];
     } else if (perfil.rol === "medico") {
