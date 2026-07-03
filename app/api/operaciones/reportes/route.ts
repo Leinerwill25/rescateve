@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getApiSession } from "@/lib/auth-api";
 import { computeReportesOperaciones, type InventarioRow, type TicketRow } from "@/lib/operaciones-reportes";
 import { fetchTuiaInsumos } from "@/lib/tuia911";
@@ -12,8 +12,8 @@ const TICKET_COLS =
 
 /** Evita que tickets completados queden fuera cuando hay miles de AEC recientes en cola. */
 async function fetchTicketsParaReportes(
-  admin: ReturnType<typeof createClient>
-): Promise<{ data: Record<string, unknown>[]; error: Error | null }> {
+  admin: SupabaseClient
+): Promise<{ data: TicketRow[]; error: Error | null }> {
   const [completadosRes, recientesRes] = await Promise.all([
     admin
       .from("tickets")
@@ -32,9 +32,13 @@ async function fetchTicketsParaReportes(
   if (completadosRes.error) return { data: [], error: completadosRes.error };
   if (recientesRes.error) return { data: [], error: recientesRes.error };
 
-  const byId = new Map<string, Record<string, unknown>>();
-  for (const row of [...(completadosRes.data ?? []), ...(recientesRes.data ?? [])]) {
-    byId.set(String(row.id), row);
+  const rows = [
+    ...((completadosRes.data ?? []) as TicketRow[]),
+    ...((recientesRes.data ?? []) as TicketRow[]),
+  ];
+  const byId = new Map<string, TicketRow>();
+  for (const row of rows) {
+    byId.set(row.id, row);
   }
   return { data: [...byId.values()], error: null };
 }
@@ -137,7 +141,7 @@ export async function GET(req: Request) {
       }
     }
     const reporte = computeReportesOperaciones({
-      tickets: (ticketsRes.data || []) as TicketRow[],
+      tickets: ticketsRes.data ?? [],
       historial: historialRes.data || [],
       transportes: transportesRes.data || [],
       matches: matchesRes.error ? [] : matchesRes.data || [],
