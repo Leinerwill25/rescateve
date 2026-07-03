@@ -127,10 +127,10 @@ export default function ReportesOperacionesPage() {
       </div>
 
       <div style={S.grid4}>
-        <StatCard label="Entregas completadas" value={l.entregas_completadas} icon={<CheckCircle2 size={20} color="#16a34a" />} />
+        <StatCard label="Entregas completadas" value={l.entregas_completadas} sub={`${l.entregas_con_transportista} con transportista asignado`} icon={<CheckCircle2 size={20} color="#16a34a" />} />
         <StatCard label="Entregas / asignaciones fallidas" value={l.entregas_fallidas} icon={<XCircle size={20} color="#b91c1c" />} />
         <StatCard label="Voluntarios movilizados" value={l.voluntarios_movilizados} icon={<Truck size={20} />} />
-        <StatCard label="Tiempo detección → asignación" value={n.tiempo_deteccion_hasta_asignacion_horas != null ? `${n.tiempo_deteccion_hasta_asignacion_horas} h` : "N/D"} sub={`Promedio asignación: ${l.tiempo_promedio_asignacion_horas ?? "N/D"} h`} icon={<Clock size={20} />} />
+        <StatCard label="Tiempo creación → asignación" value={n.tiempo_deteccion_hasta_asignacion_horas != null ? `${n.tiempo_deteccion_hasta_asignacion_horas} h` : "N/D"} sub={`Promedio traslados/Ash: ${l.tiempo_promedio_asignacion_horas ?? "N/D"} h`} icon={<Clock size={20} />} />
       </div>
 
       <div style={S.grid2}>

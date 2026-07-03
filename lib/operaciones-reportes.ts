@@ -49,6 +49,22 @@ export type MatchRow = {
   estado: string;
   distancia_km: number | null;
   tuia_articulo: string | null;
+  reclamado_at?: string | null;
+  created_at?: string | null;
+};
+
+export type TrasladoReporteRow = {
+  id: string;
+  estado: string;
+  operador: string | null;
+  operador_asignado_at?: string | null;
+  reporter_token?: string | null;
+};
+
+export type NotificacionReporteRow = {
+  ticket_id: string;
+  created_at: string;
+  destinatario_tipo: string;
 };
 
 export type GasolinaRow = {
@@ -107,6 +123,7 @@ export type ReportesOperaciones = {
     }>;
     voluntarios_movilizados: number;
     entregas_completadas: number;
+    entregas_con_transportista: number;
     entregas_fallidas: number;
     tiempo_promedio_asignacion_horas: number | null;
     costo_combustible_por_traslado: Array<{
@@ -228,23 +245,41 @@ function extraerArticuloAec(descripcion: string): string | null {
   return m?.[1]?.trim() || null;
 }
 
-function fechaDeteccion(t: TicketRow): number {
-  const cap = t.capturado_at ? new Date(t.capturado_at).getTime() : NaN;
-  const cre = new Date(t.created_at).getTime();
-  return Number.isFinite(cap) ? cap : cre;
-}
 
-function buildAsignacionMap(historial: HistorialRow[]): Map<string, number> {
+function buildAsignacionMap(
+  historial: HistorialRow[],
+  matches: MatchRow[] = [],
+  traslados: TrasladoReporteRow[] = [],
+  notificaciones: NotificacionReporteRow[] = []
+): Map<string, number> {
   const map = new Map<string, number>();
+  const setMin = (ticketId: string, ts: number) => {
+    const prev = map.get(ticketId);
+    if (prev == null || ts < prev) map.set(ticketId, ts);
+  };
+
   for (const h of historial) {
     const esAsignacion =
       h.accion === "asignado" ||
       h.accion === "match_acopio_reclamado" ||
+      h.accion === "reasignado" ||
       (h.accion === "estado_cambiado" && h.a_valor === "asignado");
     if (!esAsignacion) continue;
-    const ts = new Date(h.created_at).getTime();
-    const prev = map.get(h.ticket_id);
-    if (prev == null || ts < prev) map.set(h.ticket_id, ts);
+    setMin(h.ticket_id, new Date(h.created_at).getTime());
+  }
+  for (const m of matches) {
+    if (!m.transporte_id) continue;
+    const raw = m.reclamado_at || m.created_at;
+    if (!raw) continue;
+    setMin(m.ticket_id, new Date(raw).getTime());
+  }
+  for (const n of notificaciones) {
+    if (n.destinatario_tipo !== "transportista") continue;
+    setMin(n.ticket_id, new Date(n.created_at).getTime());
+  }
+  for (const tr of traslados) {
+    if (!tr.operador_asignado_at) continue;
+    setMin(tr.id, new Date(tr.operador_asignado_at).getTime());
   }
   return map;
 }
@@ -267,10 +302,14 @@ export function computeReportesOperaciones(input: {
   matches: MatchRow[];
   gasolina: GasolinaRow[];
   inventario: InventarioRow[];
+  traslados?: TrasladoReporteRow[];
+  notificaciones?: NotificacionReporteRow[];
 }): ReportesOperaciones {
   const { tickets, historial, transportes, matches, gasolina, inventario } = input;
+  const traslados = input.traslados ?? [];
+  const notificaciones = input.notificaciones ?? [];
   const transporteNombre = new Map(transportes.map((t) => [t.id, t.nombre]));
-  const asignacionAt = buildAsignacionMap(historial);
+  const asignacionAt = buildAsignacionMap(historial, matches, traslados, notificaciones);
   const matchesByTicket = buildMatchesByTicket(matches);
 
   const logisticos = tickets.filter((t) => {
@@ -316,8 +355,8 @@ export function computeReportesOperaciones(input: {
     }
 
     const asign = asignacionAt.get(t.id);
-    if (asign) {
-      tiemposAsignacion.push(asign - fechaDeteccion(t));
+    if (asign && (seg === "traslado" || seg === "ash")) {
+      tiemposAsignacion.push(asign - new Date(t.created_at).getTime());
     }
   }
 
@@ -423,6 +462,11 @@ export function computeReportesOperaciones(input: {
     logisticos.filter((t) => t.transporte_id && t.estado === "completado").map((t) => t.transporte_id)
   ).size;
 
+  const entregas_completadas = logisticos.filter((t) => t.estado === "completado").length;
+  const entregas_con_transportista = logisticos.filter(
+    (t) => t.estado === "completado" && t.transporte_id
+  ).length;
+
   const totalAtendidas = porSegmento.aec.atendidas + porSegmento.ash.atendidas + porSegmento.traslado.atendidas;
   const totalRecibidas = recibidas.total || 1;
 
@@ -457,7 +501,8 @@ export function computeReportesOperaciones(input: {
       km_por_transporte,
       insumos_transportados,
       voluntarios_movilizados: voluntarios_movilizados || transportes.filter((t) => t.activo).length,
-      entregas_completadas: necesidades_verificadas,
+      entregas_completadas,
+      entregas_con_transportista,
       entregas_fallidas,
       tiempo_promedio_asignacion_horas: avgHours(tiemposAsignacion),
       costo_combustible_por_traslado,

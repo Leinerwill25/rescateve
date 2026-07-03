@@ -1,14 +1,44 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getApiSession } from "@/lib/auth-api";
-import { computeReportesOperaciones, type InventarioRow } from "@/lib/operaciones-reportes";
+import { computeReportesOperaciones, type InventarioRow, type TicketRow } from "@/lib/operaciones-reportes";
 import { fetchTuiaInsumos } from "@/lib/tuia911";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const TICKET_COLS =
-  "id,created_at,updated_at,fuente,fuente_id,descripcion,cantidad,estado,categoria_externa,ubicacion_externa,estado_externo,origen_ref,origen_lat,origen_lng,destino_ref,destino_lat,destino_lng,transporte_id,capturado_at,evidencia_entrega_url";
+  "id,created_at,updated_at,fuente,fuente_id,descripcion,cantidad,estado,categoria_externa,ubicacion_externa,estado_externo,origen_ref,origen_lat,origen_lng,destino_ref,destino_lat,destino_lng,transporte_id,capturado_at,cuando,evidencia_entrega_url";
+
+/** Evita que tickets completados queden fuera cuando hay miles de AEC recientes en cola. */
+async function fetchTicketsParaReportes(
+  admin: ReturnType<typeof createClient>
+): Promise<{ data: Record<string, unknown>[]; error: Error | null }> {
+  const [completadosRes, recientesRes] = await Promise.all([
+    admin
+      .from("tickets")
+      .select(TICKET_COLS)
+      .eq("estado", "completado")
+      .order("updated_at", { ascending: false })
+      .limit(2000),
+    admin
+      .from("tickets")
+      .select(TICKET_COLS)
+      .neq("estado", "completado")
+      .order("created_at", { ascending: false })
+      .limit(5000),
+  ]);
+
+  if (completadosRes.error) return { data: [], error: completadosRes.error };
+  if (recientesRes.error) return { data: [], error: recientesRes.error };
+
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const row of [...(completadosRes.data ?? []), ...(recientesRes.data ?? [])]) {
+    byId.set(String(row.id), row);
+  }
+  return { data: [...byId.values()], error: null };
+}
+
 export async function GET(req: Request) {
   try {
     const session = await getApiSession(req);
@@ -34,9 +64,9 @@ export async function GET(req: Request) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const [ticketsRes, historialRes, transportesRes, matchesRes, gasolinaRes, inventarioRes] =
+    const [ticketsRes, historialRes, transportesRes, matchesRes, gasolinaRes, inventarioRes, trasladosRes, notifRes] =
       await Promise.all([
-        admin.from("tickets").select(TICKET_COLS).order("created_at", { ascending: false }).limit(5000),
+        fetchTicketsParaReportes(admin),
         admin
           .from("ticket_historial")
           .select("ticket_id,created_at,accion,a_valor")
@@ -45,7 +75,7 @@ export async function GET(req: Request) {
         admin.from("transportes").select("id,nombre,activo"),
         admin
           .from("match_traslados_acopio")
-          .select("ticket_id,transporte_id,estado,distancia_km,tuia_articulo"),
+          .select("ticket_id,transporte_id,estado,distancia_km,tuia_articulo,reclamado_at,created_at"),
         admin
           .from("solicitudes_gasolina")
           .select("id,ticket_id,transporte_id,litros,estado,created_at")
@@ -56,6 +86,16 @@ export async function GET(req: Request) {
           .select("item,cantidad,unidad,actualizado_at,centro:centros_acopio(nombre)")
           .order("actualizado_at", { ascending: false })
           .limit(500),
+        admin
+          .from("traslados")
+          .select("id,estado,operador,operador_asignado_at,reporter_token")
+          .not("operador", "is", null),
+        admin
+          .from("notificaciones")
+          .select("ticket_id,created_at,destinatario_tipo")
+          .eq("destinatario_tipo", "transportista")
+          .order("created_at", { ascending: false })
+          .limit(5000),
       ]);
 
     if (ticketsRes.error) throw ticketsRes.error;
@@ -97,12 +137,14 @@ export async function GET(req: Request) {
       }
     }
     const reporte = computeReportesOperaciones({
-      tickets: ticketsRes.data || [],
+      tickets: (ticketsRes.data || []) as TicketRow[],
       historial: historialRes.data || [],
       transportes: transportesRes.data || [],
       matches: matchesRes.error ? [] : matchesRes.data || [],
       gasolina: gasolinaRes.error ? [] : gasolinaRes.data || [],
       inventario,
+      traslados: trasladosRes.error ? [] : trasladosRes.data || [],
+      notificaciones: notifRes.error ? [] : notifRes.data || [],
     });
 
     return NextResponse.json({ success: true, reporte });

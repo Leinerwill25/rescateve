@@ -16,14 +16,14 @@ const TIPOS_INSUMO = new Set([
 
 const ESTADOS_COMPLETADO = new Set(["completado", "entregado"]);
 const ESTADOS_EN_RUTA = new Set(["asignado", "aceptado", "en_camino"]);
-const ACCIONES_ASIGNACION = new Set(["asignado", "match_acopio_reclamado"]);
 
 type TicketRow = {
   id: string;
   estado: string;
   fuente: string;
+  fuente_id?: string | null;
+  descripcion?: string | null;
   created_at: string;
-  aec_created_at: string | null;
   cuando: string | null;
   transporte_id: string | null;
   categoria_final: string | null;
@@ -38,6 +38,7 @@ type TicketRow = {
 type HistorialRow = {
   ticket_id: string;
   accion: string;
+  a_valor?: string | null;
   created_at: string;
 };
 
@@ -45,6 +46,15 @@ type MatchRow = {
   ticket_id: string;
   transporte_id: string | null;
   created_at: string;
+  confirmado_at?: string | null;
+  reclamado_at?: string | null;
+};
+
+type TrasladoOperadorRow = {
+  id: string;
+  operador: string | null;
+  estado: string;
+  operador_asignado_at?: string | null;
 };
 
 type NotifRow = {
@@ -73,16 +83,34 @@ function zonaTicket(t: TicketRow): string | null {
   return z || null;
 }
 
-function inicioTicket(t: TicketRow): number {
-  return new Date(t.created_at).getTime();
+function esHistorialAsignacion(h: HistorialRow): boolean {
+  if (h.accion === "asignado" || h.accion === "match_acopio_reclamado" || h.accion === "reasignado") {
+    return true;
+  }
+  return h.accion === "estado_cambiado" && h.a_valor === "asignado";
 }
 
-/** Traslado logístico (excluye Ayuda en Camino y Ash). */
+function esHistorialConductor(h: HistorialRow): boolean {
+  if (esHistorialAsignacion(h)) return true;
+  if (h.accion === "match_acopio_confirmado") return true;
+  return h.accion === "estado_cambiado" && h.a_valor === "aceptado";
+}
+
+/** Traslado logístico real (excluye AEC; incluye Ash). */
 function esTicketTrasladoLogistico(t: TicketRow): boolean {
   if (t.fuente === "ayuda_en_camino") return false;
   if (t.fuente === "traslado") return true;
   if (t.fuente === "manual" && t.cuando) return true;
+  if (t.fuente === "publico") {
+    if (t.fuente_id?.startsWith("ash:")) return true;
+    if (t.descripcion?.startsWith("[Ash")) return true;
+  }
   return false;
+}
+
+function trasladoTieneOperador(tr: TrasladoOperadorRow): boolean {
+  const op = (tr.operador ?? "").trim();
+  return op !== "" && op !== "null";
 }
 
 /** Agrega KPIs desde tickets (fallback si el RPC no existe o falla). */
@@ -93,26 +121,55 @@ export function computeLogisticsKpisFromTickets(
   transportesActivos = 0,
   matches: MatchRow[] = [],
   notificaciones: NotifRow[] = [],
+  trasladosOperador: TrasladoOperadorRow[] = [],
 ): LogisticsKpis {
   const asignacionPorTicket = new Map<string, number>();
+  const ticketsConNotif = new Set<string>();
+  const ticketsConMatch = new Set<string>();
+  const trasladoOperadorPorId = new Map<string, TrasladoOperadorRow>();
+
+  for (const tr of trasladosOperador) {
+    if (!trasladoTieneOperador(tr)) continue;
+    trasladoOperadorPorId.set(tr.id, tr);
+    if (tr.operador_asignado_at) {
+      const ts = new Date(tr.operador_asignado_at).getTime();
+      const prev = asignacionPorTicket.get(tr.id);
+      if (prev == null || ts < prev) asignacionPorTicket.set(tr.id, ts);
+    }
+  }
 
   for (const h of historial) {
-    if (!ACCIONES_ASIGNACION.has(h.accion)) continue;
+    if (!esHistorialAsignacion(h)) continue;
     const ts = new Date(h.created_at).getTime();
     const prev = asignacionPorTicket.get(h.ticket_id);
     if (prev == null || ts < prev) asignacionPorTicket.set(h.ticket_id, ts);
   }
   for (const m of matches) {
     if (!m.transporte_id) continue;
-    const ts = new Date(m.created_at).getTime();
+    ticketsConMatch.add(m.ticket_id);
+    const ts = new Date(m.reclamado_at || m.created_at).getTime();
     const prev = asignacionPorTicket.get(m.ticket_id);
     if (prev == null || ts < prev) asignacionPorTicket.set(m.ticket_id, ts);
   }
   for (const n of notificaciones) {
     if (n.destinatario_tipo !== "transportista") continue;
+    ticketsConNotif.add(n.ticket_id);
     const ts = new Date(n.created_at).getTime();
     const prev = asignacionPorTicket.get(n.ticket_id);
     if (prev == null || ts < prev) asignacionPorTicket.set(n.ticket_id, ts);
+  }
+
+  function inicioTicket(t: TicketRow): number {
+    return new Date(t.created_at).getTime();
+  }
+
+  function tuvoConductor(t: TicketRow): boolean {
+    if (t.transporte_id) return true;
+    if (asignacionPorTicket.has(t.id)) return true;
+    if (ticketsConMatch.has(t.id)) return true;
+    if (ticketsConNotif.has(t.id)) return true;
+    if (trasladoOperadorPorId.has(t.id)) return true;
+    return historial.some((h) => h.ticket_id === t.id && esHistorialConductor(h));
   }
 
   let traslados_completados = 0;
@@ -132,7 +189,11 @@ export function computeLogisticsKpisFromTickets(
     }
     if (ESTADOS_EN_RUTA.has(t.estado) && t.transporte_id) en_ruta_ahora++;
 
-    if (t.transporte_id && esTicketTrasladoLogistico(t)) {
+    if (
+      t.estado === "completado" &&
+      esTicketTrasladoLogistico(t) &&
+      tuvoConductor(t)
+    ) {
       const asignadoAt = asignacionPorTicket.get(t.id);
       if (asignadoAt != null) {
         const horas = (asignadoAt - inicioTicket(t)) / 3_600_000;
@@ -208,27 +269,30 @@ export function computeLogisticsKpisFromClient(
 
 /** Lee tickets + historial y calcula KPIs alineados con operaciones. */
 export async function fetchLogisticsKpisFallback(): Promise<LogisticsKpis> {
-  const [ticketsRes, historialRes, gasolinaRes, transportesRes, matchesRes, notifRes] =
+  const [ticketsRes, historialRes, gasolinaRes, transportesRes, matchesRes, notifRes, trasladosRes] =
     await Promise.all([
     supabase
       .from("tickets")
       .select(
-        "id,estado,fuente,created_at,aec_created_at,cuando,transporte_id,categoria_final,categoria_sugerida,categoria_externa,destino_ref,ubicacion_externa,origen_ref,evidencia_entrega_url"
+        "id,estado,fuente,fuente_id,descripcion,created_at,cuando,transporte_id,categoria_final,categoria_sugerida,categoria_externa,destino_ref,ubicacion_externa,origen_ref,evidencia_entrega_url"
       ),
     supabase
       .from("ticket_historial")
-      .select("ticket_id,accion,created_at")
-      .in("accion", ["asignado", "match_acopio_reclamado"]),
+      .select("ticket_id,accion,a_valor,created_at"),
     supabase.from("solicitudes_gasolina").select("estado, litros"),
     supabase.from("transportes").select("id").eq("activo", true),
     supabase
       .from("match_traslados_acopio")
-      .select("ticket_id,transporte_id,created_at")
+      .select("ticket_id,transporte_id,created_at,confirmado_at,reclamado_at")
       .not("transporte_id", "is", null),
     supabase
       .from("notificaciones")
       .select("ticket_id,destinatario_tipo,created_at")
       .eq("destinatario_tipo", "transportista"),
+    supabase
+      .from("traslados")
+      .select("id,operador,estado,operador_asignado_at")
+      .not("operador", "is", null),
   ]);
 
   if (ticketsRes.error) throw ticketsRes.error;
@@ -240,5 +304,6 @@ export async function fetchLogisticsKpisFallback(): Promise<LogisticsKpis> {
     transportesRes.data?.length ?? 0,
     (matchesRes.data ?? []) as MatchRow[],
     (notifRes.data ?? []) as NotifRow[],
+    (trasladosRes.data ?? []) as TrasladoOperadorRow[],
   );
 }
