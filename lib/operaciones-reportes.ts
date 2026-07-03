@@ -465,7 +465,7 @@ function computeReportePorFuente(
   ).size;
 
   const insumos_transportados = subset
-    .filter((t) => esEntregaRegistrada(t, trasladoById, segmentoTicket(t)))
+    .filter((t) => t.estado === "completado")
     .map((t) => ({
       ticket_id: t.id,
       descripcion: t.descripcion.slice(0, 200),
