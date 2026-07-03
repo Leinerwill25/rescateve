@@ -14,6 +14,7 @@ import {
   parseTrasladoTicketNeed,
   type TicketOrigenMatch,
 } from "@/lib/match-acopio";
+import { AEC_NEEDS_URL, getAecApiHeaders } from "@/lib/aec-api";
 import { geocodificar, GeoPoint } from "@/lib/geo";
 
 const TICKET_COLS =
@@ -24,8 +25,8 @@ async function fetchAecNeedsEnriched() {
     "aec:needs",
     async () => {
       try {
-        const res = await fetch("https://ayudaencamino.com/api/needs", {
-          headers: { "User-Agent": "RescateVE-Match/1.0 (+https://rescate-ve.vercel.app)" },
+        const res = await fetch(AEC_NEEDS_URL, {
+          headers: getAecApiHeaders(),
           next: { revalidate: 60 },
         });
         if (!res.ok) return new Map<string, ReturnType<typeof parseAecFromApiItem>>();

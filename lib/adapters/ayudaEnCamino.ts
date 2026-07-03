@@ -1,3 +1,4 @@
+import { AEC_NEEDS_URL, getAecApiHeaders } from "@/lib/aec-api";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -20,12 +21,9 @@ export type NecesidadExterna = {
  * y normaliza el payload al formato estándar NecesidadExterna.
  */
 export async function obtenerNecesidades(): Promise<NecesidadExterna[]> {
-  const url = "https://ayudaencamino.com/api/needs";
   try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "RescateVE-Ingestion-Bot/1.0 (+https://rescate-ve.vercel.app; contacto@rescateve.org)",
-      },
+    const res = await fetch(AEC_NEEDS_URL, {
+      headers: getAecApiHeaders(),
       cache: "no-store",
     });
 
