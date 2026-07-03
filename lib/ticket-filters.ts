@@ -1,4 +1,9 @@
 import { Ticket } from "@/lib/types-operations";
+import type { FiltroFecha } from "@/lib/ticket-fecha";
+import { getTicketFechaCreacion, ticketCoincideFiltroFecha, FILTRO_FECHA_VACIO } from "@/lib/ticket-fecha";
+
+export type { FiltroFecha } from "@/lib/ticket-fecha";
+export { FILTRO_FECHA_VACIO, formatFechaTicket, etiquetaFuenteFecha, opcionesHoraFiltro } from "@/lib/ticket-fecha";
 
 export type FiltroOrigen = "todos" | "traslados" | "ayuda_en_camino" | "ash";
 export type FiltroExterno = "todos" | "pendiente" | "cubierta";
@@ -44,7 +49,7 @@ export function esTicketAsh(t: Ticket): boolean {
 
 export function esTicketCritico(t: Ticket): boolean {
   if (t.estado !== "en_validacion") return false;
-  const edad = Date.now() - new Date(t.created_at).getTime();
+  const edad = Date.now() - getTicketFechaCreacion(t).getTime();
   if (edad < MS_24H) return false;
   if (esTicketAEC(t) && t.estado_externo === "cubierta") return false;
   return true;
@@ -65,7 +70,8 @@ export function filtrarTickets(
   filtroOrigen: FiltroOrigen,
   filtroExterno: FiltroExterno,
   filtroOrden: FiltroOrden,
-  ctx: TrasladoFilterContext = EMPTY_CTX
+  ctx: TrasladoFilterContext = EMPTY_CTX,
+  filtroFecha: FiltroFecha = FILTRO_FECHA_VACIO
 ): Ticket[] {
   let result = tickets.filter((t) => {
     if (filtroOrigen === "traslados" && !esTicketTraslado(t, ctx)) return false;
@@ -80,12 +86,14 @@ export function filtrarTickets(
     if (filtroOrden === "importantes" && !esTicketImportante(t)) return false;
     if (filtroOrden === "criticos" && !esTicketCritico(t)) return false;
 
+    if (!ticketCoincideFiltroFecha(t, filtroFecha)) return false;
+
     return true;
   });
 
   result = [...result].sort((a, b) => {
     if (filtroOrden === "criticos") {
-      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      return getTicketFechaCreacion(a).getTime() - getTicketFechaCreacion(b).getTime();
     }
     if (filtroOrden === "importantes") {
       const pr = prioridadRank(b.prioridad) - prioridadRank(a.prioridad);
@@ -94,7 +102,7 @@ export function filtrarTickets(
         return a.requiere_revision ? -1 : 1;
       }
     }
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    return getTicketFechaCreacion(b).getTime() - getTicketFechaCreacion(a).getTime();
   });
 
   return result;

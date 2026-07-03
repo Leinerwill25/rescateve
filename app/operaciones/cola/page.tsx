@@ -26,6 +26,11 @@ import {
   FiltroOrigen,
   FiltroExterno,
   FiltroOrden,
+  FiltroFecha,
+  FILTRO_FECHA_VACIO,
+  formatFechaTicket,
+  etiquetaFuenteFecha,
+  opcionesHoraFiltro,
   esTicketTraslado,
   esTicketAEC,
   esTicketAsh,
@@ -304,6 +309,7 @@ export default function ColaValidacionPage() {
 
   // Ingesta Ayuda en Camino
   const [filtroExterno, setFiltroExterno] = useState<FiltroExterno>("pendiente");
+  const [filtroFecha, setFiltroFecha] = useState<FiltroFecha>(FILTRO_FECHA_VACIO);
   const [ultimoLog, setUltimoLog] = useState<any>(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [syncResult, setSyncResult] = useState<{
@@ -374,7 +380,7 @@ export default function ColaValidacionPage() {
 
   useEffect(() => {
     setPaginaActual(1);
-  }, [filtroOrigen, filtroExterno, filtroOrden]);
+  }, [filtroOrigen, filtroExterno, filtroOrden, filtroFecha]);
 
   useEffect(() => {
     if (filtroOrigen === "traslados" && filtroExterno !== "todos") {
@@ -739,7 +745,14 @@ export default function ColaValidacionPage() {
 
   const conteos = contarPorOrigen(tickets, trasladoCtx);
   const conteosExterno = contarPorEstadoExterno(tickets, filtroOrigen);
-  const ticketsFiltrados = filtrarTickets(tickets, filtroOrigen, filtroExterno, filtroOrden, trasladoCtx);
+  const ticketsFiltrados = filtrarTickets(
+    tickets,
+    filtroOrigen,
+    filtroExterno,
+    filtroOrden,
+    trasladoCtx,
+    filtroFecha
+  );
   const paginacion = paginar(ticketsFiltrados, paginaActual, PAGE_SIZE_COLA);
   const ticketsPagina = paginacion.items;
   const conteoCriticos = tickets.filter(
@@ -1068,6 +1081,50 @@ export default function ColaValidacionPage() {
         )}
 
         <div className="ops-filter-bar">
+          <span className="ops-filter-label">Filtrar por fecha y hora de creación</span>
+          <div className="ops-filter-group ops-filter-group--fecha">
+            <input
+              type="date"
+              className="ops-filter-date"
+              value={filtroFecha.dia}
+              onChange={(e) =>
+                setFiltroFecha((prev) => ({ ...prev, dia: e.target.value }))
+              }
+              aria-label="Día de creación"
+            />
+            <select
+              className="ops-filter-select"
+              value={filtroFecha.hora}
+              onChange={(e) =>
+                setFiltroFecha((prev) => ({ ...prev, hora: e.target.value }))
+              }
+              aria-label="Hora de creación"
+            >
+              <option value="">Todas las horas</option>
+              {opcionesHoraFiltro().map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {(filtroFecha.dia || filtroFecha.hora) && (
+              <button
+                type="button"
+                className="ops-filter-btn"
+                onClick={() => setFiltroFecha(FILTRO_FECHA_VACIO)}
+              >
+                Limpiar fecha
+              </button>
+            )}
+          </div>
+          <div className="ops-filter-meta">
+            {filtroFecha.dia || filtroFecha.hora
+              ? "Usa la fecha de Ayuda en Camino cuando está disponible"
+              : null}
+          </div>
+        </div>
+
+        <div className="ops-filter-bar">
           <span className="ops-filter-label">Ordenar / Prioridad</span>
             <div className="ops-filter-group">
               <button
@@ -1173,9 +1230,9 @@ export default function ColaValidacionPage() {
                     </span>
                   )}
                 </div>
-                <span style={styles.cardDate}>
+                <span style={styles.cardDate} title={etiquetaFuenteFecha(t)}>
                   <Clock size={12} />
-                  {new Date(t.created_at).toLocaleString("es-VE")}
+                  {formatFechaTicket(t)}
                 </span>
               </div>
 

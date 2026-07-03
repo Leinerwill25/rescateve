@@ -193,6 +193,7 @@ export type Ticket = {
   aec_recibidos?: number | null;
   aec_en_camino?: number | null;
   aec_contacto_nombre?: string | null;
+  aec_created_at?: string | null;
 };
 
 export type TicketHistorial = {

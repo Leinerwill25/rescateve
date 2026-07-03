@@ -19,6 +19,8 @@ export type AecApiNeedItem = {
   cantidadCumplida?: number;
   urgencia?: string;
   status?: string;
+  createdAt?: string;
+  updatedAt?: string;
   organizacion?: {
     nombre?: string;
     estado?: string;
@@ -46,6 +48,7 @@ export type NecesidadExterna = {
   aec_contacto_nombre: string | null;
   cantidad_resumen: string | null;
   prioridad: "alta" | "media" | "baja";
+  aec_created_at: string | null;
 };
 
 export function mapAecItemToNecesidad(item: AecApiNeedItem): NecesidadExterna {
@@ -93,6 +96,7 @@ export function mapAecItemToNecesidad(item: AecApiNeedItem): NecesidadExterna {
     aec_contacto_nombre: contactoNombre,
     cantidad_resumen: formatAecCantidadResumen(meta, recibidos, enCamino),
     prioridad: aecUrgenciaToPrioridad(item.urgencia),
+    aec_created_at: item.createdAt || null,
   };
 }
 
@@ -109,6 +113,7 @@ function ticketPayloadFromNecesidad(nec: NecesidadExterna, extra: Record<string,
     aec_recibidos: nec.aec_recibidos,
     aec_en_camino: nec.aec_en_camino,
     aec_contacto_nombre: nec.aec_contacto_nombre,
+    aec_created_at: nec.aec_created_at,
     ...extra,
   };
 }
