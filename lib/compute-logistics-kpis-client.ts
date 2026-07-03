@@ -40,6 +40,18 @@ type HistorialRow = {
   created_at: string;
 };
 
+type MatchRow = {
+  ticket_id: string;
+  transporte_id: string | null;
+  created_at: string;
+};
+
+type NotifRow = {
+  ticket_id: string;
+  destinatario_tipo: string;
+  created_at: string;
+};
+
 type GasolinaRow = {
   estado: string;
   litros: number | string | null;
@@ -70,13 +82,28 @@ export function computeLogisticsKpisFromTickets(
   historial: HistorialRow[],
   gasolina: GasolinaRow[] = [],
   transportesActivos = 0,
+  matches: MatchRow[] = [],
+  notificaciones: NotifRow[] = [],
 ): LogisticsKpis {
   const asignacionPorTicket = new Map<string, number>();
+
   for (const h of historial) {
     if (!ACCIONES_ASIGNACION.has(h.accion)) continue;
     const ts = new Date(h.created_at).getTime();
     const prev = asignacionPorTicket.get(h.ticket_id);
     if (prev == null || ts < prev) asignacionPorTicket.set(h.ticket_id, ts);
+  }
+  for (const m of matches) {
+    if (!m.transporte_id) continue;
+    const ts = new Date(m.created_at).getTime();
+    const prev = asignacionPorTicket.get(m.ticket_id);
+    if (prev == null || ts < prev) asignacionPorTicket.set(m.ticket_id, ts);
+  }
+  for (const n of notificaciones) {
+    if (n.destinatario_tipo !== "transportista") continue;
+    const ts = new Date(n.created_at).getTime();
+    const prev = asignacionPorTicket.get(n.ticket_id);
+    if (prev == null || ts < prev) asignacionPorTicket.set(n.ticket_id, ts);
   }
 
   let traslados_completados = 0;
@@ -172,7 +199,8 @@ export function computeLogisticsKpisFromClient(
 
 /** Lee tickets + historial y calcula KPIs alineados con operaciones. */
 export async function fetchLogisticsKpisFallback(): Promise<LogisticsKpis> {
-  const [ticketsRes, historialRes, gasolinaRes, transportesRes] = await Promise.all([
+  const [ticketsRes, historialRes, gasolinaRes, transportesRes, matchesRes, notifRes] =
+    await Promise.all([
     supabase
       .from("tickets")
       .select(
@@ -184,6 +212,14 @@ export async function fetchLogisticsKpisFallback(): Promise<LogisticsKpis> {
       .in("accion", ["asignado", "match_acopio_reclamado"]),
     supabase.from("solicitudes_gasolina").select("estado, litros"),
     supabase.from("transportes").select("id").eq("activo", true),
+    supabase
+      .from("match_traslados_acopio")
+      .select("ticket_id,transporte_id,created_at")
+      .not("transporte_id", "is", null),
+    supabase
+      .from("notificaciones")
+      .select("ticket_id,destinatario_tipo,created_at")
+      .eq("destinatario_tipo", "transportista"),
   ]);
 
   if (ticketsRes.error) throw ticketsRes.error;
@@ -193,5 +229,7 @@ export async function fetchLogisticsKpisFallback(): Promise<LogisticsKpis> {
     (historialRes.data ?? []) as HistorialRow[],
     gasolinaRes.data ?? [],
     transportesRes.data?.length ?? 0,
+    (matchesRes.data ?? []) as MatchRow[],
+    (notifRes.data ?? []) as NotifRow[],
   );
 }

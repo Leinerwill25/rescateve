@@ -100,6 +100,11 @@ export default function LogisticsKpisSection() {
               <span className="logistics-kpi-band__secondary-label">
                 Tiempo promedio hasta asignar transportista
               </span>
+              {!loading && kpis.tiempo_promedio_horas == null && (
+                <span className="logistics-kpi-band__secondary-hint">
+                  Aún no hay viajes con transportista asignado en el sistema
+                </span>
+              )}
             </div>
             <div className="logistics-kpi-band__secondary-stat" role="listitem">
               <KpiSecondaryNumber
