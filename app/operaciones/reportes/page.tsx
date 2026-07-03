@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import type { ReportesOperaciones } from "@/lib/operaciones-reportes";
+import type { FiltroReporteFuente, ReportesOperaciones } from "@/lib/operaciones-reportes";
 import {
   BarChart3,
   RefreshCw,
@@ -49,8 +49,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+const FUENTES: { id: FiltroReporteFuente; label: string }[] = [
+  { id: "todos", label: "Todos" },
+  { id: "aec", label: "Ayuda en Camino" },
+  { id: "ash", label: "Ash" },
+  { id: "traslado", label: "Traslados logísticos" },
+];
+
 export default function ReportesOperacionesPage() {
   const [reporte, setReporte] = useState<ReportesOperaciones | null>(null);
+  const [filtro, setFiltro] = useState<FiltroReporteFuente>("todos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,6 +107,7 @@ export default function ReportesOperacionesPage() {
   }
 
   const { necesidades: n, logistica: l } = reporte;
+  const vista = reporte.por_fuente[filtro];
   const pct = n.porcentaje_atendidas;
 
   return (
@@ -119,27 +128,55 @@ export default function ReportesOperacionesPage() {
         </button>
       </header>
 
+      <div style={S.fuenteBar} role="tablist" aria-label="Filtrar reporte por origen">
+        {FUENTES.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            role="tab"
+            aria-selected={filtro === f.id}
+            style={{
+              ...S.fuenteBtn,
+              ...(filtro === f.id ? S.fuenteBtnActive : {}),
+            }}
+            onClick={() => setFiltro(f.id)}
+          >
+            {f.label}
+            <span style={S.fuenteCount}>
+              {reporte.por_fuente[f.id].solicitudes_recibidas}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <p style={S.fuenteHint}>
+        Viendo: <strong>{vista.label}</strong>
+        {filtro === "todos"
+          ? ` · AEC ${reporte.por_fuente.aec.solicitudes_recibidas} · Ash ${reporte.por_fuente.ash.solicitudes_recibidas} · Traslado ${reporte.por_fuente.traslado.solicitudes_recibidas}`
+          : null}
+      </p>
+
       <div style={S.grid4}>
-        <StatCard label="Solicitudes recibidas" value={l.solicitudes_recibidas.total} sub={`AEC ${l.solicitudes_recibidas.aec} · Ash ${l.solicitudes_recibidas.ash} · Traslado ${l.solicitudes_recibidas.traslado}`} icon={<Package size={20} />} />
-        <StatCard label="Necesidades verificadas (entregadas)" value={n.necesidades_verificadas} icon={<CheckCircle2 size={20} />} />
-        <StatCard label="Solicitudes cubiertas" value={n.solicitudes_cubiertas} icon={<TrendingUp size={20} />} />
-        <StatCard label="% atendidas (global)" value={`${pct.global}%`} sub={`AEC ${pct.aec}% · Ash ${pct.ash}% · Traslado ${pct.traslado}%`} icon={<BarChart3 size={20} />} />
+        <StatCard label="Solicitudes recibidas" value={vista.solicitudes_recibidas} sub={filtro === "todos" ? `AEC ${l.solicitudes_recibidas.aec} · Ash ${l.solicitudes_recibidas.ash} · Traslado ${l.solicitudes_recibidas.traslado}` : undefined} icon={<Package size={20} />} />
+        <StatCard label="Necesidades verificadas (entregadas)" value={vista.necesidades_verificadas} icon={<CheckCircle2 size={20} />} />
+        <StatCard label="Solicitudes cubiertas" value={vista.solicitudes_cubiertas} icon={<TrendingUp size={20} />} />
+        <StatCard label="% atendidas" value={`${vista.pct_atendidas}%`} sub={filtro === "todos" ? `AEC ${pct.aec}% · Ash ${pct.ash}% · Traslado ${pct.traslado}%` : undefined} icon={<BarChart3 size={20} />} />
       </div>
 
       <div style={S.grid4}>
-        <StatCard label="Entregas completadas" value={l.entregas_completadas} sub={`${l.entregas_con_transportista} con transportista asignado`} icon={<CheckCircle2 size={20} color="#16a34a" />} />
-        <StatCard label="Entregas / asignaciones fallidas" value={l.entregas_fallidas} icon={<XCircle size={20} color="#b91c1c" />} />
-        <StatCard label="Voluntarios movilizados" value={l.voluntarios_movilizados} icon={<Truck size={20} />} />
-        <StatCard label="Tiempo creación → asignación" value={n.tiempo_deteccion_hasta_asignacion_horas != null ? `${n.tiempo_deteccion_hasta_asignacion_horas} h` : "N/D"} sub={`Promedio traslados/Ash: ${l.tiempo_promedio_asignacion_horas ?? "N/D"} h`} icon={<Clock size={20} />} />
+        <StatCard label="Entregas completadas" value={vista.entregas_completadas} sub={`${vista.entregas_con_transportista} con transportista asignado`} icon={<CheckCircle2 size={20} color="#16a34a" />} />
+        <StatCard label="Entregas / asignaciones fallidas" value={vista.entregas_fallidas} icon={<XCircle size={20} color="#b91c1c" />} />
+        <StatCard label="Voluntarios movilizados" value={vista.voluntarios_movilizados} icon={<Truck size={20} />} />
+        <StatCard label="Tiempo creación → asignación" value={vista.tiempo_asignacion_horas != null ? `${vista.tiempo_asignacion_horas} h` : "N/D"} sub={filtro === "aec" ? "No aplica a AEC" : "Promedio traslados/Ash en esta vista"} icon={<Clock size={20} />} />
       </div>
 
       <div style={S.grid2}>
         <StatCard label="Combustible financiado" value={`$${l.combustible_financiado.costo_usd.toFixed(2)}`} sub={`${l.combustible_financiado.litros} L · ${l.combustible_financiado.solicitudes} solicitudes`} icon={<Fuel size={20} />} />
       </div>
 
-      <Section title="Insumos más solicitados (Ayuda en Camino + Ash)">
-        {n.insumos_criticos.length === 0 ? (
-          <p style={S.empty}>Sin datos de insumos aún.</p>
+      <Section title={filtro === "aec" || filtro === "ash" ? "Insumos más solicitados" : "Insumos más solicitados (Ayuda en Camino + Ash)"}>
+        {vista.insumos_criticos.length === 0 ? (
+          <p style={S.empty}>Sin datos de insumos en esta vista.</p>
         ) : (
           <table style={S.table}>
             <thead>
@@ -149,7 +186,7 @@ export default function ReportesOperacionesPage() {
               </tr>
             </thead>
             <tbody>
-              {n.insumos_criticos.map((row) => (
+              {vista.insumos_criticos.map((row) => (
                 <tr key={row.articulo}>
                   <td style={S.td}>{row.articulo}</td>
                   <td style={S.td}><strong>{row.solicitudes}</strong></td>
@@ -162,6 +199,9 @@ export default function ReportesOperacionesPage() {
 
       <div style={S.twoCol}>
         <Section title="Solicitudes por zona">
+          {vista.solicitudes_por_zona.length === 0 ? (
+            <p style={S.empty}>Sin datos de zona en esta vista.</p>
+          ) : (
           <table style={S.table}>
             <thead>
               <tr>
@@ -172,7 +212,7 @@ export default function ReportesOperacionesPage() {
               </tr>
             </thead>
             <tbody>
-              {n.solicitudes_por_zona.map((z) => (
+              {vista.solicitudes_por_zona.map((z) => (
                 <tr key={z.zona}>
                   <td style={S.td}><MapPin size={12} style={{ marginRight: 4 }} />{z.zona}</td>
                   <td style={S.td}>{z.total}</td>
@@ -182,10 +222,11 @@ export default function ReportesOperacionesPage() {
               ))}
             </tbody>
           </table>
+          )}
         </Section>
 
         <Section title="Zonas con déficit activo">
-          {n.zonas_deficit_activo.length === 0 ? (
+          {vista.zonas_deficit_activo.length === 0 ? (
             <p style={S.empty}>No hay zonas con peticiones activas pendientes.</p>
           ) : (
             <table style={S.table}>
@@ -196,7 +237,7 @@ export default function ReportesOperacionesPage() {
                 </tr>
               </thead>
               <tbody>
-                {n.zonas_deficit_activo.map((z) => (
+                {vista.zonas_deficit_activo.map((z) => (
                   <tr key={z.zona}>
                     <td style={S.td}>{z.zona}</td>
                     <td style={{ ...S.td, color: "#b45309", fontWeight: 700 }}>{z.peticiones_activas}</td>
@@ -212,22 +253,29 @@ export default function ReportesOperacionesPage() {
         <div style={S.twoCol}>
           <div>
             <h4 style={S.subTitle}>Solicitudes asignadas</h4>
+            {vista.solicitudes_asignadas_por_transporte.length === 0 ? (
+              <p style={S.empty}>Sin asignaciones en esta vista.</p>
+            ) : (
             <table style={S.table}>
               <thead><tr><th style={S.th}>Transporte</th><th style={S.th}>Asignadas</th></tr></thead>
               <tbody>
-                {l.solicitudes_asignadas_por_transporte.slice(0, 15).map((r) => (
+                {vista.solicitudes_asignadas_por_transporte.slice(0, 15).map((r) => (
                   <tr key={r.transporte_id}><td style={S.td}>{r.nombre}</td><td style={S.td}>{r.asignadas}</td></tr>
                 ))}
               </tbody>
             </table>
+            )}
           </div>
           <div>
             <h4 style={S.subTitle}>Viajes realizados</h4>
+            {vista.viajes_por_transporte.length === 0 ? (
+              <p style={S.empty}>Sin viajes completados en esta vista.</p>
+            ) : (
             <table style={S.table}>
               <thead><tr><th style={S.th}>Transporte</th><th style={S.th}>Viajes</th><th style={S.th}>Km (ruta geocod.)</th></tr></thead>
               <tbody>
-                {l.viajes_por_transporte.slice(0, 15).map((r) => {
-                  const km = l.km_por_transporte.find((k) => k.transporte_id === r.transporte_id)?.km ?? 0;
+                {vista.viajes_por_transporte.slice(0, 15).map((r) => {
+                  const km = vista.km_por_transporte.find((k) => k.transporte_id === r.transporte_id)?.km ?? 0;
                   return (
                     <tr key={r.transporte_id}>
                       <td style={S.td}>{r.nombre}</td>
@@ -238,28 +286,39 @@ export default function ReportesOperacionesPage() {
                 })}
               </tbody>
             </table>
+            )}
           </div>
         </div>
       </Section>
 
-      <Section title="Insumos transportados (entregas completadas)">
-        {l.insumos_transportados.length === 0 ? (
-          <p style={S.empty}>Aún no hay entregas registradas.</p>
+      <Section title={`Entregas completadas · ${vista.label}`}>
+        {vista.insumos_transportados.length === 0 ? (
+          <p style={S.empty}>
+            {filtro === "traslado" || filtro === "ash"
+              ? "No hay entregas completadas con conductor asignado en esta vista."
+              : "No hay entregas completadas en esta vista."}
+          </p>
         ) : (
           <div style={S.tableWrap} className="ops-table-wrap">
             <table style={S.table}>
               <thead>
                 <tr>
                   <th style={S.th}>Fecha</th>
-                  <th style={S.th}>Transporte</th>
+                  {filtro === "todos" && <th style={S.th}>Origen</th>}
+                  <th style={S.th}>Transporte / estado</th>
                   <th style={S.th}>Descripción</th>
                   <th style={S.th}>Cantidad</th>
                 </tr>
               </thead>
               <tbody>
-                {l.insumos_transportados.map((r) => (
+                {vista.insumos_transportados.map((r) => (
                   <tr key={r.ticket_id}>
                     <td style={S.td}>{new Date(r.fecha).toLocaleDateString("es-VE")}</td>
+                    {filtro === "todos" && (
+                      <td style={S.td}>
+                        {r.segmento === "aec" ? "AEC" : r.segmento === "ash" ? "Ash" : "Traslado"}
+                      </td>
+                    )}
                     <td style={S.td}>{r.transporte}</td>
                     <td style={S.td}>{r.descripcion}</td>
                     <td style={S.td}>{r.cantidad || "—"}</td>
@@ -371,4 +430,40 @@ const S: Record<string, React.CSSProperties> = {
   td: { padding: "8px 10px", borderBottom: "1px solid var(--border)", verticalAlign: "top" },
   empty: { margin: 0, fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" },
   footnote: { fontSize: 11, color: "var(--text-muted)", fontStyle: "italic", margin: 0 },
+  fuenteBar: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    padding: 4,
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius)",
+  },
+  fuenteBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 14px",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--border)",
+    background: "transparent",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    color: "var(--text-muted)",
+  },
+  fuenteBtnActive: {
+    background: "var(--brand)",
+    color: "#fff",
+    borderColor: "var(--brand)",
+  },
+  fuenteCount: {
+    fontSize: 11,
+    fontWeight: 700,
+    opacity: 0.85,
+    padding: "1px 6px",
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.2)",
+  },
+  fuenteHint: { margin: 0, fontSize: 12, color: "var(--text-muted)" },
 };

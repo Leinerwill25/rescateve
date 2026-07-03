@@ -85,8 +85,42 @@ export type InventarioRow = {
   fuente?: "local" | "tuia911";
 };
 
+export type FiltroReporteFuente = "todos" | "aec" | "ash" | "traslado";
+
+export type EntregaReporte = {
+  ticket_id: string;
+  descripcion: string;
+  cantidad: string | null;
+  transporte: string;
+  fecha: string;
+  segmento: SegmentoFuente;
+};
+
+/** Estadísticas filtrables por origen del ticket. */
+export type ReportePorFuente = {
+  fuente: FiltroReporteFuente;
+  label: string;
+  solicitudes_recibidas: number;
+  entregas_completadas: number;
+  entregas_con_transportista: number;
+  solicitudes_cubiertas: number;
+  pct_atendidas: number;
+  necesidades_verificadas: number;
+  entregas_fallidas: number;
+  tiempo_asignacion_horas: number | null;
+  voluntarios_movilizados: number;
+  solicitudes_por_zona: Array<{ zona: string; total: number; pendientes: number; completadas: number }>;
+  insumos_criticos: Array<{ articulo: string; solicitudes: number }>;
+  zonas_deficit_activo: Array<{ zona: string; peticiones_activas: number }>;
+  insumos_transportados: EntregaReporte[];
+  solicitudes_asignadas_por_transporte: Array<{ transporte_id: string; nombre: string; asignadas: number }>;
+  viajes_por_transporte: Array<{ transporte_id: string; nombre: string; viajes: number }>;
+  km_por_transporte: Array<{ transporte_id: string; nombre: string; km: number }>;
+};
+
 export type ReportesOperaciones = {
   generado_at: string;
+  por_fuente: Record<FiltroReporteFuente, ReportePorFuente>;
   necesidades: {
     solicitudes_por_zona: Array<{ zona: string; total: number; pendientes: number; completadas: number }>;
     necesidades_verificadas: number;
@@ -295,6 +329,213 @@ function avgHours(diffs: number[]): number | null {
   return Math.round((avg / 3_600_000) * 10) / 10;
 }
 
+function operadorNombre(operador: string | null | undefined): string | null {
+  const raw = (operador ?? "").trim();
+  if (!raw || raw === "null") return null;
+  try {
+    const parsed = JSON.parse(raw) as { nombre?: string };
+    if (parsed?.nombre?.trim()) return parsed.nombre.trim();
+  } catch {
+    /* texto plano legacy */
+  }
+  return raw;
+}
+
+function buildTrasladoById(traslados: TrasladoReporteRow[]): Map<string, TrasladoReporteRow> {
+  return new Map(traslados.map((tr) => [tr.id, tr]));
+}
+
+function nombreConductorTicket(
+  t: TicketRow,
+  transporteNombre: Map<string, string>,
+  trasladoById: Map<string, TrasladoReporteRow>
+): string {
+  if (t.transporte_id) return transporteNombre.get(t.transporte_id) || "Transporte";
+  const op = operadorNombre(trasladoById.get(t.id)?.operador);
+  if (op) return op;
+  if (t.estado_externo === "cubierta") return "Cubierto en Ayuda en Camino";
+  return "—";
+}
+
+function tuvoConductorTicket(
+  t: TicketRow,
+  trasladoById: Map<string, TrasladoReporteRow>
+): boolean {
+  if (t.transporte_id) return true;
+  return operadorNombre(trasladoById.get(t.id)?.operador) != null;
+}
+
+function esEntregaRegistrada(
+  t: TicketRow,
+  trasladoById: Map<string, TrasladoReporteRow>,
+  seg: SegmentoFuente
+): boolean {
+  if (t.estado !== "completado") return false;
+  if (seg === "aec") return true;
+  return tuvoConductorTicket(t, trasladoById);
+}
+
+const LABEL_FUENTE: Record<FiltroReporteFuente, string> = {
+  todos: "Todos (AEC + Ash + Traslados)",
+  aec: "Ayuda en Camino",
+  ash: "Ash",
+  traslado: "Traslados logísticos",
+};
+
+function computeReportePorFuente(
+  fuente: FiltroReporteFuente,
+  subset: TicketRow[],
+  ctx: {
+    historial: HistorialRow[];
+    matches: MatchRow[];
+    asignacionAt: Map<string, number>;
+    matchesByTicket: Map<string, MatchRow[]>;
+    transporteNombre: Map<string, string>;
+    trasladoById: Map<string, TrasladoReporteRow>;
+  }
+): ReportePorFuente {
+  const { historial, matches, asignacionAt, matchesByTicket, transporteNombre, trasladoById } = ctx;
+  const ids = new Set(subset.map((t) => t.id));
+
+  const porZona = new Map<string, { total: number; pendientes: number; completadas: number }>();
+  const articuloCount = new Map<string, number>();
+  const tiemposAsignacion: number[] = [];
+  let solicitudes_cubiertas = 0;
+  let necesidades_verificadas = 0;
+
+  for (const t of subset) {
+    const seg = segmentoTicket(t);
+    const zona = extraerZona(t);
+    const z = porZona.get(zona) || { total: 0, pendientes: 0, completadas: 0 };
+    z.total++;
+    if (t.estado === "completado") {
+      z.completadas++;
+      necesidades_verificadas++;
+    } else if (ESTADOS_ACTIVOS.has(t.estado)) {
+      z.pendientes++;
+    }
+    if (t.estado === "completado" || t.estado_externo === "cubierta") solicitudes_cubiertas++;
+    porZona.set(zona, z);
+
+    if (seg === "aec") {
+      const art = extraerArticuloAec(t.descripcion) || t.categoria_externa || "Sin categoría";
+      articuloCount.set(art, (articuloCount.get(art) || 0) + 1);
+    } else if (seg === "ash") {
+      const art = t.cantidad?.split(" · ")[0] || t.descripcion.slice(0, 80);
+      articuloCount.set(art, (articuloCount.get(art) || 0) + 1);
+    }
+
+    const asign = asignacionAt.get(t.id);
+    if (asign && (seg === "traslado" || seg === "ash")) {
+      tiemposAsignacion.push(asign - new Date(t.created_at).getTime());
+    }
+  }
+
+  const asignadasMap = new Map<string, number>();
+  const viajesMap = new Map<string, number>();
+  const kmMap = new Map<string, number>();
+
+  for (const t of subset) {
+    const conductorId = t.transporte_id;
+    if (!conductorId) continue;
+    if (ESTADOS_ASIGNADOS.has(t.estado)) {
+      asignadasMap.set(conductorId, (asignadasMap.get(conductorId) || 0) + 1);
+    }
+    if (t.estado === "completado") {
+      viajesMap.set(conductorId, (viajesMap.get(conductorId) || 0) + 1);
+    }
+  }
+
+  for (const t of subset) {
+    if (!t.transporte_id || !ESTADOS_VIAJE_CON_TRANSPORTE.has(t.estado)) continue;
+    const km = kmViajeTicket(t, matchesByTicket);
+    if (km == null || km <= 0) continue;
+    kmMap.set(t.transporte_id, (kmMap.get(t.transporte_id) || 0) + km);
+  }
+
+  const entregas_completadas = subset.filter((t) => t.estado === "completado").length;
+  const entregas_con_transportista = subset.filter(
+    (t) => t.estado === "completado" && tuvoConductorTicket(t, trasladoById)
+  ).length;
+
+  const entregas_fallidas =
+    historial.filter(
+      (h) =>
+        ids.has(h.ticket_id) &&
+        (h.accion === "match_acopio_rechazado" || h.accion === "rechazado")
+    ).length + matches.filter((m) => ids.has(m.ticket_id) && m.estado === "cancelado").length;
+
+  const voluntarios_movilizados = new Set(
+    subset
+      .filter((t) => t.estado === "completado" && t.transporte_id)
+      .map((t) => t.transporte_id)
+  ).size;
+
+  const insumos_transportados = subset
+    .filter((t) => esEntregaRegistrada(t, trasladoById, segmentoTicket(t)))
+    .map((t) => ({
+      ticket_id: t.id,
+      descripcion: t.descripcion.slice(0, 200),
+      cantidad: t.cantidad,
+      transporte: nombreConductorTicket(t, transporteNombre, trasladoById),
+      fecha: t.updated_at,
+      segmento: segmentoTicket(t),
+    }))
+    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+    .slice(0, 100);
+
+  const completadas = subset.filter((t) => t.estado === "completado").length;
+
+  return {
+    fuente,
+    label: LABEL_FUENTE[fuente],
+    solicitudes_recibidas: subset.length,
+    entregas_completadas,
+    entregas_con_transportista,
+    solicitudes_cubiertas,
+    pct_atendidas: pct(completadas, subset.length),
+    necesidades_verificadas,
+    entregas_fallidas,
+    tiempo_asignacion_horas: avgHours(tiemposAsignacion),
+    voluntarios_movilizados,
+    solicitudes_por_zona: [...porZona.entries()]
+      .map(([zona, v]) => ({ zona, ...v }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 25),
+    insumos_criticos: [...articuloCount.entries()]
+      .map(([articulo, solicitudes]) => ({ articulo, solicitudes }))
+      .sort((a, b) => b.solicitudes - a.solicitudes)
+      .slice(0, 20),
+    zonas_deficit_activo: [...porZona.entries()]
+      .map(([zona, v]) => ({ zona, peticiones_activas: v.pendientes }))
+      .filter((z) => z.peticiones_activas > 0)
+      .sort((a, b) => b.peticiones_activas - a.peticiones_activas)
+      .slice(0, 15),
+    insumos_transportados,
+    solicitudes_asignadas_por_transporte: [...asignadasMap.entries()]
+      .map(([transporte_id, asignadas]) => ({
+        transporte_id,
+        nombre: transporteNombre.get(transporte_id) || "Transporte",
+        asignadas,
+      }))
+      .sort((a, b) => b.asignadas - a.asignadas),
+    viajes_por_transporte: [...viajesMap.entries()]
+      .map(([transporte_id, viajes]) => ({
+        transporte_id,
+        nombre: transporteNombre.get(transporte_id) || "Transporte",
+        viajes,
+      }))
+      .sort((a, b) => b.viajes - a.viajes),
+    km_por_transporte: [...kmMap.entries()]
+      .map(([transporte_id, km]) => ({
+        transporte_id,
+        nombre: transporteNombre.get(transporte_id) || "Transporte",
+        km: Math.round(km * 10) / 10,
+      }))
+      .sort((a, b) => b.km - a.km),
+  };
+}
+
 export function computeReportesOperaciones(input: {
   tickets: TicketRow[];
   historial: HistorialRow[];
@@ -311,137 +552,34 @@ export function computeReportesOperaciones(input: {
   const transporteNombre = new Map(transportes.map((t) => [t.id, t.nombre]));
   const asignacionAt = buildAsignacionMap(historial, matches, traslados, notificaciones);
   const matchesByTicket = buildMatchesByTicket(matches);
+  const trasladoById = buildTrasladoById(traslados);
 
   const logisticos = tickets.filter((t) => {
     const s = segmentoTicket(t);
     return s === "aec" || s === "ash" || s === "traslado";
   });
 
-  const porZona = new Map<string, { total: number; pendientes: number; completadas: number }>();
-  const articuloCount = new Map<string, number>();
-  const porSegmento = { aec: { total: 0, atendidas: 0 }, ash: { total: 0, atendidas: 0 }, traslado: { total: 0, atendidas: 0 } };
-  const tiemposAsignacion: number[] = [];
-
-  let necesidades_verificadas = 0;
-  let solicitudes_cubiertas = 0;
-
-  for (const t of logisticos) {
-    const zona = extraerZona(t);
-    const z = porZona.get(zona) || { total: 0, pendientes: 0, completadas: 0 };
-    z.total++;
-    if (t.estado === "completado") {
-      z.completadas++;
-      necesidades_verificadas++;
-    } else if (ESTADOS_ACTIVOS.has(t.estado)) {
-      z.pendientes++;
-    }
-    if (t.estado === "completado" || t.estado_externo === "cubierta") {
-      solicitudes_cubiertas++;
-    }
-    porZona.set(zona, z);
-
-    const seg = segmentoTicket(t);
-    if (seg === "aec" || seg === "ash" || seg === "traslado") {
-      porSegmento[seg].total++;
-      if (t.estado === "completado") porSegmento[seg].atendidas++;
-    }
-
-    if (seg === "aec") {
-      const art = extraerArticuloAec(t.descripcion) || t.categoria_externa || "Sin categoría";
-      articuloCount.set(art, (articuloCount.get(art) || 0) + 1);
-    } else if (seg === "ash") {
-      const art = t.cantidad?.split(" · ")[0] || t.descripcion.slice(0, 80);
-      articuloCount.set(art, (articuloCount.get(art) || 0) + 1);
-    }
-
-    const asign = asignacionAt.get(t.id);
-    if (asign && (seg === "traslado" || seg === "ash")) {
-      tiemposAsignacion.push(asign - new Date(t.created_at).getTime());
-    }
-  }
-
-  const solicitudes_por_zona = [...porZona.entries()]
-    .map(([zona, v]) => ({ zona, ...v }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 25);
-
-  const zonas_deficit_activo = [...porZona.entries()]
-    .map(([zona, v]) => ({ zona, peticiones_activas: v.pendientes }))
-    .filter((z) => z.peticiones_activas > 0)
-    .sort((a, b) => b.peticiones_activas - a.peticiones_activas)
-    .slice(0, 15);
-
-  const insumos_criticos = [...articuloCount.entries()]
-    .map(([articulo, solicitudes]) => ({ articulo, solicitudes }))
-    .sort((a, b) => b.solicitudes - a.solicitudes)
-    .slice(0, 20);
-
-  const recibidas = {
-    total: logisticos.length,
-    aec: porSegmento.aec.total,
-    ash: porSegmento.ash.total,
-    traslado: porSegmento.traslado.total,
+  const ctx = {
+    historial,
+    matches,
+    asignacionAt,
+    matchesByTicket,
+    transporteNombre,
+    trasladoById,
   };
 
-  const asignadasMap = new Map<string, number>();
-  const viajesMap = new Map<string, number>();
-  const kmMap = new Map<string, number>();
+  const por_fuente: Record<FiltroReporteFuente, ReportePorFuente> = {
+    todos: computeReportePorFuente("todos", logisticos, ctx),
+    aec: computeReportePorFuente("aec", logisticos.filter((t) => segmentoTicket(t) === "aec"), ctx),
+    ash: computeReportePorFuente("ash", logisticos.filter((t) => segmentoTicket(t) === "ash"), ctx),
+    traslado: computeReportePorFuente(
+      "traslado",
+      logisticos.filter((t) => segmentoTicket(t) === "traslado"),
+      ctx
+    ),
+  };
 
-  for (const t of logisticos) {
-    if (!t.transporte_id) continue;
-    if (ESTADOS_ASIGNADOS.has(t.estado)) {
-      asignadasMap.set(t.transporte_id, (asignadasMap.get(t.transporte_id) || 0) + 1);
-    }
-    if (t.estado === "completado") {
-      viajesMap.set(t.transporte_id, (viajesMap.get(t.transporte_id) || 0) + 1);
-    }
-  }
-
-  for (const t of logisticos) {
-    if (!t.transporte_id || !ESTADOS_VIAJE_CON_TRANSPORTE.has(t.estado)) continue;
-    const km = kmViajeTicket(t, matchesByTicket);
-    if (km == null || km <= 0) continue;
-    kmMap.set(t.transporte_id, (kmMap.get(t.transporte_id) || 0) + km);
-  }
-
-  const solicitudes_asignadas_por_transporte = [...asignadasMap.entries()]
-    .map(([transporte_id, asignadas]) => ({
-      transporte_id,
-      nombre: transporteNombre.get(transporte_id) || "Transporte",
-      asignadas,
-    }))
-    .sort((a, b) => b.asignadas - a.asignadas);
-
-  const viajes_por_transporte = [...viajesMap.entries()]
-    .map(([transporte_id, viajes]) => ({
-      transporte_id,
-      nombre: transporteNombre.get(transporte_id) || "Transporte",
-      viajes,
-    }))
-    .sort((a, b) => b.viajes - a.viajes);
-
-  const km_por_transporte = [...kmMap.entries()]
-    .map(([transporte_id, km]) => ({
-      transporte_id,
-      nombre: transporteNombre.get(transporte_id) || "Transporte",
-      km: Math.round(km * 10) / 10,
-    }))
-    .sort((a, b) => b.km - a.km);
-
-  const insumos_transportados = logisticos
-    .filter((t) => t.estado === "completado" && t.transporte_id)
-    .map((t) => ({
-      ticket_id: t.id,
-      descripcion: t.descripcion.slice(0, 200),
-      cantidad: t.cantidad,
-      transporte: transporteNombre.get(t.transporte_id!) || "—",
-      fecha: t.updated_at,
-    }))
-    .slice(0, 50);
-
-  const entregas_fallidas =
-    historial.filter((h) => h.accion === "match_acopio_rechazado" || h.accion === "rechazado").length +
-    matches.filter((m) => m.estado === "cancelado").length;
+  const todos = por_fuente.todos;
 
   const gasSuministrada = gasolina.filter((g) => g.estado === "suministrado");
   const litrosTotal = gasSuministrada.reduce((s, g) => s + (Number(g.litros) || 0), 0);
@@ -458,33 +596,22 @@ export function computeReportesOperaciones(input: {
       };
     });
 
-  const voluntarios_movilizados = new Set(
-    logisticos.filter((t) => t.transporte_id && t.estado === "completado").map((t) => t.transporte_id)
-  ).size;
-
-  const entregas_completadas = logisticos.filter((t) => t.estado === "completado").length;
-  const entregas_con_transportista = logisticos.filter(
-    (t) => t.estado === "completado" && t.transporte_id
-  ).length;
-
-  const totalAtendidas = porSegmento.aec.atendidas + porSegmento.ash.atendidas + porSegmento.traslado.atendidas;
-  const totalRecibidas = recibidas.total || 1;
-
   return {
     generado_at: new Date().toISOString(),
+    por_fuente,
     necesidades: {
-      solicitudes_por_zona,
-      necesidades_verificadas,
-      insumos_criticos,
-      solicitudes_cubiertas,
-      zonas_deficit_activo,
+      solicitudes_por_zona: todos.solicitudes_por_zona,
+      necesidades_verificadas: todos.necesidades_verificadas,
+      insumos_criticos: todos.insumos_criticos,
+      solicitudes_cubiertas: todos.solicitudes_cubiertas,
+      zonas_deficit_activo: todos.zonas_deficit_activo,
       porcentaje_atendidas: {
-        global: pct(totalAtendidas, totalRecibidas),
-        aec: pct(porSegmento.aec.atendidas, porSegmento.aec.total),
-        ash: pct(porSegmento.ash.atendidas, porSegmento.ash.total),
-        traslado: pct(porSegmento.traslado.atendidas, porSegmento.traslado.total),
+        global: por_fuente.todos.pct_atendidas,
+        aec: por_fuente.aec.pct_atendidas,
+        ash: por_fuente.ash.pct_atendidas,
+        traslado: por_fuente.traslado.pct_atendidas,
       },
-      tiempo_deteccion_hasta_asignacion_horas: avgHours(tiemposAsignacion),
+      tiempo_deteccion_hasta_asignacion_horas: por_fuente.todos.tiempo_asignacion_horas,
       inventario: inventario.map((i) => ({
         centro: i.centro?.nombre || "Centro",
         item: i.item,
@@ -495,16 +622,21 @@ export function computeReportesOperaciones(input: {
       })),
     },
     logistica: {
-      solicitudes_recibidas: recibidas,
-      solicitudes_asignadas_por_transporte,
-      viajes_por_transporte,
-      km_por_transporte,
-      insumos_transportados,
-      voluntarios_movilizados: voluntarios_movilizados || transportes.filter((t) => t.activo).length,
-      entregas_completadas,
-      entregas_con_transportista,
-      entregas_fallidas,
-      tiempo_promedio_asignacion_horas: avgHours(tiemposAsignacion),
+      solicitudes_recibidas: {
+        total: todos.solicitudes_recibidas,
+        aec: por_fuente.aec.solicitudes_recibidas,
+        ash: por_fuente.ash.solicitudes_recibidas,
+        traslado: por_fuente.traslado.solicitudes_recibidas,
+      },
+      solicitudes_asignadas_por_transporte: todos.solicitudes_asignadas_por_transporte,
+      viajes_por_transporte: todos.viajes_por_transporte,
+      km_por_transporte: todos.km_por_transporte,
+      insumos_transportados: todos.insumos_transportados,
+      voluntarios_movilizados: todos.voluntarios_movilizados || transportes.filter((t) => t.activo).length,
+      entregas_completadas: todos.entregas_completadas,
+      entregas_con_transportista: todos.entregas_con_transportista,
+      entregas_fallidas: todos.entregas_fallidas,
+      tiempo_promedio_asignacion_horas: todos.tiempo_asignacion_horas,
       costo_combustible_por_traslado,
       combustible_financiado: {
         litros: Math.round(litrosTotal * 10) / 10,
