@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { ashRateLimit } from "@/lib/ash-rate-limit";
-import { buildTicketPayloads, type AshDraft } from "@/lib/ash-flow";
+import { insertAshTickets } from "@/lib/ash-submit";
+import type { AshDraft } from "@/lib/ash-flow";
 
 export const dynamic = "force-dynamic";
 
@@ -34,24 +34,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Falta un teléfono de contacto." }, { status: 400 });
     }
 
-    const payloads = buildTicketPayloads(draft);
-    if (payloads.length > 10) {
+    if (draft.items.length > 10) {
       return NextResponse.json({ error: "Máximo 10 ítems por solicitud." }, { status: 400 });
     }
 
-    const admin = getSupabaseAdmin();
-    const { data, error } = await admin.from("tickets").insert(payloads).select("id");
+    const { ids, count } = await insertAshTickets(draft);
 
-    if (error) {
-      console.error("[Ash Submit]", error.message);
-      throw error;
+    if (count === 0) {
+      return NextResponse.json({
+        success: true,
+        grupo_id: draft.grupo_id,
+        ticket_ids: ids,
+        count: 0,
+        message: "La solicitud ya estaba registrada.",
+      });
     }
 
     return NextResponse.json({
       success: true,
       grupo_id: draft.grupo_id,
-      ticket_ids: (data || []).map((t) => t.id),
-      count: payloads.length,
+      ticket_ids: ids,
+      count,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Error al registrar solicitud";
