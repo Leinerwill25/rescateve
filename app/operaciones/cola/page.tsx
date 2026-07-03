@@ -116,19 +116,17 @@ async function importarTrasladosPendientes(): Promise<number> {
     (importadas || []).map((i) => i.fuente_id).filter(Boolean)
   );
   const pendientes = (traslados || []).filter((t) => !idsImportados.has(t.id));
+  if (pendientes.length === 0) return 0;
 
-  let creadas = 0;
-  for (const t of pendientes) {
-    const { error } = await supabase
-      .from("tickets")
-      .upsert(buildTicketDesdeTraslado(t), { onConflict: "id" });
-    if (error) {
-      console.error("Error importando traslado", t.id, error);
-    } else {
-      creadas++;
-    }
+  const { error } = await supabase
+    .from("tickets")
+    .upsert(pendientes.map((t) => buildTicketDesdeTraslado(t)), { onConflict: "id" });
+
+  if (error) {
+    console.error("Error importando traslados pendientes:", error);
+    throw error;
   }
-  return creadas;
+  return pendientes.length;
 }
 
 function buildTicketManualPayload(input: {
@@ -205,7 +203,7 @@ export default function ColaValidacionPage() {
   const [manualHoraSalida, setManualHoraSalida] = useState("");
   
   // Filtro de origen
-  const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("traslados");
+  const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("todos");
   const [filtroOrden, setFiltroOrden] = useState<FiltroOrden>("recientes");
   const [paginaActual, setPaginaActual] = useState(1);
   // Formulario Reclasificación
@@ -320,16 +318,12 @@ export default function ColaValidacionPage() {
     return diffMins;
   };
 
-  const cargarTickets = useCallback(async (opts?: { importTraslados?: boolean }) => {
+  const cargarTickets = useCallback(async (opts?: { importTraslados?: boolean; silencioso?: boolean }) => {
     if (cargandoRef.current) return;
     cargandoRef.current = true;
-    setLoading(true);
+    if (!opts?.silencioso) setLoading(true);
     setError(null);
     try {
-      if (opts?.importTraslados !== false) {
-        await importarTrasladosPendientes();
-      }
-
       const { data, error: fetchErr } = await supabase
         .from("tickets")
         .select("*")
@@ -358,12 +352,18 @@ export default function ColaValidacionPage() {
       if (logData) {
         setUltimoLog(logData);
       }
+
+      if (opts?.importTraslados) {
+        importarTrasladosPendientes()
+          .then(() => cargarTickets({ importTraslados: false, silencioso: true }))
+          .catch((err) => console.error("Import traslados en segundo plano:", err));
+      }
     } catch (err: any) {
       console.error(err);
       setError("Error al cargar la cola de validación.");
     } finally {
       cargandoRef.current = false;
-      setLoading(false);
+      if (!opts?.silencioso) setLoading(false);
     }
   }, []);
 
@@ -384,8 +384,8 @@ export default function ColaValidacionPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "tickets" }, () => {
         if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
         reloadTimerRef.current = setTimeout(() => {
-          cargarTickets({ importTraslados: false });
-        }, 600);
+          cargarTickets({ importTraslados: false, silencioso: true });
+        }, 1200);
       })
       .subscribe();
     return () => {
