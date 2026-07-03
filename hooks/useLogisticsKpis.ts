@@ -24,6 +24,21 @@ function parseKpis(raw: unknown): LogisticsKpis | null {
   };
 }
 
+async function fetchKpisPublicos(): Promise<LogisticsKpis | null> {
+  const { data, error } = await supabase.rpc("kpis_logistica");
+  if (!error && data) {
+    const parsed = parseKpis(data);
+    if (parsed) return parsed;
+  }
+  try {
+    const res = await fetch("/api/public/kpis", { cache: "no-store" });
+    if (res.ok) return parseKpis(await res.json());
+  } catch {
+    /* ignore */
+  }
+  return fetchLogisticsKpisFallback().catch(() => null);
+}
+
 export function useLogisticsKpis() {
   const [kpis, setKpis] = useState<LogisticsKpis>(EMPTY_LOGISTICS_KPIS);
   const [loading, setLoading] = useState(true);
@@ -31,23 +46,16 @@ export function useLogisticsKpis() {
 
   const cargar = useCallback(async () => {
     try {
-      const { data, error } = await supabase.rpc("kpis_logistica");
-      if (!error && data) {
-        const parsed = parseKpis(data);
-        if (parsed) {
-          setKpis(parsed);
-          setSource("rpc");
-          return;
-        }
+      const parsed = await fetchKpisPublicos();
+      if (parsed) {
+        setKpis(parsed);
+        setSource("rpc");
+        return;
       }
 
-      if (error && process.env.NODE_ENV === "development") {
-        console.warn("[KPIs] RPC kpis_logistica no disponible, usando fallback:", error.message);
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[KPIs] No se pudieron cargar métricas públicas");
       }
-
-      const fallback = await fetchLogisticsKpisFallback();
-      setKpis(fallback);
-      setSource("fallback");
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[KPIs] Error cargando métricas:", err);
@@ -62,8 +70,8 @@ export function useLogisticsKpis() {
     const timer = window.setInterval(cargar, REFRESH_MS);
     const ch = supabase
       .channel("logistics_kpis")
-      .on("postgres_changes", { event: "*", schema: "public", table: "traslados" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "tickets" }, cargar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "ticket_historial" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "transportes" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "solicitudes_gasolina" }, cargar)
       .subscribe();

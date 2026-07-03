@@ -97,7 +97,9 @@ export default function LogisticsKpisSection() {
             </div>
             <div className="logistics-kpi-band__secondary-stat" role="listitem">
               <KpiSecondaryNumber value={tiempoLabel} loading={loading} />
-              <span className="logistics-kpi-band__secondary-label">Tiempo promedio de entrega</span>
+              <span className="logistics-kpi-band__secondary-label">
+                Tiempo promedio hasta asignar transportista
+              </span>
             </div>
             <div className="logistics-kpi-band__secondary-stat" role="listitem">
               <KpiSecondaryNumber

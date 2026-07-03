@@ -8,9 +8,6 @@ import { BANCOS_PAGO_MOVIL, costoEstimadoUSD, tipoVehiculoDesdeTransporte } from
 import { uploadEntregaImage, validateImageFile } from "@/lib/image-utils";
 import { 
   Truck, 
-  MapPin, 
-  Phone, 
-  Navigation, 
   CheckCircle, 
   AlertTriangle,
   Play,
@@ -20,8 +17,13 @@ import {
   Camera,
   ImagePlus,
   X,
-  Package
 } from "lucide-react";
+import {
+  ViajeTransportistaDetalle,
+  ViajeTransportistaResumen,
+  buildViajeMapUrl,
+  type MatchAcopioViaje,
+} from "@/components/operaciones/ViajeTransportistaDetalle";
 
 export default function MisViajesPage() {
   const { perfil } = useOperationsAuth();
@@ -48,13 +50,10 @@ export default function MisViajesPage() {
   const [entregaLoading, setEntregaLoading] = useState(false);
   const [entregaError, setEntregaError] = useState("");
   const entregaFileRef = useRef<HTMLInputElement>(null);
-  type MatchAcopioInfo = {
+  type MatchAcopioInfo = MatchAcopioViaje & {
     id: string;
     ticket_id: string;
     estado: string;
-    tuia_centro_nombre: string | null;
-    tuia_centro_tel: string | null;
-    tuia_articulo: string;
   };
   const [matchByTicket, setMatchByTicket] = useState<Map<string, MatchAcopioInfo>>(new Map());
   const [rechazoTicketId, setRechazoTicketId] = useState<string | null>(null);
@@ -436,9 +435,7 @@ export default function MisViajesPage() {
       ) : (
         <div style={styles.list}>
           {activos.map(t => {
-            const mapUrl = t.origen_lat && t.origen_lng
-              ? `https://www.google.com/maps/dir/?api=1&origin=${t.origen_lat},${t.origen_lng}&destination=${t.destino_lat || t.origen_lat},${t.destino_lng || t.origen_lng}`
-              : null;
+            const mapUrl = buildViajeMapUrl(t);
             const match = matchByTicket.get(t.id);
 
             return (
@@ -451,44 +448,11 @@ export default function MisViajesPage() {
                 </div>
 
                 <div style={styles.cardBody}>
-                  <h4 style={styles.desc}>{t.descripcion}</h4>
-                  {t.cantidad && <p style={styles.quantity}><strong>Carga:</strong> {t.cantidad}</p>}
-
-                  <div style={styles.metaCol}>
-                    <div style={styles.metaItem}>
-                      <MapPin size={16} color="var(--brand)" />
-                      <span><strong>Punto Recogida (Origen):</strong> {t.origen_ref || "Coordenadas"}</span>
-                    </div>
-                    {t.destino_ref && (
-                      <div style={styles.metaItem}>
-                        <Navigation size={16} color="var(--success)" />
-                        <span><strong>Punto Entrega (Destino):</strong> {t.destino_ref}</span>
-                      </div>
-                    )}
-                    <div style={styles.metaItem}>
-                      <Phone size={16} />
-                      <span><strong>Solicitante:</strong> {t.contacto_solicitante || "No registrado"}</span>
-                    </div>
-                    {match && (
-                      <div style={styles.acopioBanner}>
-                        <Package size={16} color="#15803d" />
-                        <div>
-                          <strong>Acopio/donante:</strong> {match.tuia_centro_nombre}
-                          {match.tuia_centro_tel && (
-                            <span> · <a href={`tel:${match.tuia_centro_tel}`}>{match.tuia_centro_tel}</a></span>
-                          )}
-                          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                            Artículo: {match.tuia_articulo}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {t.estado === "asignado" && match?.estado === "reclamado" && (
-                      <p style={styles.contactHint}>
-                        Contacte al acopio y al solicitante antes de confirmar el viaje.
-                      </p>
-                    )}
-                  </div>
+                  <ViajeTransportistaDetalle
+                    ticket={t}
+                    match={match ?? null}
+                    showContactHint={t.estado === "asignado" && match?.estado === "reclamado"}
+                  />
 
                   {t.estado === "en_camino" && (
                     <div style={styles.fotoBanner}>
@@ -572,10 +536,11 @@ export default function MisViajesPage() {
                 <tr key={c.id} style={styles.tr}>
                   <td style={styles.td}>{new Date(c.updated_at).toLocaleDateString()}</td>
                   <td style={styles.td}>
-                    <strong>{c.descripcion}</strong>
-                    {c.cantidad && <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Carga: {c.cantidad}</div>}
+                    <ViajeTransportistaResumen ticket={c} />
                   </td>
-                  <td style={styles.td}>{c.origen_ref || "En mapa"}</td>
+                  <td style={styles.td}>
+                    {c.destino_ref || c.ubicacion_externa || c.origen_ref || "En mapa"}
+                  </td>
                   <td style={styles.td}>
                     {c.evidencia_entrega_url ? (
                       <a href={c.evidencia_entrega_url} target="_blank" rel="noopener noreferrer" style={styles.evidenciaLink}>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import type { LogisticsKpis } from "@/lib/kpis-logistica";
 
 export type LiveStats = {
   trasladosCompletados: number;
@@ -11,17 +12,33 @@ export type LiveStats = {
   loading: boolean;
 };
 
-const TIPOS_INSUMO = new Set([
-  "insumos",
-  "insumo_medico",
-  "insumo_basico",
-  "alimentos",
-  "carga",
-  "personal_medico",
-]);
+function parseKpis(raw: unknown): LogisticsKpis | null {
+  if (!raw || typeof raw !== "object") return null;
+  const d = raw as Record<string, unknown>;
+  return {
+    traslados_completados: Number(d.traslados_completados) || 0,
+    en_ruta_ahora: Number(d.en_ruta_ahora) || 0,
+    insumos_movidos: Number(d.insumos_movidos) || 0,
+    voluntarios_activos: Number(d.voluntarios_activos) || 0,
+    zonas_atendidas: Number(d.zonas_atendidas) || 0,
+    tiempo_promedio_horas:
+      d.tiempo_promedio_horas == null ? null : Number(d.tiempo_promedio_horas),
+    litros_aportados: Number(d.litros_aportados) || 0,
+    entregas_evidencia_pct: Number(d.entregas_evidencia_pct) || 0,
+    actualizado_at: String(d.actualizado_at ?? new Date().toISOString()),
+  };
+}
 
-const ESTADOS_COMPLETADO = new Set(["completado", "entregado"]);
-const ESTADOS_ACTIVO = new Set(["aceptado", "en_camino", "asignado"]);
+async function fetchKpisPublicos(): Promise<LogisticsKpis | null> {
+  const { data, error } = await supabase.rpc("kpis_logistica");
+  if (!error && data) {
+    const parsed = parseKpis(data);
+    if (parsed) return parsed;
+  }
+  const res = await fetch("/api/public/kpis", { cache: "no-store" });
+  if (!res.ok) return null;
+  return parseKpis(await res.json());
+}
 
 export function useLiveStats(): LiveStats {
   const [stats, setStats] = useState<LiveStats>({
@@ -34,49 +51,22 @@ export function useLiveStats(): LiveStats {
 
   const cargar = useCallback(async () => {
     try {
-      const [trasladosRes, solicitudesRes] = await Promise.all([
-        supabase
-          .from("traslados")
-          .select("id, estado, tipo, operador")
-          .not("reporter_token", "is", null),
-        supabase
-          .from("solicitudes_ayuda")
-          .select("id, estado")
-          .neq("estado", "atendido"),
+      const [kpis, solicitudesRes] = await Promise.all([
+        fetchKpisPublicos(),
+        supabase.from("solicitudes_ayuda").select("id").neq("estado", "atendido"),
       ]);
 
-      const traslados = trasladosRes.data || [];
-      const operadores = new Set<string>();
-
-      let trasladosCompletados = 0;
-      let insumosMovidos = 0;
-      let transportistasActivos = 0;
-
-      for (const t of traslados) {
-        if (ESTADOS_COMPLETADO.has(t.estado)) {
-          trasladosCompletados++;
-          if (TIPOS_INSUMO.has(t.tipo)) insumosMovidos++;
-        }
-        if (ESTADOS_ACTIVO.has(t.estado)) {
-          transportistasActivos++;
-          if (t.operador) {
-            try {
-              const op = typeof t.operador === "string" ? JSON.parse(t.operador) : t.operador;
-              if (op?.nombre) operadores.add(String(op.nombre).trim());
-            } catch {
-              operadores.add(String(t.operador).slice(0, 40));
-            }
-          }
-        }
+      if (kpis) {
+        setStats({
+          trasladosCompletados: kpis.traslados_completados,
+          insumosMovidos: kpis.insumos_movidos,
+          transportistasActivos: kpis.en_ruta_ahora,
+          solicitudesActivas: solicitudesRes.data?.length ?? 0,
+          loading: false,
+        });
+      } else {
+        setStats((s) => ({ ...s, loading: false }));
       }
-
-      setStats({
-        trasladosCompletados,
-        insumosMovidos,
-        transportistasActivos: operadores.size > 0 ? operadores.size : transportistasActivos,
-        solicitudesActivas: solicitudesRes.data?.length ?? 0,
-        loading: false,
-      });
     } catch {
       setStats((s) => ({ ...s, loading: false }));
     }
@@ -86,10 +76,12 @@ export function useLiveStats(): LiveStats {
     cargar();
     const ch = supabase
       .channel("live_stats")
-      .on("postgres_changes", { event: "*", schema: "public", table: "traslados" }, cargar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tickets" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "solicitudes_ayuda" }, cargar)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, [cargar]);
 
   return stats;
