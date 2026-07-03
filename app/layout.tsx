@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import AshProvider from "@/components/ash/AshProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -64,7 +65,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={`${inter.variable} ${plusJakarta.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <AshProvider />
+      </body>
     </html>
   );
 }

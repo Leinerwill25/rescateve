@@ -187,6 +187,8 @@ export type Ticket = {
   capturado_at?: string | null;
   cuando?: string | null;
   evidencia_entrega_url?: string | null;
+  grupo_id?: string | null;
+  para_quien?: string | null;
 };
 
 export type TicketHistorial = {
