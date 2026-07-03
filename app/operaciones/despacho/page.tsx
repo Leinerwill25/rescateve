@@ -293,10 +293,11 @@ export default function TableroDespachoPage() {
   const transporteDelTicket = (ticket: Ticket) =>
     ticket.transporte_id ? transportes.find((tr) => tr.id === ticket.transporte_id) ?? null : null;
 
-  /** Conductor registrado sin usuario vinculado: el admin debe avanzar el viaje desde aquí. */
-  const requiereGestionAdminViaje = (ticket: Ticket) => {
+  /** Traslado gestionado desde despacho: sin ficha de transporte o conductor externo sin panel. */
+  const puedeGestionarViajeAdmin = (ticket: Ticket) => {
+    if (!["asignado", "aceptado", "en_camino"].includes(ticket.estado)) return false;
     const tr = transporteDelTicket(ticket);
-    return tr != null && !tr.perfil_id;
+    return !tr || !tr.perfil_id;
   };
 
   const handleAvanzarEstadoAdmin = async (ticketId: string, nuevoEstado: "en_camino" | "completado") => {
@@ -654,8 +655,8 @@ export default function TableroDespachoPage() {
                   )}
                 </div>
 
-                {/* SOURCING PANEL (Solo si está aprobado o asignado para reasignar) */}
-                {(t.estado === "aprobado" || t.estado === "asignado") && (
+                {/* Despacho inicial: solo tickets aprobados pendientes de asignar */}
+                {t.estado === "aprobado" && (
                   <div style={styles.sourcingBox}>
                     <h5 style={styles.sourcingTitle}>Despacho de Recursos</h5>
                     
@@ -746,15 +747,17 @@ export default function TableroDespachoPage() {
                       onClick={() => handleAsignar(t.id)}
                     >
                       <Play size={14} />
-                      <span>{t.estado === "asignado" ? "Reasignar Recursos" : "Confirmar Despacho"}</span>
+                      <span>Confirmar Despacho</span>
                     </button>
                   </div>
                 )}
 
-                {requiereGestionAdminViaje(t) && t.estado !== "completado" && (
+                {puedeGestionarViajeAdmin(t) && (
                   <div style={styles.adminViajeBox}>
                     <p style={styles.adminViajeHint}>
-                      Conductor sin acceso al panel transportista — actualice el viaje desde aquí.
+                      {transporteDelTicket(t)
+                        ? "Conductor sin acceso al panel — marque el avance del traslado aquí."
+                        : "Traslado en seguimiento manual — marque si va en camino o si ya finalizó."}
                     </p>
                     <div style={styles.adminViajeActions}>
                       {(t.estado === "asignado" || t.estado === "aceptado") && (
@@ -782,7 +785,7 @@ export default function TableroDespachoPage() {
                 )}
 
                 {/* Si ya fue asignado, muestra a quién */}
-                {t.estado !== "aprobado" && (
+                {t.estado !== "aprobado" && (t.centro_acopio_id || t.transporte_id || t.medico_id) && (
                   <div style={styles.asignadoBox}>
                     <h5 style={{ margin: "0 0 4px 0", fontSize: "11px", color: "var(--text-muted)" }}>Recursos asignados</h5>
                     <div style={{ display: "flex", flexDirection: "column", gap: "2px", fontSize: "12px" }}>
