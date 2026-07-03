@@ -290,6 +290,46 @@ export default function TableroDespachoPage() {
     }
   };
 
+  const transporteDelTicket = (ticket: Ticket) =>
+    ticket.transporte_id ? transportes.find((tr) => tr.id === ticket.transporte_id) ?? null : null;
+
+  /** Conductor registrado sin usuario vinculado: el admin debe avanzar el viaje desde aquí. */
+  const requiereGestionAdminViaje = (ticket: Ticket) => {
+    const tr = transporteDelTicket(ticket);
+    return tr != null && !tr.perfil_id;
+  };
+
+  const handleAvanzarEstadoAdmin = async (ticketId: string, nuevoEstado: "en_camino" | "completado") => {
+    const etiqueta = nuevoEstado === "en_camino" ? "EN CAMINO" : "ENTREGADO / FINALIZADO";
+    if (!(await showCustomConfirm(`¿Marcar este traslado como ${etiqueta}?`, "Confirmar avance"))) return;
+
+    const ticket = tickets.find((t) => t.id === ticketId);
+    try {
+      const { error } = await supabase.rpc("actualizar_estado_ticket", {
+        p_id: ticketId,
+        p_estado: nuevoEstado,
+      });
+      if (error) throw error;
+
+      if (ticket?.transporte_id) {
+        await supabase
+          .from("transportes")
+          .update({ en_standby: nuevoEstado === "completado" })
+          .eq("id", ticket.transporte_id);
+      }
+
+      await showCustomAlert(
+        nuevoEstado === "en_camino"
+          ? "Traslado marcado como en camino."
+          : "Traslado finalizado correctamente.",
+        "Estado actualizado"
+      );
+      cargarDatos();
+    } catch (err: unknown) {
+      await showCustomAlert(`Error al actualizar estado: ${err instanceof Error ? err.message : "desconocido"}`);
+    }
+  };
+
   // HANDOFF WHATSAPP
   const generarHandoff = (ticket: Ticket) => {
     const origenMap = ticket.origen_lat && ticket.origen_lng 
@@ -708,6 +748,36 @@ export default function TableroDespachoPage() {
                       <Play size={14} />
                       <span>{t.estado === "asignado" ? "Reasignar Recursos" : "Confirmar Despacho"}</span>
                     </button>
+                  </div>
+                )}
+
+                {requiereGestionAdminViaje(t) && t.estado !== "completado" && (
+                  <div style={styles.adminViajeBox}>
+                    <p style={styles.adminViajeHint}>
+                      Conductor sin acceso al panel transportista — actualice el viaje desde aquí.
+                    </p>
+                    <div style={styles.adminViajeActions}>
+                      {(t.estado === "asignado" || t.estado === "aceptado") && (
+                        <button
+                          type="button"
+                          style={styles.btnEnCamino}
+                          onClick={() => handleAvanzarEstadoAdmin(t.id, "en_camino")}
+                        >
+                          <Navigation size={14} />
+                          <span>Va en camino</span>
+                        </button>
+                      )}
+                      {t.estado === "en_camino" && (
+                        <button
+                          type="button"
+                          style={styles.btnFinalizarTraslado}
+                          onClick={() => handleAvanzarEstadoAdmin(t.id, "completado")}
+                        >
+                          <CheckCircle2 size={14} />
+                          <span>Finalizó el traslado</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -1173,6 +1243,54 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "var(--radius-sm)",
     borderLeft: "4px solid var(--brand)",
     marginTop: "4px",
+  },
+  adminViajeBox: {
+    background: "#faf5ff",
+    border: "1px solid rgba(168, 85, 247, 0.25)",
+    borderRadius: "var(--radius-sm)",
+    padding: "10px 12px",
+    marginTop: "8px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  adminViajeHint: {
+    margin: 0,
+    fontSize: "11px",
+    color: "#7e22ce",
+    fontWeight: 600,
+    lineHeight: 1.4,
+  },
+  adminViajeActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+  },
+  btnEnCamino: {
+    background: "#a855f7",
+    color: "#fff",
+    border: "none",
+    padding: "8px 12px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  btnFinalizarTraslado: {
+    background: "var(--success)",
+    color: "#fff",
+    border: "none",
+    padding: "8px 12px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
   },
   modalOverlay: {
     position: "fixed",

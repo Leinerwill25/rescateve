@@ -164,7 +164,16 @@ export default function ReportesOperacionesPage() {
       </div>
 
       <div style={S.grid4}>
-        <StatCard label="Entregas completadas" value={vista.entregas_completadas} sub={`${vista.entregas_con_transportista} con transportista asignado`} icon={<CheckCircle2 size={20} color="#16a34a" />} />
+        <StatCard
+          label="Entregas completadas"
+          value={vista.entregas_completadas}
+          sub={
+            vista.entregas_completadas === 0
+              ? undefined
+              : `${vista.entregas_con_transportista} con transportista · ${vista.entregas_sin_transportista} sin transportista`
+          }
+          icon={<CheckCircle2 size={20} color="#16a34a" />}
+        />
         <StatCard label="Entregas / asignaciones fallidas" value={vista.entregas_fallidas} icon={<XCircle size={20} color="#b91c1c" />} />
         <StatCard label="Voluntarios movilizados" value={vista.voluntarios_movilizados} icon={<Truck size={20} />} />
         <StatCard label="Tiempo creación → asignación" value={vista.tiempo_asignacion_horas != null ? `${vista.tiempo_asignacion_horas} h` : "N/D"} sub={filtro === "aec" ? "No aplica a AEC" : "Promedio traslados/Ash en esta vista"} icon={<Clock size={20} />} />
@@ -294,9 +303,7 @@ export default function ReportesOperacionesPage() {
       <Section title={`Entregas completadas · ${vista.label}`}>
         {vista.insumos_transportados.length === 0 ? (
           <p style={S.empty}>
-            {filtro === "traslado" || filtro === "ash"
-              ? "No hay entregas completadas con conductor asignado en esta vista."
-              : "No hay entregas completadas en esta vista."}
+            No hay entregas completadas en esta vista.
           </p>
         ) : (
           <div style={S.tableWrap} className="ops-table-wrap">

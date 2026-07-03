@@ -103,6 +103,7 @@ export type ReportePorFuente = {
   solicitudes_recibidas: number;
   entregas_completadas: number;
   entregas_con_transportista: number;
+  entregas_sin_transportista: number;
   solicitudes_cubiertas: number;
   pct_atendidas: number;
   necesidades_verificadas: number;
@@ -158,6 +159,7 @@ export type ReportesOperaciones = {
     voluntarios_movilizados: number;
     entregas_completadas: number;
     entregas_con_transportista: number;
+    entregas_sin_transportista: number;
     entregas_fallidas: number;
     tiempo_promedio_asignacion_horas: number | null;
     costo_combustible_por_traslado: Array<{
@@ -365,16 +367,6 @@ function tuvoConductorTicket(
   return operadorNombre(trasladoById.get(t.id)?.operador) != null;
 }
 
-function esEntregaRegistrada(
-  t: TicketRow,
-  trasladoById: Map<string, TrasladoReporteRow>,
-  seg: SegmentoFuente
-): boolean {
-  if (t.estado !== "completado") return false;
-  if (seg === "aec") return true;
-  return tuvoConductorTicket(t, trasladoById);
-}
-
 const LABEL_FUENTE: Record<FiltroReporteFuente, string> = {
   todos: "Todos (AEC + Ash + Traslados)",
   aec: "Ayuda en Camino",
@@ -457,6 +449,7 @@ function computeReportePorFuente(
   const entregas_con_transportista = subset.filter(
     (t) => t.estado === "completado" && tuvoConductorTicket(t, trasladoById)
   ).length;
+  const entregas_sin_transportista = entregas_completadas - entregas_con_transportista;
 
   const entregas_fallidas =
     historial.filter(
@@ -492,6 +485,7 @@ function computeReportePorFuente(
     solicitudes_recibidas: subset.length,
     entregas_completadas,
     entregas_con_transportista,
+    entregas_sin_transportista,
     solicitudes_cubiertas,
     pct_atendidas: pct(completadas, subset.length),
     necesidades_verificadas,
@@ -635,6 +629,7 @@ export function computeReportesOperaciones(input: {
       voluntarios_movilizados: todos.voluntarios_movilizados || transportes.filter((t) => t.activo).length,
       entregas_completadas: todos.entregas_completadas,
       entregas_con_transportista: todos.entregas_con_transportista,
+      entregas_sin_transportista: todos.entregas_sin_transportista,
       entregas_fallidas: todos.entregas_fallidas,
       tiempo_promedio_asignacion_horas: todos.tiempo_asignacion_horas,
       costo_combustible_por_traslado,
