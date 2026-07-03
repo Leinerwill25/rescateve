@@ -266,6 +266,13 @@
   color: var(--text-muted);
 }
 
+.ash-widget__hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
 .ash-widget__loading {
   margin: 0;
   padding: 24px;

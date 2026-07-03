@@ -29,6 +29,7 @@ import {
   FiltroOrden,
   esTicketTraslado,
   esTicketAEC,
+  esTicketAsh,
   esTicketCritico,
   esTicketImportante,
   filtrarTickets,
@@ -990,6 +991,13 @@ export default function ColaValidacionPage() {
               >
                 Solo Ayuda en Camino ({conteos.aec})
               </button>
+              <button 
+                type="button"
+                className={`ops-filter-btn${filtroOrigen === "ash" ? " ops-filter-btn--active" : ""}`}
+                onClick={() => setFiltroOrigen("ash")}
+              >
+                Solo Ash 🌿 ({conteos.ash})
+              </button>
             </div>
         </div>
 
@@ -1119,6 +1127,8 @@ export default function ColaValidacionPage() {
                         </a>
                       )}
                     </>
+                  ) : esTicketAsh(t) ? (
+                    <span style={styles.badgeAsh}>Ash 🌿</span>
                   ) : t.fuente === "traslado" ? (
                     <span style={styles.badgeAEC}>Traslado Público</span>
                   ) : t.fuente === "manual" && t.cuando ? (
@@ -1167,7 +1177,7 @@ export default function ColaValidacionPage() {
                   </div>
                   <div style={styles.metaItem}>
                     <MapPin size={14} color="var(--text-muted)" />
-                    <span>Origen: {t.origen_ref || "Coordenadas en mapa"}</span>
+                    <span>Origen: {t.origen_ref || t.destino_ref || t.ubicacion_externa || "Coordenadas en mapa"}</span>
                   </div>
                 </div>
 
@@ -1810,6 +1820,15 @@ const styles: Record<string, React.CSSProperties> = {
     background: "rgba(59, 130, 246, 0.1)",
     color: "#2563eb",
     border: "1px solid rgba(59, 130, 246, 0.2)",
+    fontSize: "11px",
+    fontWeight: 800,
+    padding: "3px 8px",
+    borderRadius: "var(--radius-sm)",
+  },
+  badgeAsh: {
+    background: "rgba(22, 163, 74, 0.12)",
+    color: "#15803d",
+    border: "1px solid rgba(22, 163, 74, 0.25)",
     fontSize: "11px",
     fontWeight: 800,
     padding: "3px 8px",

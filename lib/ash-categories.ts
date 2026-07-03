@@ -19,8 +19,6 @@ export type AshSubtipoPersonal =
 
 export type AshParaQuien = "centro_acopio" | "refugio" | "persona_familia";
 
-export type AshCantidadRango = "poco" | "medio" | "mucho";
-
 export const ASH_SUBTIPOS_INSUMOS: { value: AshSubtipoInsumo; label: string }[] = [
   { value: "agua", label: "Agua" },
   { value: "alimentos", label: "Alimentos" },
@@ -44,18 +42,8 @@ export const ASH_PARA_QUIEN: { value: AshParaQuien; label: string }[] = [
   { value: "persona_familia", label: "Persona o familia" },
 ];
 
-export const ASH_CANTIDAD: { value: AshCantidadRango; label: string }[] = [
-  { value: "poco", label: "Poco" },
-  { value: "medio", label: "Medio" },
-  { value: "mucho", label: "Mucho" },
-];
-
 export function labelParaQuien(v: AshParaQuien): string {
   return ASH_PARA_QUIEN.find((p) => p.value === v)?.label || v;
-}
-
-export function labelCantidad(v: AshCantidadRango): string {
-  return ASH_CANTIDAD.find((c) => c.value === v)?.label || v;
 }
 
 export function mapSubtipoToTicket(
@@ -89,18 +77,22 @@ export function buildDescripcionTicket(input: {
   rama: AshRama;
   subtipoLabel: string;
   paraQuien: AshParaQuien;
-  cantidad: AshCantidadRango;
+  detalle: string;
   personas?: number | null;
+  ubicacion?: string | null;
   nota?: string;
 }): string {
   const ramaLabel = input.rama === "insumos" ? "Insumos" : input.rama === "personal" ? "Personal" : "Necesidad";
   const partes = [
     `[Ash · ${ramaLabel}: ${input.subtipoLabel}]`,
     `Para: ${labelParaQuien(input.paraQuien)}`,
-    `Cantidad: ${labelCantidad(input.cantidad)}`,
+    `Detalle: ${(input.detalle || "").trim() || "Sin especificar"}`,
   ];
   if (input.personas != null && input.personas > 0) {
     partes.push(`~${input.personas} personas`);
+  }
+  if (input.ubicacion?.trim()) {
+    partes.push(`Ubicación: ${input.ubicacion.trim()}`);
   }
   if (input.nota?.trim()) {
     partes.push(input.nota.trim());

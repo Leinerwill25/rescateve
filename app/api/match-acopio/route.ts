@@ -6,14 +6,18 @@ import { fetchTuiaCentros, fetchTuiaInsumos } from "@/lib/tuia911";
 import {
   buildCentroPointsMap,
   calcularMatches,
+  detectTicketOrigenMatch,
   mergeNeedWithTicket,
   parseAecDescripcion,
   parseAecFromApiItem,
+  parseAshTicketNeed,
+  parseTrasladoTicketNeed,
+  type TicketOrigenMatch,
 } from "@/lib/match-acopio";
 import { geocodificar, GeoPoint } from "@/lib/geo";
 
 const TICKET_COLS =
-  "id,descripcion,estado,fuente_url,prioridad,fuente_id,ubicacion_externa,contacto_solicitante,categoria_externa,cantidad,origen_ref,destino_ref,origen_lat,origen_lng,destino_lat,destino_lng";
+  "id,descripcion,estado,fuente,fuente_url,prioridad,fuente_id,ubicacion_externa,contacto_solicitante,categoria_externa,categoria_sugerida,categoria_final,cantidad,origen_ref,destino_ref,origen_lat,origen_lng,destino_lat,destino_lng,transporte_id";
 
 async function fetchAecNeedsEnriched() {
   return cacheFetch(
@@ -50,6 +54,44 @@ function extractError(err: unknown): string {
     return String((err as { message: unknown }).message);
   }
   return "Error desconocido";
+}
+
+async function fetchTicketsAshTraslado(supabase: SupabaseClient, limit: number) {
+  const estados = ["en_validacion", "aprobado", "asignado"];
+  const perSource = Math.ceil(limit / 2);
+
+  const [ashRes, trasladoRes] = await Promise.all([
+    supabase
+      .from("tickets")
+      .select(TICKET_COLS)
+      .eq("fuente", "publico")
+      .like("fuente_id", "ash:%")
+      .in("estado", estados)
+      .neq("estado", "completado")
+      .order("prioridad", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(perSource),
+    supabase
+      .from("tickets")
+      .select(TICKET_COLS)
+      .eq("fuente", "traslado")
+      .in("estado", estados)
+      .order("prioridad", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(perSource),
+  ]);
+
+  if (ashRes.error) throw ashRes.error;
+  if (trasladoRes.error) throw trasladoRes.error;
+
+  const seen = new Set<string>();
+  const merged: typeof ashRes.data = [];
+  for (const t of [...(ashRes.data || []), ...(trasladoRes.data || [])]) {
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    merged.push(t);
+  }
+  return merged;
 }
 
 async function fetchTicketsAecPendientes(
@@ -93,7 +135,7 @@ async function fetchTicketsAecPendientes(
 async function fetchReclamosActivos(supabase: SupabaseClient) {
   const res = await supabase
     .from("match_traslados_acopio")
-    .select("id,ticket_id,estado,tuia_centro_nombre,tuia_articulo,distancia_km,reclamado_at,perfil:perfiles!perfil_id(nombre),transporte:transportes!transporte_id(nombre)")
+    .select("id,ticket_id,estado,perfil_id,tuia_centro_nombre,tuia_centro_tel,tuia_articulo,distancia_km,reclamado_at,perfil:perfiles!perfil_id(nombre),transporte:transportes!transporte_id(nombre)")
     .in("estado", ["reclamado", "confirmado", "en_camino"])
     .order("reclamado_at", { ascending: false });
 
@@ -145,14 +187,15 @@ export async function GET(req: Request) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const [ticketsPack, reclamosPack, tuiaData, aecApi] = await Promise.all([
+    const [ticketsPack, ashTrasladoTickets, reclamosPack, tuiaData, aecApi] = await Promise.all([
       fetchTicketsAecPendientes(supabase, limitNeeds),
+      fetchTicketsAshTraslado(supabase, limitNeeds),
       fetchReclamosActivos(supabase),
       fetchTuiaData().catch(() => ({ centros: [] as never[], insumos: [] as never[] })),
       fetchAecNeedsEnriched(),
     ]);
 
-    const ticketsRes = ticketsPack.data;
+    const ticketsRes = [...(ticketsPack.data || []), ...ashTrasladoTickets];
     const reclamos = reclamosPack.data;
     const schemaDegraded = ticketsPack.degraded || reclamosPack.degraded;
     const aecMap = aecApi;
@@ -161,36 +204,51 @@ export async function GET(req: Request) {
     const reclamosByTicket = new Map(reclamos.map((r) => [r.ticket_id, r]));
 
     const ticketsFiltrados = ticketsPack.degraded
-      ? (ticketsRes || []).filter((t) => !t.fuente_id || aecMap.has(t.fuente_id))
-      : ticketsRes || [];
+      ? (ticketsRes || []).filter((t) => {
+          const origen = detectTicketOrigenMatch(t);
+          if (origen === "ash" || origen === "traslado") return true;
+          return !t.fuente_id || aecMap.has(t.fuente_id);
+        })
+      : (ticketsRes || []).filter((t) => {
+          if (t.transporte_id && !reclamosByTicket.has(t.id)) return false;
+          return true;
+        });
 
     const needsByTicket = new Map<string, ReturnType<typeof parseAecFromApiItem>>();
+    const origenByTicket = new Map<string, TicketOrigenMatch>();
+
     for (const ticket of ticketsFiltrados) {
-      const aecNeed = aecMap.get(ticket.fuente_id || "");
-      if (aecNeed) {
-        needsByTicket.set(
-          ticket.id,
-          mergeNeedWithTicket(aecNeed, ticket)
-        );
+      const origen = detectTicketOrigenMatch(ticket);
+      origenByTicket.set(ticket.id, origen);
+
+      if (origen === "ash") {
+        needsByTicket.set(ticket.id, mergeNeedWithTicket(parseAshTicketNeed(ticket), ticket));
+      } else if (origen === "traslado") {
+        needsByTicket.set(ticket.id, mergeNeedWithTicket(parseTrasladoTicketNeed(ticket), ticket));
       } else {
-        const parsed = parseAecDescripcion(ticket.descripcion);
-        needsByTicket.set(
-          ticket.id,
-          mergeNeedWithTicket(
-            {
-              articulo: parsed.articulo || ticket.descripcion,
-              cantidad: parsed.cantidad ?? null,
-              cantidadTexto: parsed.cantidadTexto ?? null,
-              organizacion: parsed.organizacion || "Organización AEC",
-              ubicacion: "",
-              contactoNombre: null,
-              contactoTel: null,
-              contactoEmail: null,
-              categoria: ticket.categoria_externa ?? null,
-            },
-            ticket
-          )
-        );
+        const aecNeed = aecMap.get(ticket.fuente_id || "");
+        if (aecNeed) {
+          needsByTicket.set(ticket.id, mergeNeedWithTicket(aecNeed, ticket));
+        } else {
+          const parsed = parseAecDescripcion(ticket.descripcion);
+          needsByTicket.set(
+            ticket.id,
+            mergeNeedWithTicket(
+              {
+                articulo: parsed.articulo || ticket.descripcion,
+                cantidad: parsed.cantidad ?? null,
+                cantidadTexto: parsed.cantidadTexto ?? null,
+                organizacion: parsed.organizacion || "Organización AEC",
+                ubicacion: "",
+                contactoNombre: null,
+                contactoTel: null,
+                contactoEmail: null,
+                categoria: ticket.categoria_externa ?? null,
+              },
+              ticket
+            )
+          );
+        }
       }
     }
 
@@ -207,7 +265,8 @@ export async function GET(req: Request) {
     const items = [];
 
     for (const ticket of ticketsFiltrados) {
-      const need = needsByTicket.get(ticket.id)!;
+      const need = needsByTicket.get(ticket.id);
+      if (!need) continue;
       const destino = geocode && need.ubicacion ? destinoCache.get(need.ubicacion) ?? null : null;
       const ticketLat = ticket.destino_lat ?? ticket.origen_lat ?? null;
       const ticketLng = ticket.destino_lng ?? ticket.origen_lng ?? null;
@@ -222,6 +281,7 @@ export async function GET(req: Request) {
           fuente_url: ticket.fuente_url,
           prioridad: ticket.prioridad,
         },
+        origen: origenByTicket.get(ticket.id) || "aec",
         need,
         destino_lat: destino?.lat ?? ticketLat,
         destino_lng: destino?.lng ?? ticketLng,

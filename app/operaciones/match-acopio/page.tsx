@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 type MatchItem = {
+  origen: "aec" | "ash" | "traslado";
   ticket: {
     id: string;
     descripcion: string;
@@ -47,7 +48,9 @@ type MatchItem = {
   reclamo: {
     id: string;
     estado: string;
+    perfil_id: string;
     tuia_centro_nombre: string;
+    tuia_centro_tel: string | null;
     tuia_articulo: string;
     distancia_km: number | null;
     reclamado_at: string;
@@ -104,8 +107,14 @@ function etiquetaCantidad(need: MatchItem["need"]) {
   return "Cantidad N/D";
 }
 
+function etiquetaOrigen(origen: MatchItem["origen"]) {
+  if (origen === "ash") return "Ash 🌿";
+  if (origen === "traslado") return "Traslado logístico";
+  return "Ayuda en Camino";
+}
+
 function PanelNecesidad({ item }: { item: MatchItem }) {
-  const { need, ticket, destino_lat, destino_lng } = item;
+  const { need, ticket, destino_lat, destino_lng, origen } = item;
   const ub = parseUbicacion(need.ubicacion);
   const wa = need.contactoTel ? telWhatsApp(need.contactoTel) : null;
   const tieneUbicacionParseada = !!(ub.ciudad || ub.estado || ub.direccion);
@@ -117,7 +126,7 @@ function PanelNecesidad({ item }: { item: MatchItem }) {
       <div style={needStyles.panelHeader}>
         <div style={needStyles.avatar}>{iniciales(need.organizacion)}</div>
         <div style={needStyles.headerText}>
-          <span style={needStyles.kicker}>Solicitante · Ayuda en Camino</span>
+          <span style={needStyles.kicker}>Solicitante · {etiquetaOrigen(origen)}</span>
           <h4 style={needStyles.orgName}>
             {orgEsGenerica ? "Organización solicitante" : need.organizacion}
           </h4>
@@ -398,6 +407,9 @@ export default function MatchAcopioPage() {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [reclamando, setReclamando] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<string | null>(null);
+  const [respondiendo, setRespondiendo] = useState<string | null>(null);
+  const [rechazoModal, setRechazoModal] = useState<{ matchId: string; ticketId: string } | null>(null);
+  const [rechazoNota, setRechazoNota] = useState("");
   const [schemaHint, setSchemaHint] = useState<string | null>(null);
 
   const getToken = useCallback(async () => {
@@ -478,7 +490,7 @@ export default function MatchAcopioPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       await cargar(true);
-      alert("Traslado reclamado. El equipo admin fue notificado en el registro.");
+      alert("Traslado reclamado. Contacte al acopio y al solicitante, luego confirme si hará el viaje.");
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Error al reclamar");
     } finally {
@@ -508,6 +520,36 @@ export default function MatchAcopioPage() {
     }
   };
 
+  const responderReclamo = async (matchId: string, aceptar: boolean, nota?: string) => {
+    setRespondiendo(matchId);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/match-acopio/responder", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ match_id: matchId, aceptar, nota: nota || null }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setRechazoModal(null);
+      setRechazoNota("");
+      await cargar(true);
+      alert(aceptar ? "Viaje confirmado. Puede iniciarlo desde Mis Viajes." : "Rechazo registrado. El administrador fue notificado.");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al responder");
+    } finally {
+      setRespondiendo(null);
+    }
+  };
+
+  const esMiReclamo = (item: MatchItem) =>
+    esTransportista &&
+    item.reclamo?.estado === "reclamado" &&
+    item.reclamo.perfil_id === perfil?.id;
+
   const mapLink = (lat: number | null, lng: number | null, label: string) => {
     if (lat == null || lng == null) return null;
     return (
@@ -528,12 +570,12 @@ export default function MatchAcopioPage() {
         <div>
           <h2 style={styles.title}>
             <Link2 size={22} style={{ verticalAlign: "middle", marginRight: 8 }} />
-            Match Acopio AEC ↔ Tuia911
+            Match Acopio ↔ Tuia911
           </h2>
           <p style={styles.subtitle}>
             {esTransportista
-              ? "Necesidades pendientes con insumos disponibles cerca. Reclama un traslado y quedará registrado."
-              : "Empareja necesidades de Ayuda en Camino con stock Tuia911. Distancia vía OpenStreetMap (gratis)."}
+              ? "Necesidades de AEC, Ash y traslados con insumos disponibles cerca. Reclama, contacta acopio y solicitante, y confirma el viaje."
+              : "Empareja necesidades (AEC, Ash, traslados) con stock Tuia911. Distancia vía OpenStreetMap (gratis)."}
           </p>
         </div>
         <button type="button" style={styles.btnRefresh} onClick={() => cargar(true)} disabled={refreshing}>
@@ -568,7 +610,7 @@ export default function MatchAcopioPage() {
       ) : items.length === 0 ? (
         <div style={styles.empty}>
           <Package size={36} color="var(--text-muted)" />
-          <p>No hay necesidades AEC pendientes con match disponible.</p>
+          <p>No hay necesidades pendientes con match disponible (AEC, Ash o traslados).</p>
         </div>
       ) : (
         <div style={styles.list}>
@@ -582,6 +624,9 @@ export default function MatchAcopioPage() {
                     color: item.ticket.prioridad === "alta" ? "#b91c1c" : "#2563eb",
                   }}>
                     {item.ticket.prioridad.toUpperCase()}
+                  </span>
+                  <span style={{ ...styles.badge, background: "#f0fdf4", color: "#15803d", marginLeft: 6 }}>
+                    {etiquetaOrigen(item.origen)}
                   </span>
                   {item.reclamo && (
                     <span style={{ ...styles.badge, background: "#f0fdf4", color: "#16a34a", marginLeft: 6 }}>
@@ -607,12 +652,46 @@ export default function MatchAcopioPage() {
                   <div style={{ ...styles.partyBox, background: "#f0fdf4", borderColor: "#bbf7d0" }}>
                     <h4 style={styles.partyTitle}><Truck size={14} /> Traslado reclamado</h4>
                     <p style={styles.partyLine}><strong>{item.reclamo.transporte?.nombre || item.reclamo.perfil?.nombre}</strong></p>
-                    <p style={styles.partyLine}>Desde: {item.reclamo.tuia_centro_nombre}</p>
+                    <p style={styles.partyLine}>Acopio: {item.reclamo.tuia_centro_nombre}</p>
+                    {item.reclamo.tuia_centro_tel && (
+                      <p style={styles.partyLine}>
+                        <Phone size={12} /> Donante/acopio:{" "}
+                        <a href={`tel:${item.reclamo.tuia_centro_tel}`}>{item.reclamo.tuia_centro_tel}</a>
+                      </p>
+                    )}
                     <p style={styles.partyLine}>Artículo: {item.reclamo.tuia_articulo}</p>
                     {item.reclamo.distancia_km != null && (
                       <p style={styles.partyLine}>~{item.reclamo.distancia_km} km</p>
                     )}
-                    {esAdmin && item.reclamo.estado === "reclamado" && (
+
+                    {esMiReclamo(item) && (
+                      <div style={{ marginTop: 12, padding: 12, background: "#fff", borderRadius: 8, border: "1px solid #bbf7d0" }}>
+                        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#15803d" }}>
+                          Contacte al acopio y al solicitante. Luego indique si hará el viaje:
+                        </p>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            style={styles.btnConfirm}
+                            disabled={respondiendo === item.reclamo!.id}
+                            onClick={() => responderReclamo(item.reclamo!.id, true)}
+                          >
+                            <CheckCircle2 size={14} />
+                            {respondiendo === item.reclamo!.id ? "…" : "Sí, haré el viaje"}
+                          </button>
+                          <button
+                            type="button"
+                            style={{ ...styles.btnReclamar, background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" }}
+                            disabled={respondiendo === item.reclamo!.id}
+                            onClick={() => setRechazoModal({ matchId: item.reclamo!.id, ticketId: item.ticket.id })}
+                          >
+                            No puedo hacerlo
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {esAdmin && item.reclamo.estado === "reclamado" && !esMiReclamo(item) && (
                       <button
                         type="button"
                         style={styles.btnConfirm}
@@ -671,6 +750,37 @@ export default function MatchAcopioPage() {
               </div>
             </article>
           ))}
+        </div>
+      )}
+
+      {rechazoModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalBox}>
+            <h3 style={{ margin: "0 0 8px" }}>Motivo del rechazo</h3>
+            <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--text-muted)" }}>
+              Indique por qué no puede realizar este traslado. El administrador recibirá una notificación.
+            </p>
+            <textarea
+              value={rechazoNota}
+              onChange={(e) => setRechazoNota(e.target.value)}
+              placeholder="Ej: No tengo capacidad de carga para este volumen…"
+              rows={4}
+              style={styles.textarea}
+            />
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+              <button type="button" style={styles.btnRefresh} onClick={() => { setRechazoModal(null); setRechazoNota(""); }}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                style={{ ...styles.btnReclamar, background: "#b91c1c", color: "#fff" }}
+                disabled={rechazoNota.trim().length < 5 || respondiendo === rechazoModal.matchId}
+                onClick={() => responderReclamo(rechazoModal.matchId, false, rechazoNota.trim())}
+              >
+                Enviar rechazo
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -757,4 +867,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   linkDespacho: { display: "inline-block", marginTop: "8px", fontSize: "12px", color: "var(--brand)" },
   noMatch: { margin: 0, fontSize: "12px", color: "var(--text-muted)", fontStyle: "italic" },
+  modalOverlay: {
+    position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000,
+    display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+  },
+  modalBox: {
+    background: "var(--surface)", borderRadius: "var(--radius)", padding: 20,
+    maxWidth: 420, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+  },
+  textarea: {
+    width: "100%", padding: 10, borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--border)", fontSize: 13, resize: "vertical", boxSizing: "border-box",
+  },
 };

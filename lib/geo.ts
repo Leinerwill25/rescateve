@@ -95,6 +95,56 @@ export async function geocodificarLote(
   return result;
 }
 
+/** Formato corto de coords cuando no hay dirección textual. */
+export function formatoCoordsRef(lat: number, lng: number): string {
+  return `Coordenadas: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
+const reverseCache = new Map<string, string | null>();
+
+/** Geocodificación inversa vía Nominatim (dirección legible desde coords). */
+export async function reverseGeocodificar(lat: number, lng: number): Promise<string | null> {
+  const elapsed = Date.now() - lastNominatimCall;
+  if (elapsed < 1100) await sleep(1100 - elapsed);
+
+  try {
+    const url = new URL("https://nominatim.openstreetmap.org/reverse");
+    url.searchParams.set("format", "json");
+    url.searchParams.set("lat", String(lat));
+    url.searchParams.set("lon", String(lng));
+    url.searchParams.set("zoom", "16");
+    url.searchParams.set("accept-language", "es");
+
+    lastNominatimCall = Date.now();
+    const res = await fetch(url.toString(), {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      cache: "no-store",
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const name =
+      data.display_name ||
+      [data.address?.road, data.address?.suburb, data.address?.city || data.address?.town, data.address?.state]
+        .filter(Boolean)
+        .join(", ");
+
+    return name ? String(name) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Geocodificación inversa con caché de texto (separada de memCache de puntos). */
+export async function reverseGeocodificarCached(lat: number, lng: number): Promise<string | null> {
+  const key = `rev:${lat.toFixed(5)},${lng.toFixed(5)}`;
+  if (reverseCache.has(key)) return reverseCache.get(key) ?? null;
+  const name = await reverseGeocodificar(lat, lng);
+  reverseCache.set(key, name);
+  return name;
+}
+
 /** Extrae punto de centro Tuia911 si tiene coords. */
 export function puntoCentroTuia(c: {
   lat?: number | null;

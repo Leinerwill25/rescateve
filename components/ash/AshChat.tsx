@@ -11,12 +11,15 @@ import {
   createAshDraft,
   getQuickReplies,
   markDone,
+  normalizeAshDraft,
+  inputPlaceholderForStep,
   setContacto,
   setUbicacion,
   type AshDraft,
 } from "@/lib/ash-flow";
 import { loadAshDraft, saveAshDraft, clearAshDraft } from "@/lib/ash-storage";
 import { detectarEmergenciaVital, MENSAJE_EMERGENCIA_171 } from "@/lib/ash-emergency";
+import { formatoCoordsRef, reverseGeocodificarCached } from "@/lib/geo";
 import AshAvatar from "./AshAvatar";
 import AshLocationStep from "./AshLocationStep";
 
@@ -35,6 +38,7 @@ export default function AshChat({ open, onClose, onMinimize }: Props) {
   const [contactTel, setContactTel] = useState("");
   const [locLat, setLocLat] = useState<number | null>(null);
   const [locLng, setLocLng] = useState<number | null>(null);
+  const [confirmandoUbic, setConfirmandoUbic] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -42,11 +46,12 @@ export default function AshChat({ open, onClose, onMinimize }: Props) {
     if (!open) return;
     const saved = loadAshDraft();
     if (saved && saved.step !== "done") {
-      setDraft(saved);
-      setContactNombre(saved.contacto_nombre);
-      setContactTel(saved.contacto_solicitante);
-      setLocLat(saved.destino_lat);
-      setLocLng(saved.destino_lng);
+      const normalized = normalizeAshDraft(saved as AshDraft & { cantidad?: unknown });
+      setDraft(normalized);
+      setContactNombre(normalized.contacto_nombre);
+      setContactTel(normalized.contacto_solicitante);
+      setLocLat(normalized.destino_lat);
+      setLocLng(normalized.destino_lng);
     } else {
       const fresh = createAshDraft(getReporterToken());
       setDraft(fresh);
@@ -113,9 +118,11 @@ export default function AshChat({ open, onClose, onMinimize }: Props) {
     }
 
     setTyping(true);
+    const parseStep =
+      draft.step === "greeting" || draft.step === "detail" || draft.step === "detalle";
     const [toneRes, parseRes] = await Promise.all([
       callAshAi(text, draft.step, "tone"),
-      draft.step === "greeting" || draft.step === "detail" ? callAshAi(text, draft.step, "parse") : null,
+      parseStep ? callAshAi(text, draft.step, "parse") : null,
     ]);
     setTyping(false);
 
@@ -141,14 +148,23 @@ export default function AshChat({ open, onClose, onMinimize }: Props) {
     saveAshDraft(next);
   };
 
-  const handleUbicacionConfirm = () => {
+  const handleUbicacionConfirm = async (referenciaManual: string) => {
     if (!draft || locLat == null || locLng == null) {
       setError("Marca un punto en el mapa o usa el GPS.");
       return;
     }
-    const next = setUbicacion(draft, locLat, locLng);
-    setDraft(next);
-    saveAshDraft(next);
+    setConfirmandoUbic(true);
+    setError(null);
+    try {
+      const refManual = referenciaManual.trim();
+      const refGeo = refManual ? null : await reverseGeocodificarCached(locLat, locLng);
+      const ref = refManual || refGeo || formatoCoordsRef(locLat, locLng);
+      const next = setUbicacion(draft, locLat, locLng, ref);
+      setDraft(next);
+      saveAshDraft(next);
+    } finally {
+      setConfirmandoUbic(false);
+    }
   };
 
   const handleContactoConfirm = () => {
@@ -169,12 +185,12 @@ export default function AshChat({ open, onClose, onMinimize }: Props) {
       const res = await fetch("/api/ash/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft }),
+        body: JSON.stringify({ draft: normalizeAshDraft(draft as AshDraft & { cantidad?: unknown }) }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "No se pudo registrar");
 
-      const done = markDone(draft);
+      const done = markDone(normalizeAshDraft(draft as AshDraft & { cantidad?: unknown }));
       setDraft(done);
       clearAshDraft();
     } catch (err: unknown) {
@@ -195,6 +211,7 @@ export default function AshChat({ open, onClose, onMinimize }: Props) {
   const quickReplies = getQuickReplies(draft);
   const showInput = !["ubicacion", "contacto", "done"].includes(draft.step);
   const showPersonasOmit = draft.step === "personas";
+  const placeholder = inputPlaceholderForStep(draft.step);
 
   return (
     <div className="ash-panel" role="dialog" aria-label="Chat con Ash">
@@ -249,6 +266,7 @@ export default function AshChat({ open, onClose, onMinimize }: Props) {
           lng={locLng}
           onChange={(la, ln) => { setLocLat(la); setLocLng(ln); }}
           onConfirm={handleUbicacionConfirm}
+          confirming={confirmandoUbic}
         />
       )}
 
@@ -310,7 +328,7 @@ export default function AshChat({ open, onClose, onMinimize }: Props) {
           <input
             type="text"
             className="ash-input"
-            placeholder="Escribe aquí (opcional)…"
+            placeholder={placeholder}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={submitting || draft.step === "done"}

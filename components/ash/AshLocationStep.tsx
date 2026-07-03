@@ -7,15 +7,13 @@ type Props = {
   lat: number | null;
   lng: number | null;
   onChange: (lat: number, lng: number) => void;
-  onConfirm: () => void;
+  onConfirm: (referencia: string) => void;
+  confirming?: boolean;
 };
 
-/**
- * Mapa embebido en Ash — import estático (evita ChunkLoadError de next/dynamic en dev)
- * y montaje diferido para que Leaflet calcule bien el tamaño del contenedor.
- */
-export default function AshLocationStep({ lat, lng, onChange, onConfirm }: Props) {
+export default function AshLocationStep({ lat, lng, onChange, onConfirm, confirming }: Props) {
   const [mounted, setMounted] = useState(false);
+  const [referencia, setReferencia] = useState("");
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setMounted(true));
@@ -30,8 +28,23 @@ export default function AshLocationStep({ lat, lng, onChange, onConfirm }: Props
       ) : (
         <p className="ash-widget__loading">Cargando mapa…</p>
       )}
-      <button type="button" className="ash-btn ash-btn--primary" onClick={onConfirm}>
-        Confirmar ubicación
+      <input
+        type="text"
+        className="ash-input"
+        placeholder="Referencia del lugar (ej. Polideportivo Chacao, Av. Principal)"
+        value={referencia}
+        onChange={(e) => setReferencia(e.target.value)}
+      />
+      <p className="ash-widget__hint">
+        Opcional: escribe el nombre del lugar. Si lo dejas vacío, usamos la dirección del mapa.
+      </p>
+      <button
+        type="button"
+        className="ash-btn ash-btn--primary"
+        onClick={() => onConfirm(referencia)}
+        disabled={confirming || lat == null || lng == null}
+      >
+        {confirming ? "Obteniendo dirección…" : "Confirmar ubicación"}
       </button>
     </div>
   );

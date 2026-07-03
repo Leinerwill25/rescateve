@@ -1,6 +1,6 @@
 import { Ticket } from "@/lib/types-operations";
 
-export type FiltroOrigen = "todos" | "traslados" | "ayuda_en_camino";
+export type FiltroOrigen = "todos" | "traslados" | "ayuda_en_camino" | "ash";
 export type FiltroExterno = "todos" | "pendiente" | "cubierta";
 export type FiltroOrden = "recientes" | "importantes" | "criticos";
 
@@ -35,6 +35,13 @@ export function esTicketAEC(t: Ticket): boolean {
   return t.fuente === "ayuda_en_camino";
 }
 
+/** Solicitudes registradas por el asistente Ash (fuente publico + id ash:…). */
+export function esTicketAsh(t: Ticket): boolean {
+  if (t.fuente !== "publico") return false;
+  if (t.fuente_id?.startsWith("ash:")) return true;
+  return t.descripcion.startsWith("[Ash");
+}
+
 export function esTicketCritico(t: Ticket): boolean {
   if (t.estado !== "en_validacion") return false;
   const edad = Date.now() - new Date(t.created_at).getTime();
@@ -63,6 +70,7 @@ export function filtrarTickets(
   let result = tickets.filter((t) => {
     if (filtroOrigen === "traslados" && !esTicketTraslado(t, ctx)) return false;
     if (filtroOrigen === "ayuda_en_camino" && !esTicketAEC(t)) return false;
+    if (filtroOrigen === "ash" && !esTicketAsh(t)) return false;
 
     if (filtroExterno !== "todos" && esTicketAEC(t)) {
       const estExt = t.estado_externo || "pendiente";
@@ -98,7 +106,8 @@ export function contarPorOrigen(
 ) {
   const traslados = tickets.filter((t) => esTicketTraslado(t, ctx)).length;
   const aec = tickets.filter(esTicketAEC).length;
-  return { total: tickets.length, traslados, aec };
+  const ash = tickets.filter(esTicketAsh).length;
+  return { total: tickets.length, traslados, aec, ash };
 }
 
 export function contarPorEstadoExterno(tickets: Ticket[], scope: FiltroOrigen) {

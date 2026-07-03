@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { ashRateLimit } from "@/lib/ash-rate-limit";
 import { insertAshTickets } from "@/lib/ash-submit";
-import type { AshDraft } from "@/lib/ash-flow";
+import { normalizeAshDraft, type AshDraft } from "@/lib/ash-flow";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const draft = body.draft as AshDraft | undefined;
+    const draft = normalizeAshDraft(body.draft as AshDraft & { cantidad?: unknown });
 
     if (!draft?.grupo_id || !draft.reporter_token) {
       return NextResponse.json({ error: "Datos incompletos." }, { status: 400 });

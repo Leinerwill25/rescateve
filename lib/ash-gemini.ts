@@ -42,7 +42,7 @@ export type AshParsedFields = {
   rama?: "insumos" | "personal" | "unsure";
   subtipo?: string;
   para_quien?: "centro_acopio" | "refugio" | "persona_familia";
-  cantidad?: "poco" | "medio" | "mucho";
+  detalle?: string;
   personas?: number;
   prioridad?: "alta" | "media" | "baja";
   nota?: string;
@@ -54,7 +54,7 @@ export async function ashParseFreeText(text: string): Promise<AshParsedFields | 
   try {
     const result = await model.generateContent(
       `Extrae datos de esta solicitud. Devuelve SOLO JSON válido sin markdown, con campos opcionales:
-{ "rama": "insumos"|"personal"|"unsure", "subtipo": string, "para_quien": "centro_acopio"|"refugio"|"persona_familia", "cantidad": "poco"|"medio"|"mucho", "personas": number, "prioridad": "alta"|"media"|"baja", "nota": string }
+{ "rama": "insumos"|"personal"|"unsure", "subtipo": string, "para_quien": "centro_acopio"|"refugio"|"persona_familia", "detalle": string, "personas": number, "prioridad": "alta"|"media"|"baja", "nota": string }
 
 Texto: "${text.replace(/"/g, "'")}"`
     );

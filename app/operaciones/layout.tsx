@@ -229,7 +229,7 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
         { label: "Tablero Despacho", href: "/operaciones/despacho", icon: <Truck size={18} /> },
         { label: "Combustible", href: "/operaciones/combustible", icon: <Fuel size={18} /> },
         { label: "Acopio Tuia911", href: "/operaciones/tuia-acopio", icon: <Warehouse size={18} /> },
-        { label: "Match Acopio AEC", href: "/operaciones/match-acopio", icon: <Link2 size={18} /> },
+        { label: "Match Acopio", href: "/operaciones/match-acopio", icon: <Link2 size={18} /> },
         { label: "Reglas Ruteo", href: "/operaciones/reglas", icon: <Sliders size={18} /> },
         { label: "Recursos y Fichas", href: "/operaciones/recursos", icon: <Briefcase size={18} /> },
         { label: "Historial Auditoría", href: "/operaciones/auditoria", icon: <History size={18} /> },
@@ -237,7 +237,7 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
     } else if (perfil.rol === "transportista") {
       return [
         { label: "Mis Viajes", href: "/operaciones/mis-viajes", icon: <Truck size={18} /> },
-        { label: "Match Acopio AEC", href: "/operaciones/match-acopio", icon: <Link2 size={18} /> },
+        { label: "Match Acopio", href: "/operaciones/match-acopio", icon: <Link2 size={18} /> },
         { label: "Configuración", href: "/operaciones/configuracion", icon: <Settings size={18} /> },
       ];
     } else if (perfil.rol === "medico") {
@@ -313,9 +313,11 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
                           ...styles.notifItem,
                           backgroundColor: n.estado === "pendiente" ? "var(--brand-soft)" : "transparent"
                         }}>
-                          <p style={{ margin: 0, fontSize: "12px", fontWeight: 600 }}>Nueva asignación</p>
+                          <p style={{ margin: 0, fontSize: "12px", fontWeight: 600 }}>
+                            {n.destinatario_tipo === "admin" ? "Alerta de operaciones" : "Nueva asignación"}
+                          </p>
                           <p style={{ margin: 0, fontSize: "11px", color: "var(--text-muted)" }}>
-                            Revisa tu consola de trabajo para aceptar el ticket.
+                            {n.mensaje || "Revisa tu consola de trabajo para aceptar el ticket."}
                           </p>
                           <span style={{ fontSize: "9px", color: "var(--text-muted)" }}>
                             {new Date(n.created_at).toLocaleTimeString()}

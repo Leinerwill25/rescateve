@@ -19,7 +19,8 @@ import {
   Fuel,
   Camera,
   ImagePlus,
-  X
+  X,
+  Package
 } from "lucide-react";
 
 export default function MisViajesPage() {
@@ -47,6 +48,18 @@ export default function MisViajesPage() {
   const [entregaLoading, setEntregaLoading] = useState(false);
   const [entregaError, setEntregaError] = useState("");
   const entregaFileRef = useRef<HTMLInputElement>(null);
+  type MatchAcopioInfo = {
+    id: string;
+    ticket_id: string;
+    estado: string;
+    tuia_centro_nombre: string | null;
+    tuia_centro_tel: string | null;
+    tuia_articulo: string;
+  };
+  const [matchByTicket, setMatchByTicket] = useState<Map<string, MatchAcopioInfo>>(new Map());
+  const [rechazoTicketId, setRechazoTicketId] = useState<string | null>(null);
+  const [rechazoNota, setRechazoNota] = useState("");
+  const [rechazoLoading, setRechazoLoading] = useState(false);
   // Modal de Alerta / Confirmación personalizado
   const [customModal, setCustomModal] = useState<{
     show: boolean;
@@ -118,19 +131,33 @@ export default function MisViajesPage() {
 
         const ids = (ticketsData || []).map((t) => t.id);
         if (ids.length > 0) {
-          const { data: sols } = await supabase
-            .from("solicitudes_gasolina")
-            .select("ticket_id")
-            .in("ticket_id", ids)
-            .in("estado", ["pendiente", "pendiente_autorizacion"]);
+          const [{ data: sols }, { data: matches }] = await Promise.all([
+            supabase
+              .from("solicitudes_gasolina")
+              .select("ticket_id")
+              .in("ticket_id", ids)
+              .in("estado", ["pendiente", "pendiente_autorizacion"]),
+            supabase
+              .from("match_traslados_acopio")
+              .select("id,ticket_id,estado,tuia_centro_nombre,tuia_centro_tel,tuia_articulo")
+              .in("ticket_id", ids)
+              .in("estado", ["reclamado", "confirmado", "en_camino"]),
+          ]);
           setSolicitudesPendientes(new Set((sols || []).map((s) => s.ticket_id).filter(Boolean)));
+          const matchMap = new Map<string, MatchAcopioInfo>();
+          for (const m of matches || []) {
+            matchMap.set(m.ticket_id, m as MatchAcopioInfo);
+          }
+          setMatchByTicket(matchMap);
         } else {
           setSolicitudesPendientes(new Set());
+          setMatchByTicket(new Map());
         }
       } else {
         setTransporteFicha(null);
         setTickets([]);
         setSolicitudesPendientes(new Set());
+        setMatchByTicket(new Map());
       }
     } catch (err) {
       console.error("Error al cargar viajes:", err);
@@ -206,16 +233,42 @@ export default function MisViajesPage() {
   };
 
   const handleCambiarEstado = async (ticketId: string, nuevoEstado: string) => {
-    const confirmMsg = nuevoEstado === "rechazado" 
-      ? "¿Está seguro de rechazar este viaje? Se devolverá a la cola del administrador."
-      : `¿Cambiar el estado del viaje a ${nuevoEstado.toUpperCase()}?`;
+    if (nuevoEstado === "rechazado") {
+      setRechazoTicketId(ticketId);
+      setRechazoNota("");
+      return;
+    }
 
+    const confirmMsg = `¿Cambiar el estado del viaje a ${nuevoEstado.toUpperCase()}?`;
     if (!(await showCustomConfirm(confirmMsg))) return;
+
+    const match = matchByTicket.get(ticketId);
+    if (nuevoEstado === "aceptado" && match?.estado === "reclamado") {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch("/api/match-acopio/responder", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ match_id: match.id, aceptar: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        await supabase.rpc("actualizar_disponibilidad_transporte", { p_en_standby: false });
+        showCustomAlert("Viaje confirmado correctamente.");
+        cargarDatos();
+      } catch (err: unknown) {
+        showCustomAlert(`Error: ${err instanceof Error ? err.message : "desconocido"}`);
+      }
+      return;
+    }
 
     try {
       const { error } = await supabase.rpc("actualizar_estado_ticket", {
         p_id: ticketId,
-        p_estado: nuevoEstado
+        p_estado: nuevoEstado,
       });
 
       if (error) throw error;
@@ -226,8 +279,44 @@ export default function MisViajesPage() {
 
       showCustomAlert("Estado actualizado correctamente.");
       cargarDatos();
-    } catch (err: any) {
-      showCustomAlert(`Error al actualizar estado: ${err.message}`);
+    } catch (err: unknown) {
+      showCustomAlert(`Error al actualizar estado: ${err instanceof Error ? err.message : "desconocido"}`);
+    }
+  };
+
+  const submitRechazo = async () => {
+    if (!rechazoTicketId || rechazoNota.trim().length < 5) return;
+    setRechazoLoading(true);
+    try {
+      const match = matchByTicket.get(rechazoTicketId);
+      if (match?.estado === "reclamado") {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch("/api/match-acopio/responder", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ match_id: match.id, aceptar: false, nota: rechazoNota.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+      } else {
+        const { error } = await supabase.rpc("actualizar_estado_ticket", {
+          p_id: rechazoTicketId,
+          p_estado: "rechazado",
+          p_nota: rechazoNota.trim(),
+        });
+        if (error) throw error;
+      }
+      setRechazoTicketId(null);
+      setRechazoNota("");
+      showCustomAlert("Rechazo registrado. El administrador fue notificado.");
+      cargarDatos();
+    } catch (err: unknown) {
+      showCustomAlert(`Error: ${err instanceof Error ? err.message : "desconocido"}`);
+    } finally {
+      setRechazoLoading(false);
     }
   };
 
@@ -350,6 +439,7 @@ export default function MisViajesPage() {
             const mapUrl = t.origen_lat && t.origen_lng
               ? `https://www.google.com/maps/dir/?api=1&origin=${t.origen_lat},${t.origen_lng}&destination=${t.destino_lat || t.origen_lat},${t.destino_lng || t.origen_lng}`
               : null;
+            const match = matchByTicket.get(t.id);
 
             return (
               <div key={t.id} style={styles.card}>
@@ -377,8 +467,27 @@ export default function MisViajesPage() {
                     )}
                     <div style={styles.metaItem}>
                       <Phone size={16} />
-                      <span><strong>Contacto:</strong> {t.contacto_solicitante || "No registrado"}</span>
+                      <span><strong>Solicitante:</strong> {t.contacto_solicitante || "No registrado"}</span>
                     </div>
+                    {match && (
+                      <div style={styles.acopioBanner}>
+                        <Package size={16} color="#15803d" />
+                        <div>
+                          <strong>Acopio/donante:</strong> {match.tuia_centro_nombre}
+                          {match.tuia_centro_tel && (
+                            <span> · <a href={`tel:${match.tuia_centro_tel}`}>{match.tuia_centro_tel}</a></span>
+                          )}
+                          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                            Artículo: {match.tuia_articulo}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {t.estado === "asignado" && match?.estado === "reclamado" && (
+                      <p style={styles.contactHint}>
+                        Contacte al acopio y al solicitante antes de confirmar el viaje.
+                      </p>
+                    )}
                   </div>
 
                   {t.estado === "en_camino" && (
@@ -661,6 +770,44 @@ export default function MisViajesPage() {
         </div>
       )}
 
+      {rechazoTicketId && (
+        <div style={styles.modalOverlay} className="ops-modal-overlay">
+          <div style={{ ...styles.modal, maxWidth: "420px", width: "95%" }} className="ops-modal">
+            <div style={styles.modalHeader}>
+              <h3 style={{ margin: 0 }}>Motivo del rechazo</h3>
+              <button type="button" style={styles.closeBtn} onClick={() => { setRechazoTicketId(null); setRechazoNota(""); }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={styles.modalBody}>
+              <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--text-muted)" }}>
+                Indique por qué no puede realizar este viaje. El administrador recibirá una notificación.
+              </p>
+              <textarea
+                value={rechazoNota}
+                onChange={(e) => setRechazoNota(e.target.value)}
+                placeholder="Ej: El acopio no tiene stock disponible…"
+                rows={4}
+                style={{ ...styles.input, width: "100%", resize: "vertical", boxSizing: "border-box" }}
+              />
+            </div>
+            <div style={styles.modalActions} className="ops-modal-actions">
+              <button type="button" style={styles.btnSecondary} onClick={() => { setRechazoTicketId(null); setRechazoNota(""); }}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                style={styles.btnDanger}
+                disabled={rechazoNota.trim().length < 5 || rechazoLoading}
+                onClick={submitRechazo}
+              >
+                {rechazoLoading ? "Enviando…" : "Enviar rechazo"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Alerta / Confirmación Personalizado */}
       {customModal && customModal.show && (
         <div style={styles.modalOverlay} className="ops-modal-overlay">
@@ -821,6 +968,23 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "var(--s2)",
     fontSize: "12px",
     color: "var(--text)",
+  },
+  acopioBanner: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "8px",
+    padding: "10px",
+    borderRadius: "var(--radius-sm)",
+    background: "#f0fdf4",
+    border: "1px solid #bbf7d0",
+    fontSize: "12px",
+  },
+  contactHint: {
+    margin: "4px 0 0",
+    fontSize: "11px",
+    color: "#15803d",
+    fontWeight: 600,
+    fontStyle: "italic",
   },
   cardActions: {
     display: "flex",

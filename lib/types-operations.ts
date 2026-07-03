@@ -215,7 +215,7 @@ export type Notificacion = {
   id: string;
   ticket_id: string;
   created_at: string;
-  destinatario_tipo: "transportista" | "medico" | "departamento";
+  destinatario_tipo: "transportista" | "medico" | "departamento" | "admin";
   destinatario_id: string | null;
   canal: "in_app" | "whatsapp" | "llamada";
   mensaje: string | null;

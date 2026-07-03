@@ -43,12 +43,132 @@ const STOP_WORDS = new Set([
 const CATEGORIA_MAP: Record<string, string[]> = {
   medicinas: ["medicina"],
   medicina: ["medicina"],
+  insumo_medico: ["medicina"],
   alimentos: ["alimento"],
   alimento: ["alimento"],
+  insumo_basico: ["alimento", "agua", "lenceria"],
   agua: ["agua"],
   higiene: ["lenceria", "alimento"],
   otro: [],
 };
+
+export type TicketOrigenMatch = "aec" | "ash" | "traslado";
+
+export function esTicketAshMatch(ticket: {
+  fuente: string;
+  fuente_id?: string | null;
+  descripcion: string;
+}): boolean {
+  if (ticket.fuente !== "publico") return false;
+  if (ticket.fuente_id?.startsWith("ash:")) return true;
+  return ticket.descripcion.startsWith("[Ash");
+}
+
+export function esTicketTrasladoMatch(ticket: {
+  fuente: string;
+  cuando?: string | null;
+}): boolean {
+  if (ticket.fuente === "traslado") return true;
+  return ticket.fuente === "manual" && !!ticket.cuando;
+}
+
+export function detectTicketOrigenMatch(ticket: {
+  fuente: string;
+  fuente_id?: string | null;
+  descripcion: string;
+  cuando?: string | null;
+}): TicketOrigenMatch {
+  if (ticket.fuente === "ayuda_en_camino") return "aec";
+  if (esTicketAshMatch(ticket)) return "ash";
+  if (esTicketTrasladoMatch(ticket)) return "traslado";
+  return "aec";
+}
+
+function ashSubtipoToCategoria(subtipo: string): string | null {
+  const s = subtipo.toLowerCase();
+  if (s.includes("medicament")) return "medicinas";
+  if (s.includes("agua")) return "agua";
+  if (s.includes("aliment")) return "alimentos";
+  if (s.includes("higiene") || s.includes("ropa")) return "higiene";
+  return null;
+}
+
+export function parseAshTicketNeed(ticket: {
+  descripcion: string;
+  cantidad?: string | null;
+  categoria_sugerida?: string | null;
+  origen_ref?: string | null;
+  destino_ref?: string | null;
+  contacto_solicitante?: string | null;
+}): AecNeedParsed {
+  const subMatch = ticket.descripcion.match(/\[Ash · [^:]+: ([^\]]+)\]/i);
+  const subtipo = subMatch?.[1]?.trim() || ticket.descripcion.slice(0, 80);
+  const detalleMatch = ticket.descripcion.match(/(?:Detalle|Cantidad):\s*([^·]+)/i);
+  const ubicMatch = ticket.descripcion.match(/Ubicación:\s*([^·]+)/i);
+
+  let contactoNombre: string | null = null;
+  let contactoTel: string | null = null;
+  const contacto = ticket.contacto_solicitante?.trim();
+  if (contacto) {
+    const parts = contacto.split(" · ");
+    if (parts.length >= 2 && /\d/.test(parts[parts.length - 1])) {
+      contactoNombre = parts.slice(0, -1).join(" · ");
+      contactoTel = parts[parts.length - 1];
+    } else if (/\d/.test(contacto)) {
+      contactoTel = contacto;
+    } else {
+      contactoNombre = contacto;
+    }
+  }
+
+  return {
+    articulo: detalleMatch?.[1]?.trim() || subtipo,
+    cantidad: null,
+    cantidadTexto: ticket.cantidad?.trim() || detalleMatch?.[1]?.trim() || null,
+    organizacion: "Solicitud Ash",
+    ubicacion:
+      ubicMatch?.[1]?.trim() ||
+      ticket.origen_ref?.trim() ||
+      ticket.destino_ref?.trim() ||
+      "",
+    contactoNombre,
+    contactoTel,
+    contactoEmail: null,
+    categoria:
+      ashSubtipoToCategoria(subtipo) ||
+      (ticket.categoria_sugerida === "insumo_medico" ? "medicinas" : "higiene"),
+  };
+}
+
+export function parseTrasladoTicketNeed(ticket: {
+  descripcion: string;
+  cantidad?: string | null;
+  categoria_sugerida?: string | null;
+  categoria_final?: string | null;
+  origen_ref?: string | null;
+  destino_ref?: string | null;
+  contacto_solicitante?: string | null;
+}): AecNeedParsed {
+  const cat = ticket.categoria_final || ticket.categoria_sugerida;
+  let categoria: string | null = null;
+  if (cat === "insumo_medico") categoria = "medicinas";
+  else if (cat === "insumo_basico") categoria = "alimentos";
+
+  return {
+    articulo: ticket.descripcion.trim() || "Traslado logístico",
+    cantidad: null,
+    cantidadTexto: ticket.cantidad?.trim() || null,
+    organizacion: "Traslado logístico",
+    ubicacion:
+      ticket.destino_ref?.trim() ||
+      ticket.origen_ref?.trim() ||
+      "",
+    contactoNombre: null,
+    contactoTel: ticket.contacto_solicitante?.trim() || null,
+    contactoEmail: null,
+    categoria,
+  };
+}
 
 export function parseAecDescripcion(descripcion: string): Partial<AecNeedParsed> {
   const articuloMatch = descripcion.match(/\[Artículo:\s*([^\]]+)\]/i);
