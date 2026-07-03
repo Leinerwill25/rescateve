@@ -102,7 +102,7 @@ export default function LogisticsKpisSection() {
               </span>
               {!loading && kpis.tiempo_promedio_horas == null && (
                 <span className="logistics-kpi-band__secondary-hint">
-                  Aún no hay viajes con transportista asignado en el sistema
+                  Solo traslados logísticos con transportista asignado
                 </span>
               )}
             </div>

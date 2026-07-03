@@ -24,6 +24,7 @@ type TicketRow = {
   fuente: string;
   created_at: string;
   aec_created_at: string | null;
+  cuando: string | null;
   transporte_id: string | null;
   categoria_final: string | null;
   categoria_sugerida: string | null;
@@ -73,7 +74,15 @@ function zonaTicket(t: TicketRow): string | null {
 }
 
 function inicioTicket(t: TicketRow): number {
-  return new Date(t.aec_created_at || t.created_at).getTime();
+  return new Date(t.created_at).getTime();
+}
+
+/** Traslado logístico (excluye Ayuda en Camino y Ash). */
+function esTicketTrasladoLogistico(t: TicketRow): boolean {
+  if (t.fuente === "ayuda_en_camino") return false;
+  if (t.fuente === "traslado") return true;
+  if (t.fuente === "manual" && t.cuando) return true;
+  return false;
 }
 
 /** Agrega KPIs desde tickets (fallback si el RPC no existe o falla). */
@@ -123,7 +132,7 @@ export function computeLogisticsKpisFromTickets(
     }
     if (ESTADOS_EN_RUTA.has(t.estado) && t.transporte_id) en_ruta_ahora++;
 
-    if (t.transporte_id) {
+    if (t.transporte_id && esTicketTrasladoLogistico(t)) {
       const asignadoAt = asignacionPorTicket.get(t.id);
       if (asignadoAt != null) {
         const horas = (asignadoAt - inicioTicket(t)) / 3_600_000;
@@ -204,7 +213,7 @@ export async function fetchLogisticsKpisFallback(): Promise<LogisticsKpis> {
     supabase
       .from("tickets")
       .select(
-        "id,estado,fuente,created_at,aec_created_at,transporte_id,categoria_final,categoria_sugerida,categoria_externa,destino_ref,ubicacion_externa,origen_ref,evidencia_entrega_url"
+        "id,estado,fuente,created_at,aec_created_at,cuando,transporte_id,categoria_final,categoria_sugerida,categoria_externa,destino_ref,ubicacion_externa,origen_ref,evidencia_entrega_url"
       ),
     supabase
       .from("ticket_historial")
