@@ -43,7 +43,8 @@ export default function TuiaAcopioPage() {
   const [metaCentros, setMetaCentros] = useState<TuiaMeta | null>(null);
   const [metaInsumos, setMetaInsumos] = useState<TuiaMeta | null>(null);
   const [healthOk, setHealthOk] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingCentros, setLoadingCentros] = useState(true);
+  const [loadingInsumos, setLoadingInsumos] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
@@ -104,35 +105,85 @@ export default function TuiaAcopioPage() {
     return json.fetched_at as string;
   }, [fetchApi, centroSel, categoria, debouncedQ]);
 
-  const cargarTodo = useCallback(
+  const cargarHealth = useCallback(async () => {
+    const json = await fetchApi("health");
+    setHealthOk(json?.data?.status === "ok");
+    return json;
+  }, [fetchApi]);
+
+  const cargarCentrosOnly = useCallback(
     async (silent = false) => {
-      if (!silent) setLoading(true);
+      if (!silent) setLoadingCentros(true);
       else setRefreshing(true);
       setError(null);
       try {
-        const [healthJson, tsCentros, tsInsumos] = await Promise.all([
-          fetchApi("health"),
-          cargarCentros(),
-          cargarInsumos(),
-        ]);
-        setHealthOk(healthJson?.data?.status === "ok");
-        setLastSync(tsCentros || tsInsumos || new Date().toISOString());
+        const ts = await cargarCentros();
+        setLastSync(ts);
         setCountdown(REFRESH_MS / 1000);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Error al cargar centros";
+        setError(msg);
+      } finally {
+        setLoadingCentros(false);
+        setRefreshing(false);
+      }
+    },
+    [cargarCentros]
+  );
+
+  const cargarInsumosOnly = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoadingInsumos(true);
+      setError(null);
+      try {
+        const ts = await cargarInsumos();
+        setLastSync(ts);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Error al cargar inventario";
+        setError(msg);
+      } finally {
+        setLoadingInsumos(false);
+      }
+    },
+    [cargarInsumos]
+  );
+
+  const cargarTodo = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoadingCentros(true);
+      else setRefreshing(true);
+      setError(null);
+      try {
+        await Promise.all([
+          cargarHealth().catch(() => setHealthOk(false)),
+          cargarCentros(),
+        ]);
+        setCountdown(REFRESH_MS / 1000);
+        if (tab === "insumos") {
+          await cargarInsumos();
+        }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Error al cargar datos Tuia911";
         setError(msg);
         setHealthOk(false);
       } finally {
-        setLoading(false);
+        setLoadingCentros(false);
         setRefreshing(false);
       }
     },
-    [fetchApi, cargarCentros, cargarInsumos]
+    [cargarHealth, cargarCentros, cargarInsumos, tab]
   );
 
   useEffect(() => {
-    cargarTodo();
-  }, [cargarTodo]);
+    cargarHealth().catch(() => setHealthOk(false));
+    cargarCentrosOnly();
+  }, [filtroTipo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (tab === "insumos") {
+      cargarInsumosOnly();
+    }
+  }, [tab, centroSel, categoria, debouncedQ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -292,7 +343,7 @@ export default function TuiaAcopioPage() {
             </select>
           </div>
 
-          {loading ? (
+          {loadingCentros ? (
             <div style={styles.center}><div style={styles.spinner} /></div>
           ) : centrosFiltrados.length === 0 ? (
             <div style={styles.empty}>No hay centros que coincidan con el filtro.</div>
@@ -407,7 +458,7 @@ export default function TuiaAcopioPage() {
             </p>
           )}
 
-          {loading ? (
+          {loadingInsumos ? (
             <div style={styles.center}><div style={styles.spinner} /></div>
           ) : insumos.length === 0 ? (
             <div style={styles.empty}>No hay insumos con los filtros actuales.</div>

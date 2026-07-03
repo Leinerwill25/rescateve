@@ -1,33 +1,43 @@
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getApiSession } from "@/lib/auth-api";
+import { cacheFetch } from "@/lib/server-cache";
 import { fetchTuiaCentros, fetchTuiaInsumos } from "@/lib/tuia911";
 import {
+  buildCentroPointsMap,
   calcularMatches,
   parseAecDescripcion,
   parseAecFromApiItem,
-  resolverPuntoCentro,
 } from "@/lib/match-acopio";
 import { geocodificar, GeoPoint } from "@/lib/geo";
 
+const TICKET_COLS =
+  "id,descripcion,estado,fuente_url,prioridad,fuente_id,ubicacion_externa,contacto_solicitante,categoria_externa";
+
 async function fetchAecNeedsEnriched() {
-  try {
-    const res = await fetch("https://ayudaencamino.com/api/needs", {
-      headers: { "User-Agent": "RescateVE-Match/1.0 (+https://rescate-ve.vercel.app)" },
-      cache: "no-store",
-    });
-    if (!res.ok) return new Map<string, ReturnType<typeof parseAecFromApiItem>>();
-    const data = await res.json();
-    if (!Array.isArray(data)) return new Map();
-    const map = new Map<string, ReturnType<typeof parseAecFromApiItem>>();
-    for (const item of data) {
-      if (item.status === "cumplida") continue;
-      map.set(String(item.id), parseAecFromApiItem(item));
-    }
-    return map;
-  } catch {
-    return new Map();
-  }
+  return cacheFetch(
+    "aec:needs",
+    async () => {
+      try {
+        const res = await fetch("https://ayudaencamino.com/api/needs", {
+          headers: { "User-Agent": "RescateVE-Match/1.0 (+https://rescate-ve.vercel.app)" },
+          next: { revalidate: 60 },
+        });
+        if (!res.ok) return new Map<string, ReturnType<typeof parseAecFromApiItem>>();
+        const data = await res.json();
+        if (!Array.isArray(data)) return new Map();
+        const map = new Map<string, ReturnType<typeof parseAecFromApiItem>>();
+        for (const item of data) {
+          if (item.status === "cumplida") continue;
+          map.set(String(item.id), parseAecFromApiItem(item));
+        }
+        return map;
+      } catch {
+        return new Map();
+      }
+    },
+    60_000
+  );
 }
 
 export const dynamic = "force-dynamic";
@@ -47,7 +57,7 @@ async function fetchTicketsAecPendientes(
 ) {
   let query = supabase
     .from("tickets")
-    .select("*")
+    .select(TICKET_COLS)
     .eq("fuente", "ayuda_en_camino")
     .neq("estado", "completado")
     .neq("estado", "rechazado")
@@ -64,7 +74,7 @@ async function fetchTicketsAecPendientes(
   if (withExterno.error.code === "42703") {
     const fallback = await supabase
       .from("tickets")
-      .select("*")
+      .select(TICKET_COLS)
       .eq("fuente", "ayuda_en_camino")
       .neq("estado", "completado")
       .neq("estado", "rechazado")
@@ -82,7 +92,7 @@ async function fetchTicketsAecPendientes(
 async function fetchReclamosActivos(supabase: SupabaseClient) {
   const res = await supabase
     .from("match_traslados_acopio")
-    .select("*, perfil:perfiles!perfil_id(nombre), transporte:transportes!transporte_id(nombre)")
+    .select("id,ticket_id,estado,tuia_centro_nombre,tuia_articulo,distancia_km,reclamado_at,perfil:perfiles!perfil_id(nombre),transporte:transportes!transporte_id(nombre)")
     .in("estado", ["reclamado", "confirmado", "en_camino"])
     .order("reclamado_at", { ascending: false });
 
@@ -95,6 +105,23 @@ async function fetchReclamosActivos(supabase: SupabaseClient) {
   return { data: res.data || [], degraded: false };
 }
 
+async function fetchTuiaData() {
+  return cacheFetch(
+    "tuia:centros+insumos",
+    async () => {
+      const [centrosRes, insumosRes] = await Promise.all([
+        fetchTuiaCentros({ limit: 100, tipo: "acopio" }),
+        fetchTuiaInsumos({ limit: 200 }),
+      ]);
+      return {
+        centros: centrosRes.data || [],
+        insumos: insumosRes.data || [],
+      };
+    },
+    45_000
+  );
+}
+
 export async function GET(req: Request) {
   try {
     const session = await getApiSession(req);
@@ -103,8 +130,8 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const limitNeeds = Math.min(Number(searchParams.get("limit") || 25), 50);
-    const geocode = searchParams.get("geocode") !== "false";
+    const limitNeeds = Math.min(Number(searchParams.get("limit") || 20), 50);
+    const geocode = searchParams.get("geocode") === "true";
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const supabaseAnonKey =
@@ -117,11 +144,10 @@ export async function GET(req: Request) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const [ticketsPack, reclamosPack, centrosRes, insumosRes, aecApi] = await Promise.all([
+    const [ticketsPack, reclamosPack, tuiaData, aecApi] = await Promise.all([
       fetchTicketsAecPendientes(supabase, limitNeeds),
       fetchReclamosActivos(supabase),
-      fetchTuiaCentros({ limit: 100, tipo: "acopio" }).catch(() => ({ data: [] as never[], message: "error" })),
-      fetchTuiaInsumos({ limit: 500 }).catch(() => ({ data: [] as never[], message: "error" })),
+      fetchTuiaData().catch(() => ({ centros: [] as never[], insumos: [] as never[] })),
       fetchAecNeedsEnriched(),
     ]);
 
@@ -129,16 +155,14 @@ export async function GET(req: Request) {
     const reclamos = reclamosPack.data;
     const schemaDegraded = ticketsPack.degraded || reclamosPack.degraded;
     const aecMap = aecApi;
-    const centros = centrosRes.data || [];
-    const insumos = insumosRes.data || [];
+    const centros = tuiaData.centros;
+    const insumos = tuiaData.insumos;
     const reclamosByTicket = new Map(reclamos.map((r) => [r.ticket_id, r]));
 
-    // En modo degradado, filtrar tickets ya cubiertos vía API AEC
     const ticketsFiltrados = ticketsPack.degraded
       ? (ticketsRes || []).filter((t) => !t.fuente_id || aecMap.has(t.fuente_id))
       : ticketsRes || [];
 
-    // Preparar needs y geocodificar destinos únicos (Nominatim/OSM, gratis, max ~20)
     const needsByTicket = new Map<string, ReturnType<typeof parseAecFromApiItem>>();
     for (const ticket of ticketsFiltrados) {
       const aecNeed = aecMap.get(ticket.fuente_id || "");
@@ -161,15 +185,13 @@ export async function GET(req: Request) {
 
     const destinoCache = new Map<string, GeoPoint | null>();
     if (geocode) {
-      const uniqueUbic = [...new Set([...needsByTicket.values()].map((n) => n.ubicacion).filter((u) => u.length >= 5))].slice(0, 20);
+      const uniqueUbic = [...new Set([...needsByTicket.values()].map((n) => n.ubicacion).filter((u) => u.length >= 5))].slice(0, 6);
       for (const ub of uniqueUbic) {
         destinoCache.set(ub, await geocodificar(ub));
       }
-      const centrosSinCoords = centros.filter((c) => c.lat == null).slice(0, 15);
-      for (const c of centrosSinCoords) {
-        await resolverPuntoCentro(c);
-      }
     }
+
+    const centroPoints = await buildCentroPointsMap(centros, geocode, geocode ? 5 : 0);
 
     const items = [];
 
@@ -177,7 +199,7 @@ export async function GET(req: Request) {
       const need = needsByTicket.get(ticket.id)!;
       const destino = geocode && need.ubicacion ? destinoCache.get(need.ubicacion) ?? null : null;
 
-      const matches = await calcularMatches(need, insumos, centros, destino, 5);
+      const matches = await calcularMatches(need, insumos, centros, destino, centroPoints, 5);
 
       items.push({
         ticket: {
@@ -204,7 +226,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       success: true,
       fetched_at: new Date().toISOString(),
-      geocoding: geocode ? "nominatim_osm_gratis" : "disabled",
+      geocoding: geocode ? "nominatim_osm_gratis" : "skipped_fast",
       schema_degraded: schemaDegraded,
       schema_hint: schemaDegraded
         ? "Ejecute migraciones 20260629_ingesta_ayuda_en_camino.sql y 20260716_match_acopio_aec_tuia.sql en Supabase."

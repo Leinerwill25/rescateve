@@ -152,6 +152,7 @@ export async function calcularMatches(
   insumos: TuiaInsumo[],
   centros: TuiaCentro[],
   destino: GeoPoint | null,
+  centroPoints: Map<string, GeoPoint | null>,
   limit = 5
 ): Promise<MatchInsumoSugerido[]> {
   const centrosMap = new Map(centros.map((c) => [c.id, c]));
@@ -172,7 +173,7 @@ export async function calcularMatches(
 
     let distKm: number | null = null;
     if (destino) {
-      const origen = await resolverPuntoCentro(centro);
+      const origen = centroPoints.get(centro.id) ?? puntoCentroTuia(centro);
       if (origen) distKm = Math.round(distanciaKm(origen, destino) * 10) / 10;
     }
 
@@ -191,13 +192,15 @@ export async function calcularMatches(
 
     if (score < 0.12) continue;
 
+    const origenPt = centroPoints.get(centro.id) ?? puntoCentroTuia(centro);
+
     candidatos.push({
       centro_id: ins.centro_id,
       centro_nombre: ins.centro_nombre || centro.nombre,
       centro_telefono: centro.telefono,
       centro_direccion: centro.direccion,
-      centro_lat: centro.lat,
-      centro_lng: centro.lng,
+      centro_lat: origenPt?.lat ?? centro.lat,
+      centro_lng: origenPt?.lng ?? centro.lng,
       articulo: ins.articulo,
       categoria: ins.categoria,
       disponible: ins.disponible,
@@ -221,4 +224,28 @@ export async function calcularMatches(
   }
 
   return deduped;
+}
+
+/** Pre-calcula puntos de centros: coords directas + geocodificación opcional (límite estricto). */
+export async function buildCentroPointsMap(
+  centros: TuiaCentro[],
+  geocode: boolean,
+  maxGeocode = 5
+): Promise<Map<string, GeoPoint | null>> {
+  const map = new Map<string, GeoPoint | null>();
+  for (const c of centros) {
+    map.set(c.id, puntoCentroTuia(c));
+  }
+  if (!geocode) return map;
+
+  let geocoded = 0;
+  for (const c of centros) {
+    if (geocoded >= maxGeocode) break;
+    if (map.get(c.id)) continue;
+    const texto = textoUbicacionCentro(c);
+    if (texto.length < 5) continue;
+    map.set(c.id, await geocodificar(texto));
+    geocoded++;
+  }
+  return map;
 }

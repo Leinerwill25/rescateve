@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminApiRequest } from "@/lib/auth-admin-api";
+import { cacheFetch } from "@/lib/server-cache";
 import {
   fetchTuiaCentros,
   fetchTuiaHealth,
@@ -16,20 +17,25 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const resource = searchParams.get("resource") || "centros";
-
     const fetchedAt = new Date().toISOString();
 
     if (resource === "health") {
-      const health = await fetchTuiaHealth();
+      const health = await cacheFetch("tuia:health", () => fetchTuiaHealth(), 30_000);
       return NextResponse.json({ success: true, fetched_at: fetchedAt, ...health });
     }
 
     if (resource === "centros") {
-      const result = await fetchTuiaCentros({
-        limit: Number(searchParams.get("limit") || 100),
-        activo: searchParams.get("activo") || undefined,
-        tipo: searchParams.get("tipo") || undefined,
-      });
+      const limit = Number(searchParams.get("limit") || 100);
+      const activo = searchParams.get("activo") || undefined;
+      const tipo = searchParams.get("tipo") || undefined;
+      const cacheKey = `tuia:centros:${limit}:${activo || ""}:${tipo || ""}`;
+
+      const result = await cacheFetch(
+        cacheKey,
+        () => fetchTuiaCentros({ limit, activo, tipo }),
+        45_000
+      );
+
       return NextResponse.json({
         success: true,
         fetched_at: fetchedAt,
@@ -40,13 +46,19 @@ export async function GET(req: Request) {
     }
 
     if (resource === "insumos") {
-      const result = await fetchTuiaInsumos({
-        limit: Number(searchParams.get("limit") || 100),
-        offset: Number(searchParams.get("offset") || 0) || undefined,
-        centro: searchParams.get("centro") || undefined,
-        categoria: searchParams.get("categoria") || undefined,
-        q: searchParams.get("q") || undefined,
-      });
+      const limit = Number(searchParams.get("limit") || 100);
+      const offset = Number(searchParams.get("offset") || 0) || undefined;
+      const centro = searchParams.get("centro") || undefined;
+      const categoria = searchParams.get("categoria") || undefined;
+      const q = searchParams.get("q") || undefined;
+      const cacheKey = `tuia:insumos:${limit}:${offset || 0}:${centro || ""}:${categoria || ""}:${q || ""}`;
+
+      const result = await cacheFetch(
+        cacheKey,
+        () => fetchTuiaInsumos({ limit, offset, centro, categoria, q }),
+        45_000
+      );
+
       return NextResponse.json({
         success: true,
         fetched_at: fetchedAt,

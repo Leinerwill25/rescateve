@@ -380,6 +380,7 @@ export default function MatchAcopioPage() {
   const [items, setItems] = useState<MatchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [reclamando, setReclamando] = useState<string | null>(null);
@@ -391,15 +392,19 @@ export default function MatchAcopioPage() {
     return session?.access_token;
   }, []);
 
-  const cargar = useCallback(async (silent = false) => {
+  const cargar = useCallback(async (silent = false, withGeocode = false) => {
     if (!silent) setLoading(true);
+    else if (withGeocode) setEnriching(true);
     else setRefreshing(true);
     setError(null);
     try {
       const token = await getToken();
       if (!token) throw new Error("Sesión expirada");
 
-      const res = await fetch("/api/match-acopio?limit=20", {
+      const qs = new URLSearchParams({ limit: "20" });
+      if (withGeocode) qs.set("geocode", "true");
+
+      const res = await fetch(`/api/match-acopio?${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       });
@@ -414,13 +419,25 @@ export default function MatchAcopioPage() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setEnriching(false);
     }
   }, [getToken]);
 
   useEffect(() => {
-    cargar();
-    const id = setInterval(() => cargar(true), REFRESH_MS);
-    return () => clearInterval(id);
+    let cancelled = false;
+
+    (async () => {
+      await cargar(false, false);
+      if (!cancelled) {
+        cargar(true, true);
+      }
+    })();
+
+    const id = setInterval(() => cargar(true, false), REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, [cargar]);
 
   const reclamar = async (ticketId: string, match: MatchInsumoSugerido) => {
@@ -513,7 +530,7 @@ export default function MatchAcopioPage() {
       </div>
 
       <div style={styles.infoBar}>
-        <span>Geocodificación: OpenStreetMap Nominatim (gratuito)</span>
+        <span>Match por texto + ubicación{enriching ? " · calculando distancias…" : ""}</span>
         {lastSync && <span>· Sync: {new Date(lastSync).toLocaleTimeString("es-VE")}</span>}
         <span>· Auto-refresh 60s</span>
       </div>
