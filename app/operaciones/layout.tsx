@@ -25,6 +25,7 @@ import {
   Gift,
   Warehouse,
   Link2,
+  BarChart3,
 } from "lucide-react";
 
 import { OperationsAuthContext } from "./AuthContext";
@@ -232,6 +233,7 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
         { label: "Match Acopio", href: "/operaciones/match-acopio", icon: <Link2 size={18} /> },
         { label: "Reglas Ruteo", href: "/operaciones/reglas", icon: <Sliders size={18} /> },
         { label: "Recursos y Fichas", href: "/operaciones/recursos", icon: <Briefcase size={18} /> },
+        { label: "Reportes Operacionales", href: "/operaciones/reportes", icon: <BarChart3 size={18} /> },
         { label: "Historial Auditoría", href: "/operaciones/auditoria", icon: <History size={18} /> },
       ];
     } else if (perfil.rol === "transportista") {
