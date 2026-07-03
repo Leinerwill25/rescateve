@@ -1,5 +1,12 @@
 /* Ash — asistente flotante */
 
+.ash-avatar-img {
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  flex-shrink: 0;
+}
+
 .ash-fab-wrap {
   position: fixed;
   right: max(16px, env(safe-area-inset-right));
@@ -33,12 +40,16 @@
   height: 60px;
   border-radius: 50%;
   border: none;
-  padding: 2px;
+  padding: 0;
+  overflow: hidden;
   cursor: pointer;
   background: var(--surface);
   box-shadow: 0 4px 20px rgba(22, 163, 74, 0.35), var(--shadow-lg);
   transition: transform var(--transition), box-shadow var(--transition);
   animation: ash-fab-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .ash-fab:hover {

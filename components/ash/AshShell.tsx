@@ -39,7 +39,7 @@ export default function AshShell() {
             onClick={() => { setOpen(true); setMinimized(false); setShowHint(false); }}
             aria-label="Abrir chat con Ash para pedir ayuda"
           >
-            <AshAvatar size={56} />
+            <AshAvatar size={60} />
           </button>
         </div>
       )}
