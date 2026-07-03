@@ -10,6 +10,8 @@ import {
 export type AecNeedParsed = {
   articulo: string;
   cantidad: number | null;
+  /** Texto libre desde ticket.cantidad o descripción (ej. "10 botellones…") */
+  cantidadTexto: string | null;
   organizacion: string;
   ubicacion: string;
   contactoNombre: string | null;
@@ -50,12 +52,16 @@ const CATEGORIA_MAP: Record<string, string[]> = {
 
 export function parseAecDescripcion(descripcion: string): Partial<AecNeedParsed> {
   const articuloMatch = descripcion.match(/\[Artículo:\s*([^\]]+)\]/i);
-  const cantMatch = descripcion.match(/Cantidad:\s*([\d.,]+)/i);
+  const cantNumMatch = descripcion.match(/Cantidad:\s*([\d.,]+)/i);
+  const cantTextMatch = descripcion.match(/Cantidad:\s*([^.\n]+)/i);
   const orgMatch = descripcion.match(/Organización:\s*(.+)$/i);
+
+  const cantidadTexto = cantTextMatch?.[1]?.trim() || null;
 
   return {
     articulo: articuloMatch?.[1]?.trim() || descripcion.slice(0, 120),
-    cantidad: cantMatch ? parseFloat(cantMatch[1].replace(",", ".")) : null,
+    cantidad: cantNumMatch ? parseFloat(cantNumMatch[1].replace(",", ".")) : null,
+    cantidadTexto,
     organizacion: orgMatch?.[1]?.trim() || "Organización AEC",
   };
 }
@@ -82,12 +88,81 @@ export function parseAecFromApiItem(item: {
   return {
     articulo: item.nombreArticulo || "Artículo",
     cantidad: item.cantidadNecesaria ?? null,
+    cantidadTexto:
+      item.cantidadNecesaria != null ? String(item.cantidadNecesaria) : null,
     organizacion: org.nombre || "Organización",
     ubicacion,
     contactoNombre: org.contactoNombre || null,
     contactoTel: org.contactoTelefono || null,
     contactoEmail: org.contactoEmail || null,
     categoria: item.categoria || null,
+  };
+}
+
+/** Enriquece need con campos del ticket en BD (como despacho). */
+export function mergeNeedWithTicket(
+  need: AecNeedParsed,
+  ticket: {
+    descripcion: string;
+    cantidad?: string | null;
+    ubicacion_externa?: string | null;
+    origen_ref?: string | null;
+    destino_ref?: string | null;
+    categoria_externa?: string | null;
+    contacto_solicitante?: string | null;
+  }
+): AecNeedParsed {
+  const parsed = parseAecDescripcion(ticket.descripcion);
+
+  const ticketCantidad = ticket.cantidad?.trim() || null;
+  const cantidadTexto =
+    ticketCantidad ||
+    need.cantidadTexto ||
+    parsed.cantidadTexto ||
+    (need.cantidad != null ? String(need.cantidad) : null) ||
+    (parsed.cantidad != null ? String(parsed.cantidad) : null);
+
+  const cantidad =
+    need.cantidad ??
+    parsed.cantidad ??
+    (ticketCantidad && /^\d+([.,]\d+)?$/.test(ticketCantidad)
+      ? parseFloat(ticketCantidad.replace(",", "."))
+      : null);
+
+  const ubicacion =
+    need.ubicacion?.trim() ||
+    ticket.ubicacion_externa?.trim() ||
+    ticket.origen_ref?.trim() ||
+    ticket.destino_ref?.trim() ||
+    "";
+
+  const orgGenerica = (o: string) =>
+    !o.trim() || o === "Organización AEC" || o === "Organización" || o === "Organización Desconocida";
+
+  const organizacion = !orgGenerica(need.organizacion)
+    ? need.organizacion
+    : !orgGenerica(parsed.organizacion || "")
+      ? (parsed.organizacion as string)
+      : need.organizacion;
+
+  let contactoTel = need.contactoTel;
+  let contactoEmail = need.contactoEmail;
+  const contacto = ticket.contacto_solicitante?.trim();
+  if (contacto) {
+    if (!contactoTel && /\d/.test(contacto)) contactoTel = contacto;
+    if (!contactoEmail && contacto.includes("@")) contactoEmail = contacto;
+  }
+
+  return {
+    ...need,
+    articulo: need.articulo || parsed.articulo || ticket.descripcion,
+    cantidad,
+    cantidadTexto,
+    ubicacion,
+    organizacion,
+    categoria: need.categoria ?? ticket.categoria_externa ?? null,
+    contactoTel,
+    contactoEmail,
   };
 }
 

@@ -33,6 +33,7 @@ type MatchItem = {
   need: {
     articulo: string;
     cantidad: number | null;
+    cantidadTexto: string | null;
     organizacion: string;
     ubicacion: string;
     contactoNombre: string | null;
@@ -97,11 +98,18 @@ function etiquetaCategoria(cat: string | null) {
   return map[cat.toLowerCase()] || cat;
 }
 
+function etiquetaCantidad(need: MatchItem["need"]) {
+  if (need.cantidadTexto?.trim()) return need.cantidadTexto.trim();
+  if (need.cantidad != null) return `${need.cantidad} uds.`;
+  return "Cantidad N/D";
+}
+
 function PanelNecesidad({ item }: { item: MatchItem }) {
   const { need, ticket, destino_lat, destino_lng } = item;
   const ub = parseUbicacion(need.ubicacion);
   const wa = need.contactoTel ? telWhatsApp(need.contactoTel) : null;
-  const tieneUbicacion = !!(ub.ciudad || ub.estado || ub.direccion);
+  const tieneUbicacionParseada = !!(ub.ciudad || ub.estado || ub.direccion);
+  const tieneUbicacionTexto = !!need.ubicacion.trim();
   const orgEsGenerica = need.organizacion === "Organización AEC" || !need.organizacion.trim();
 
   return (
@@ -122,7 +130,7 @@ function PanelNecesidad({ item }: { item: MatchItem }) {
       <div style={needStyles.chipRow}>
         <span style={needStyles.chip}>
           <Package size={12} />
-          {need.cantidad != null ? `${need.cantidad} uds.` : "Cantidad N/D"}
+          {etiquetaCantidad(need)}
         </span>
         <span style={{ ...needStyles.chip, ...needStyles.chipCat }}>
           {etiquetaCategoria(need.categoria)}
@@ -137,7 +145,7 @@ function PanelNecesidad({ item }: { item: MatchItem }) {
         <div style={needStyles.blockTitle}>
           <MapPin size={13} /> Destino del traslado
         </div>
-        {tieneUbicacion ? (
+        {tieneUbicacionParseada ? (
           <div style={needStyles.locGrid}>
             {ub.ciudad && (
               <div style={needStyles.locItem}>
@@ -158,6 +166,11 @@ function PanelNecesidad({ item }: { item: MatchItem }) {
               </div>
             )}
           </div>
+        ) : tieneUbicacionTexto ? (
+          <div style={needStyles.locItem}>
+            <span style={needStyles.locLabel}>Ubicación</span>
+            <span style={needStyles.locValue}>{need.ubicacion}</span>
+          </div>
         ) : (
           <div style={needStyles.locEmpty}>
             <MapPin size={14} color="var(--text-muted)" />
@@ -173,7 +186,7 @@ function PanelNecesidad({ item }: { item: MatchItem }) {
           >
             <Navigation size={14} /> Abrir destino en mapa
           </a>
-        ) : tieneUbicacion ? (
+        ) : tieneUbicacionTexto ? (
           <p style={needStyles.locHint}>Mapa no disponible — geocodificación pendiente</p>
         ) : null}
       </div>
@@ -577,7 +590,7 @@ export default function MatchAcopioPage() {
                   )}
                   <h3 style={styles.needTitle}>{item.need.articulo}</h3>
                   <p style={styles.needMeta}>
-                    Cantidad: {item.need.cantidad ?? "?"} · {item.need.categoria || "sin categoría"}
+                    Cantidad: {item.need.cantidadTexto || (item.need.cantidad ?? "?")} · {item.need.categoria || "sin categoría"}
                   </p>
                 </div>
                 {item.ticket.fuente_url && (

@@ -6,13 +6,14 @@ import { fetchTuiaCentros, fetchTuiaInsumos } from "@/lib/tuia911";
 import {
   buildCentroPointsMap,
   calcularMatches,
+  mergeNeedWithTicket,
   parseAecDescripcion,
   parseAecFromApiItem,
 } from "@/lib/match-acopio";
 import { geocodificar, GeoPoint } from "@/lib/geo";
 
 const TICKET_COLS =
-  "id,descripcion,estado,fuente_url,prioridad,fuente_id,ubicacion_externa,contacto_solicitante,categoria_externa";
+  "id,descripcion,estado,fuente_url,prioridad,fuente_id,ubicacion_externa,contacto_solicitante,categoria_externa,cantidad,origen_ref,destino_ref,origen_lat,origen_lng,destino_lat,destino_lng";
 
 async function fetchAecNeedsEnriched() {
   return cacheFetch(
@@ -167,19 +168,29 @@ export async function GET(req: Request) {
     for (const ticket of ticketsFiltrados) {
       const aecNeed = aecMap.get(ticket.fuente_id || "");
       if (aecNeed) {
-        needsByTicket.set(ticket.id, { ...aecNeed, ubicacion: aecNeed.ubicacion || ticket.ubicacion_externa || "" });
+        needsByTicket.set(
+          ticket.id,
+          mergeNeedWithTicket(aecNeed, ticket)
+        );
       } else {
         const parsed = parseAecDescripcion(ticket.descripcion);
-        needsByTicket.set(ticket.id, {
-          articulo: parsed.articulo || ticket.descripcion,
-          cantidad: parsed.cantidad,
-          organizacion: parsed.organizacion || "Organización AEC",
-          ubicacion: ticket.ubicacion_externa || "",
-          contactoNombre: null,
-          contactoTel: ticket.contacto_solicitante?.match(/\d/) ? ticket.contacto_solicitante : null,
-          contactoEmail: ticket.contacto_solicitante?.includes("@") ? ticket.contacto_solicitante : null,
-          categoria: ticket.categoria_externa ?? null,
-        });
+        needsByTicket.set(
+          ticket.id,
+          mergeNeedWithTicket(
+            {
+              articulo: parsed.articulo || ticket.descripcion,
+              cantidad: parsed.cantidad ?? null,
+              cantidadTexto: parsed.cantidadTexto ?? null,
+              organizacion: parsed.organizacion || "Organización AEC",
+              ubicacion: "",
+              contactoNombre: null,
+              contactoTel: null,
+              contactoEmail: null,
+              categoria: ticket.categoria_externa ?? null,
+            },
+            ticket
+          )
+        );
       }
     }
 
@@ -198,6 +209,8 @@ export async function GET(req: Request) {
     for (const ticket of ticketsFiltrados) {
       const need = needsByTicket.get(ticket.id)!;
       const destino = geocode && need.ubicacion ? destinoCache.get(need.ubicacion) ?? null : null;
+      const ticketLat = ticket.destino_lat ?? ticket.origen_lat ?? null;
+      const ticketLng = ticket.destino_lng ?? ticket.origen_lng ?? null;
 
       const matches = await calcularMatches(need, insumos, centros, destino, centroPoints, 5);
 
@@ -210,8 +223,8 @@ export async function GET(req: Request) {
           prioridad: ticket.prioridad,
         },
         need,
-        destino_lat: destino?.lat ?? null,
-        destino_lng: destino?.lng ?? null,
+        destino_lat: destino?.lat ?? ticketLat,
+        destino_lng: destino?.lng ?? ticketLng,
         matches,
         reclamo: reclamosByTicket.get(ticket.id) || null,
       });
