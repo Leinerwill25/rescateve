@@ -1,6 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AYUDA_EN_CAMINO_NEEDS_URL, headersAyudaEnCamino } from "@/lib/ayuda-en-camino-api";
 
 const IN_CHUNK_SIZE = 150;
 
@@ -21,18 +20,16 @@ export type NecesidadExterna = {
  * y normaliza el payload al formato estándar NecesidadExterna.
  */
 export async function obtenerNecesidades(): Promise<NecesidadExterna[]> {
+  const url = "https://ayudaencamino.com/api/needs";
   try {
-    const res = await fetch(AYUDA_EN_CAMINO_NEEDS_URL, {
-      headers: headersAyudaEnCamino(),
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "RescateVE-Ingestion-Bot/1.0 (+https://rescate-ve.vercel.app; contacto@rescateve.org)",
+      },
       cache: "no-store",
     });
 
     if (!res.ok) {
-      if (res.status === 401) {
-        throw new Error(
-          "Ayuda en Camino rechazó la solicitud (401). Configure AYUDA_EN_CAMINO_API_KEY en Vercel con la clave que provea el equipo de Ayuda en Camino."
-        );
-      }
       throw new Error(`Error HTTP al consultar Ayuda en Camino: ${res.status} ${res.statusText}`);
     }
 

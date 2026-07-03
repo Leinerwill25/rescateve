@@ -15,7 +15,6 @@ import {
   type TicketOrigenMatch,
 } from "@/lib/match-acopio";
 import { geocodificar, GeoPoint } from "@/lib/geo";
-import { AYUDA_EN_CAMINO_NEEDS_URL, headersAyudaEnCamino } from "@/lib/ayuda-en-camino-api";
 
 const TICKET_COLS =
   "id,descripcion,estado,fuente,fuente_url,prioridad,fuente_id,ubicacion_externa,contacto_solicitante,categoria_externa,categoria_sugerida,categoria_final,cantidad,origen_ref,destino_ref,origen_lat,origen_lng,destino_lat,destino_lng,transporte_id";
@@ -25,8 +24,8 @@ async function fetchAecNeedsEnriched() {
     "aec:needs",
     async () => {
       try {
-        const res = await fetch(AYUDA_EN_CAMINO_NEEDS_URL, {
-          headers: headersAyudaEnCamino(),
+        const res = await fetch("https://ayudaencamino.com/api/needs", {
+          headers: { "User-Agent": "RescateVE-Match/1.0 (+https://rescate-ve.vercel.app)" },
           next: { revalidate: 60 },
         });
         if (!res.ok) return new Map<string, ReturnType<typeof parseAecFromApiItem>>();
