@@ -21,8 +21,11 @@ export async function GET(req: Request) {
     }
 
     console.log("[AEC Ingestion] Iniciando corrida de ingesta...");
-    const res = await runIngestaAyudaEnCamino();
-    console.log(`[AEC Ingestion] Completado con éxito: +${res.nuevos} nuevos, ~${res.actualizados} actualizados, *${res.cubiertos} cubiertos.`);
+    const resetCola = new URL(req.url).searchParams.get("reset") === "1";
+    const res = await runIngestaAyudaEnCamino({ resetCola });
+    console.log(
+      `[AEC Ingestion] Completado: purga=${res.eliminados}, +${res.nuevos} nuevos, ~${res.actualizados} actualizados, *${res.cubiertos} cubiertos, API=${res.total_api}.`
+    );
 
     return NextResponse.json({ success: true, ...res });
 

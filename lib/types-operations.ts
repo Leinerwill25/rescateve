@@ -189,6 +189,10 @@ export type Ticket = {
   evidencia_entrega_url?: string | null;
   grupo_id?: string | null;
   para_quien?: string | null;
+  aec_meta?: number | null;
+  aec_recibidos?: number | null;
+  aec_en_camino?: number | null;
+  aec_contacto_nombre?: string | null;
 };
 
 export type TicketHistorial = {

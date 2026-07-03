@@ -5,15 +5,14 @@ import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import { Ticket, ReglaClasificacion } from "@/lib/types-operations";
 import { useRouter } from "next/navigation";
-
-import { 
-  Check, 
-  Edit3, 
-  GitBranch, 
-  Trash2, 
-  Plus, 
-  RefreshCw, 
-  AlertTriangle, 
+import {
+  Check,
+  Edit3,
+  GitBranch,
+  Trash2,
+  Plus,
+  RefreshCw,
+  AlertTriangle,
   Download,
   MapPin,
   Phone,
@@ -21,7 +20,7 @@ import {
   Send,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
 } from "lucide-react";
 import {
   FiltroOrigen,
@@ -40,6 +39,7 @@ import {
   PAGE_SIZE_COLA,
   TrasladoFilterContext,
 } from "@/lib/ticket-filters";
+import { AecCoberturaPanel } from "@/components/operaciones/AecCoberturaPanel";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
 
@@ -306,7 +306,12 @@ export default function ColaValidacionPage() {
   const [filtroExterno, setFiltroExterno] = useState<FiltroExterno>("pendiente");
   const [ultimoLog, setUltimoLog] = useState<any>(null);
   const [sincronizando, setSincronizando] = useState(false);
-  const [syncResult, setSyncResult] = useState<{ nuevos: number; actualizados: number } | null>(null);
+  const [syncResult, setSyncResult] = useState<{
+    nuevos: number;
+    actualizados: number;
+    eliminados: number;
+    total_api: number;
+  } | null>(null);
   const [trasladoCtx, setTrasladoCtx] = useState<TrasladoFilterContext>(buildTrasladoCtx([]));
   const cargandoRef = useRef(false);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -620,6 +625,13 @@ export default function ColaValidacionPage() {
   // 6. SINCRONIZAR CON AYUDA EN CAMINO (real)
   const handleSincronizarAEC = async () => {
     if (sincronizando) return;
+
+    const confirmar = await showCustomConfirm(
+      "Se eliminarán todos los tickets de Ayuda en Camino en cola (sin operador asignado) y se volverán a importar desde la API con cobertura y contactos actualizados. ¿Continuar?",
+      "Resincronizar Ayuda en Camino"
+    );
+    if (!confirmar) return;
+
     setSincronizando(true);
     setSyncResult(null);
     try {
@@ -628,7 +640,7 @@ export default function ColaValidacionPage() {
         throw new Error("Debes iniciar sesión para sincronizar.");
       }
 
-      const res = await fetch("/api/ingesta/ayuda-en-camino", {
+      const res = await fetch("/api/ingesta/ayuda-en-camino?reset=1", {
         method: "GET",
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
@@ -636,7 +648,12 @@ export default function ColaValidacionPage() {
       if (!res.ok || !json.success) {
         throw new Error(json.error || `Error HTTP ${res.status}`);
       }
-      setSyncResult({ nuevos: json.nuevos ?? 0, actualizados: json.actualizados ?? 0 });
+      setSyncResult({
+        nuevos: json.nuevos ?? 0,
+        actualizados: json.actualizados ?? 0,
+        eliminados: json.eliminados ?? 0,
+        total_api: json.total_api ?? 0,
+      });
       cargarTickets();
     } catch (err: any) {
       showCustomAlert(`Error al sincronizar con Ayuda en Camino: ${err.message}`);
@@ -778,7 +795,7 @@ export default function ColaValidacionPage() {
               {sincronizando
                 ? "Sincronizando..."
                 : syncResult !== null
-                ? `✓ ${syncResult.nuevos} nuevos · ${syncResult.actualizados} actualizados`
+                ? `✓ ${syncResult.total_api} en API · ${syncResult.nuevos} nuevos`
                 : (
                   <span className="ops-btn-text">
                     <span className="ops-btn-text__full">Sincronizar con Ayuda en Camino</span>
@@ -1176,16 +1193,22 @@ export default function ColaValidacionPage() {
                     <strong>🏷️ Categoría de origen (Externo):</strong> {t.categoria_externa}
                   </p>
                 )}
-                
-                {t.cantidad && (
+
+                {esTicketAEC(t) && t.aec_meta != null && (
+                  <AecCoberturaPanel ticket={t} />
+                )}
+
+                {t.cantidad && !esTicketAEC(t) && (
                   <p style={styles.metaText}><strong>Cantidad/Detalles:</strong> {t.cantidad}</p>
                 )}
 
                 <div style={styles.metaGrid}>
-                  <div style={styles.metaItem}>
-                    <Phone size={14} color="var(--text-muted)" />
-                    <span>Contacto: {t.contacto_solicitante || "No provisto"}</span>
-                  </div>
+                  {!esTicketAEC(t) || t.aec_meta == null ? (
+                    <div style={styles.metaItem}>
+                      <Phone size={14} color="var(--text-muted)" />
+                      <span>Contacto: {t.contacto_solicitante || "No provisto"}</span>
+                    </div>
+                  ) : null}
                   <div style={styles.metaItem}>
                     <MapPin size={14} color="var(--text-muted)" />
                     <span>Origen: {t.origen_ref || t.destino_ref || t.ubicacion_externa || "Coordenadas en mapa"}</span>

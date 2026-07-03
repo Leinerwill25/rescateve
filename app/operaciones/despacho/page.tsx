@@ -21,6 +21,7 @@ import {
   UserPlus
 } from "lucide-react";
 import { esTicketTraslado, esTicketAEC, contarPorOrigen, buildTrasladoCtx, TrasladoFilterContext } from "@/lib/ticket-filters";
+import { AecCoberturaPanel } from "@/components/operaciones/AecCoberturaPanel";
 import OperadorRegistroModal from "@/components/OperadorRegistroModal";
 import { EMPTY_OPERADOR, OperadorData, tipoTransporteParaCategoria } from "@/lib/operador";
 
@@ -552,13 +553,21 @@ export default function TableroDespachoPage() {
                     </p>
                   )}
 
-                  {t.cantidad && <p style={styles.itemQuantity}><strong>Cantidad solicitada:</strong> {t.cantidad}</p>}
-                  
+                  {esTicketAEC(t) && t.aec_meta != null && (
+                    <AecCoberturaPanel ticket={t} />
+                  )}
+
+                  {t.cantidad && !esTicketAEC(t) && (
+                    <p style={styles.itemQuantity}><strong>Cantidad solicitada:</strong> {t.cantidad}</p>
+                  )}
+
                   <div style={styles.metaRow}>
-                    <div style={styles.metaItem}>
-                      <Phone size={14} />
-                      <span>{t.contacto_solicitante || "Sin número"}</span>
-                    </div>
+                    {(!esTicketAEC(t) || t.aec_meta == null) && (
+                      <div style={styles.metaItem}>
+                        <Phone size={14} />
+                        <span>{t.contacto_solicitante || "Sin número"}</span>
+                      </div>
+                    )}
                     <div style={styles.metaItem}>
                       <Map size={14} />
                       <span>Ori: {t.origen_ref || "En mapa"}</span>
