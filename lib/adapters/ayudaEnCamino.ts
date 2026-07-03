@@ -1,4 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+const IN_CHUNK_SIZE = 150;
 
 export type NecesidadExterna = {
   fuente_id: string;
@@ -80,6 +83,46 @@ export async function obtenerNecesidades(): Promise<NecesidadExterna[]> {
   }
 }
 
+function dedupeNecesidades(necesidades: NecesidadExterna[]): NecesidadExterna[] {
+  const map = new Map<string, NecesidadExterna>();
+  for (const n of necesidades) {
+    if (!n.fuente_id) continue;
+    map.set(n.fuente_id, n);
+  }
+  return [...map.values()];
+}
+
+async function fetchTicketsAecExistentes(
+  supabase: SupabaseClient,
+  fuenteIds: string[]
+) {
+  if (!fuenteIds.length) return [];
+
+  const rows: Array<{
+    id: string;
+    fuente_id: string;
+    estado: string;
+    estado_externo: string | null;
+    transporte_id: string | null;
+    medico_id: string | null;
+    centro_acopio_id: string | null;
+  }> = [];
+
+  for (let i = 0; i < fuenteIds.length; i += IN_CHUNK_SIZE) {
+    const chunk = fuenteIds.slice(i, i + IN_CHUNK_SIZE);
+    const { data, error } = await supabase
+      .from("tickets")
+      .select("id, fuente_id, estado, estado_externo, transporte_id, medico_id, centro_acopio_id")
+      .eq("fuente", "ayuda_en_camino")
+      .in("fuente_id", chunk);
+
+    if (error) throw error;
+    if (data?.length) rows.push(...data);
+  }
+
+  return rows;
+}
+
 /**
  * runIngestaAyudaEnCamino ejecuta un ciclo completo de ingesta.
  *
@@ -94,32 +137,28 @@ export async function obtenerNecesidades(): Promise<NecesidadExterna[]> {
  */
 export async function runIngestaAyudaEnCamino() {
   const supabase = getSupabaseAdmin();
-  const necesidades = await obtenerNecesidades();
+  const necesidades = dedupeNecesidades(await obtenerNecesidades());
   let nuevos      = 0;
   let actualizados = 0;
   let cubiertos   = 0;
 
-  // ── 1. Obtener los fuente_ids que YA existen localmente (una sola query) ──
-  const fuente_ids = necesidades.map(n => n.fuente_id);
+  const fuente_ids = necesidades.map((n) => n.fuente_id);
 
-  const { data: existentes, error: fetchErr } = await supabase
-    .from("tickets")
-    .select("id, fuente_id, estado, estado_externo, transporte_id, medico_id, centro_acopio_id")
-    .eq("fuente", "ayuda_en_camino")
-    .in("fuente_id", fuente_ids);
-
-  if (fetchErr) {
+  let existentes: Awaited<ReturnType<typeof fetchTicketsAecExistentes>> = [];
+  try {
+    existentes = await fetchTicketsAecExistentes(supabase, fuente_ids);
+  } catch (fetchErr: unknown) {
+    const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
     await supabase.from("ingesta_log").insert({
       fuente: "ayuda_en_camino",
-      error: `Error al consultar tickets existentes: ${fetchErr.message}`,
-      corrida_at: new Date().toISOString()
+      error: `Error al consultar tickets existentes: ${msg}`,
+      corrida_at: new Date().toISOString(),
     });
     throw fetchErr;
   }
 
-  // Construir un Map para búsqueda O(1)
-  const existentesMap = new Map<string, any>(
-    (existentes || []).map(t => [t.fuente_id, t])
+  const existentesMap = new Map<string, (typeof existentes)[number]>(
+    existentes.map((t) => [t.fuente_id, t])
   );
 
   // ── 2. Separar en nuevos vs. existentes ──
@@ -176,15 +215,25 @@ export async function runIngestaAyudaEnCamino() {
     }
   }
 
-  // ── 3. INSERT masivo de nuevos (deduplicación ya hecha arriba) ──
+  // ── 3. INSERT de nuevos con upsert (ignora duplicados por carrera o caché incompleto) ──
   if (paraInsertar.length > 0) {
-    const { error: insErr } = await supabase.from("tickets").insert(paraInsertar);
+    const seen = new Set<string>();
+    const uniqueInsert = paraInsertar.filter((row) => {
+      if (seen.has(row.fuente_id)) return false;
+      seen.add(row.fuente_id);
+      return true;
+    });
+
+    const { data: inserted, error: insErr } = await supabase
+      .from("tickets")
+      .upsert(uniqueInsert, { onConflict: "fuente,fuente_id", ignoreDuplicates: true })
+      .select("id");
 
     if (insErr) {
       console.error("[AEC] Error al insertar nuevos tickets:", insErr.message);
       throw new Error(`Error al insertar tickets: ${insErr.message}`);
     }
-    nuevos = paraInsertar.length;
+    nuevos = inserted?.length ?? 0;
   }
 
   // ── 4. UPDATEs individuales (solo filas que cambiaron de estado externo) ──
