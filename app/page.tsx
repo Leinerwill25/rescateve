@@ -24,7 +24,6 @@ import AlliesSection from "@/components/landing/AlliesSection";
 import LogisticsKpisSection from "@/components/landing/LogisticsKpisSection";
 import VolunteersSection from "@/components/landing/VolunteersSection";
 import NuestrosEnviosSection from "@/components/landing/NuestrosEnviosSection";
-import QuipuSection from "@/components/landing/QuipuSection";
 import RedQuipuStorySection from "@/components/landing/RedQuipuStorySection";
 import { useLiveStats } from "@/hooks/useLiveStats";
 
@@ -178,7 +177,6 @@ export default function Home() {
             <NuestrosEnviosSection />
             <AlliesSection />
             <RedQuipuStorySection />
-            <QuipuSection />
             <SiteFooter onNav={handleSiteNav} />
           </div>
         )}
