@@ -13,13 +13,27 @@ export type QuipuInitiative = {
 export const QUIPU_INTRO =
   "Donavenezuela.com forma parte de la Red Quipu, un esfuerzo colaborativo para conectar reportes, recursos y canales de ayuda en un solo punto de respuesta.";
 
+export const RED_QUIPU_STORY = {
+  title: "Esto forma parte de una red mucho más grande: la Red Quipu.",
+  paragraphs: [
+    "Quipu era la forma en que los pueblos andinos guardaban su memoria: cuerdas y nudos que registraban y conectaban información sin necesidad de escritura. Cada nudo guardaba un dato; todos juntos contaban una historia.",
+    "La Red Quipu retoma esa idea. Frente a tanta información dispersa por el terremoto, reúne en un solo lugar los reportes, recursos y canales de ayuda de decenas de iniciativas ciudadanas.",
+    "Somos uno de esos nudos: el que lleva las donaciones hasta las ONG que atienden la emergencia.",
+  ],
+  cta: {
+    label: "Red Quipu",
+    url: "https://redquipu.com/",
+  },
+  tagline: "CONSOLIDAR · RESPONDER · RECONSTRUIR",
+};
+
 export const QUIPU_FEATURED = {
   title: "Red Quipu",
   badge: "Principal",
   description:
     "Plataforma para centralizar información verificada, reportes y recursos de la emergencia.",
-  url: "https://www.donavenezuela.com/?lang=es",
-  host: "donavenezuela.com",
+  url: "https://redquipu.com/",
+  host: "redquipu.com",
 };
 
 export const QUIPU_INITIATIVES: QuipuInitiative[] = [

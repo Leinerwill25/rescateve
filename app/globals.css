@@ -4583,6 +4583,110 @@ body {
 }
 
 /* ── Red Quipu / Iniciativas ── */
+.red-quipu-story {
+  background: #fff;
+  padding-block: clamp(56px, 8vw, 96px);
+}
+
+.red-quipu-story__inner {
+  text-align: center;
+}
+
+.red-quipu-story__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s6);
+  margin-bottom: var(--s8);
+}
+
+.red-quipu-story__title {
+  margin: 0;
+  max-width: 22ch;
+  font-family: var(--font-heading);
+  font-size: clamp(28px, 4.2vw, 40px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.red-quipu-story__graphic {
+  width: min(100%, 320px);
+  height: auto;
+  color: #5b9a8f;
+}
+
+.red-quipu-story__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+  max-width: 52ch;
+  margin: 0 auto var(--s8);
+}
+
+.red-quipu-story__paragraph {
+  margin: 0;
+  font-size: clamp(15px, 1.6vw, 17px);
+  line-height: 1.7;
+  color: var(--text-soft);
+}
+
+.red-quipu-story__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s6);
+}
+
+.red-quipu-story__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 12px 22px;
+  border: 1.5px solid var(--text);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  color: var(--text);
+  text-decoration: none;
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.red-quipu-story__cta:hover {
+  background: #fafafa;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.red-quipu-story__cta-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5b9a8f;
+}
+
+.red-quipu-story__cta-label {
+  line-height: 1;
+}
+
+.red-quipu-story__cta-arrow {
+  display: flex;
+  align-items: center;
+  opacity: 0.7;
+}
+
+.red-quipu-story__tagline {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
 .quipu-section {
   background: linear-gradient(180deg, #f4f7fb 0%, #f8fafc 100%);
 }

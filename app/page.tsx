@@ -25,6 +25,7 @@ import LogisticsKpisSection from "@/components/landing/LogisticsKpisSection";
 import VolunteersSection from "@/components/landing/VolunteersSection";
 import NuestrosEnviosSection from "@/components/landing/NuestrosEnviosSection";
 import QuipuSection from "@/components/landing/QuipuSection";
+import RedQuipuStorySection from "@/components/landing/RedQuipuStorySection";
 import { useLiveStats } from "@/hooks/useLiveStats";
 
 // Leaflet solo en cliente
@@ -176,6 +177,7 @@ export default function Home() {
             <VolunteersSection />
             <NuestrosEnviosSection />
             <AlliesSection />
+            <RedQuipuStorySection />
             <QuipuSection />
             <SiteFooter onNav={handleSiteNav} />
           </div>
