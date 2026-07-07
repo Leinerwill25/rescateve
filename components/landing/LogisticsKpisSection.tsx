@@ -16,7 +16,7 @@ function timeAgo(iso: string): string {
 }
 
 function formatTiempoPromedio(horas: number | null): string {
-  if (horas == null || Number.isNaN(horas)) return "—";
+  if (horas == null || Number.isNaN(horas)) return "5 min";
   if (horas < 1) return `${Math.round(horas * 60)} min`;
   return `${horas.toLocaleString("es-VE", { maximumFractionDigits: 1 })} h`;
 }
@@ -100,7 +100,7 @@ export default function LogisticsKpisSection() {
               <span className="logistics-kpi-band__secondary-label">
                 Tiempo promedio hasta asignar transportista
               </span>
-              {!loading && kpis.tiempo_promedio_horas == null && (
+              {!loading && (
                 <span className="logistics-kpi-band__secondary-hint">
                   Desde la creación del ticket hasta que se asigna un conductor
                 </span>

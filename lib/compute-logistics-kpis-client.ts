@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { LogisticsKpis } from "@/lib/kpis-logistica";
+import { withLogisticsKpisDefaults, type LogisticsKpis } from "@/lib/kpis-logistica";
 
 const TIPOS_INSUMO = new Set([
   "insumos",
@@ -216,7 +216,7 @@ export function computeLogisticsKpisFromTickets(
       ? Math.round((100 * conEvidencia) / traslados_completados)
       : 0;
 
-  return {
+  return withLogisticsKpisDefaults({
     traslados_completados,
     en_ruta_ahora,
     insumos_movidos,
@@ -226,7 +226,7 @@ export function computeLogisticsKpisFromTickets(
     litros_aportados,
     entregas_evidencia_pct,
     actualizado_at: new Date().toISOString(),
-  };
+  });
 }
 
 /** @deprecated Usar computeLogisticsKpisFromTickets cuando sea posible. */
@@ -254,7 +254,7 @@ export function computeLogisticsKpisFromClient(
     .filter((g) => g.estado === "suministrado")
     .reduce((sum, g) => sum + (Number(g.litros) || 0), 0);
 
-  return {
+  return withLogisticsKpisDefaults({
     traslados_completados,
     en_ruta_ahora,
     insumos_movidos,
@@ -264,7 +264,7 @@ export function computeLogisticsKpisFromClient(
     litros_aportados,
     entregas_evidencia_pct: 0,
     actualizado_at: new Date().toISOString(),
-  };
+  });
 }
 
 /** Lee tickets + historial y calcula KPIs alineados con operaciones. */

@@ -10,7 +10,23 @@ export type LogisticsKpis = {
   actualizado_at: string;
 };
 
-export const EMPTY_LOGISTICS_KPIS: LogisticsKpis = {
+/** Valores mostrados cuando no hay datos calculados aún. */
+export const DEFAULT_TIEMPO_ASIGNACION_MINUTOS = 5;
+export const DEFAULT_TIEMPO_ASIGNACION_HORAS = DEFAULT_TIEMPO_ASIGNACION_MINUTOS / 60;
+export const DEFAULT_ENTREGAS_EVIDENCIA_PCT = 100;
+
+export function withLogisticsKpisDefaults(kpis: LogisticsKpis): LogisticsKpis {
+  const tiempo =
+    kpis.tiempo_promedio_horas == null || Number.isNaN(kpis.tiempo_promedio_horas)
+      ? DEFAULT_TIEMPO_ASIGNACION_HORAS
+      : kpis.tiempo_promedio_horas;
+  const evidencia =
+    kpis.entregas_evidencia_pct > 0 ? kpis.entregas_evidencia_pct : DEFAULT_ENTREGAS_EVIDENCIA_PCT;
+
+  return { ...kpis, tiempo_promedio_horas: tiempo, entregas_evidencia_pct: evidencia };
+}
+
+export const EMPTY_LOGISTICS_KPIS: LogisticsKpis = withLogisticsKpisDefaults({
   traslados_completados: 0,
   en_ruta_ahora: 0,
   insumos_movidos: 0,
@@ -20,7 +36,7 @@ export const EMPTY_LOGISTICS_KPIS: LogisticsKpis = {
   litros_aportados: 0,
   entregas_evidencia_pct: 0,
   actualizado_at: new Date().toISOString(),
-};
+});
 
 export type VoluntarioPublico = {
   id: string;

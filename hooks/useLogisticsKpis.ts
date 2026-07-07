@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { fetchLogisticsKpisFallback } from "@/lib/compute-logistics-kpis-client";
-import { EMPTY_LOGISTICS_KPIS, type LogisticsKpis } from "@/lib/kpis-logistica";
+import { EMPTY_LOGISTICS_KPIS, withLogisticsKpisDefaults, type LogisticsKpis } from "@/lib/kpis-logistica";
 
 const REFRESH_MS = 45_000;
 
 function parseKpis(raw: unknown): LogisticsKpis | null {
   if (!raw || typeof raw !== "object") return null;
   const d = raw as Record<string, unknown>;
-  return {
+  return withLogisticsKpisDefaults({
     traslados_completados: Number(d.traslados_completados) || 0,
     en_ruta_ahora: Number(d.en_ruta_ahora) || 0,
     insumos_movidos: Number(d.insumos_movidos) || 0,
@@ -21,7 +21,7 @@ function parseKpis(raw: unknown): LogisticsKpis | null {
     litros_aportados: Number(d.litros_aportados) || 0,
     entregas_evidencia_pct: Number(d.entregas_evidencia_pct) || 0,
     actualizado_at: String(d.actualizado_at ?? new Date().toISOString()),
-  };
+  });
 }
 
 async function fetchKpisPublicos(): Promise<LogisticsKpis | null> {
