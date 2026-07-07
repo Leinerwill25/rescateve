@@ -20,10 +20,12 @@ import {
   Building2,
   Hash,
   MessageCircle,
+  Info,
 } from "lucide-react";
 
 type MatchItem = {
   origen: "aec" | "ash" | "traslado";
+  distancia_origen_km?: number | null;
   ticket: {
     id: string;
     descripcion: string;
@@ -57,6 +59,22 @@ type MatchItem = {
     perfil?: { nombre: string | null };
     transporte?: { nombre: string | null };
   } | null;
+};
+
+type Diagnostico = {
+  aec_pendientes: number;
+  ash_traslado: number;
+  total_candidatos: number;
+  descartados_con_transportista: number;
+  descartados_sin_aec_api: number;
+  con_match_automatico: number;
+  sin_match_automatico: number;
+  mostrados: number;
+  seleccion_modo?: "cercania" | "variado" | "todos";
+  con_ubicacion?: boolean;
+  radio_km?: number;
+  insumos_tuia: number;
+  centros_tuia: number;
 };
 
 const REFRESH_MS = 60_000;
@@ -405,6 +423,9 @@ export default function MatchAcopioPage() {
   const [enriching, setEnriching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [diagnostico, setDiagnostico] = useState<Diagnostico | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoEstado, setGeoEstado] = useState<"inicial" | "pidiendo" | "ok" | "denegado" | "no-soportado">("inicial");
   const [reclamando, setReclamando] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const [respondiendo, setRespondiendo] = useState<string | null>(null);
@@ -428,6 +449,10 @@ export default function MatchAcopioPage() {
 
       const qs = new URLSearchParams({ limit: "20" });
       if (withGeocode) qs.set("geocode", "true");
+      if (coords) {
+        qs.set("lat", String(coords.lat));
+        qs.set("lng", String(coords.lng));
+      }
 
       const res = await fetch(`/api/match-acopio?${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -439,6 +464,7 @@ export default function MatchAcopioPage() {
       setItems(json.items || []);
       setLastSync(json.fetched_at);
       setSchemaHint(json.schema_hint || null);
+      setDiagnostico(json.diagnostico || null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
@@ -446,7 +472,24 @@ export default function MatchAcopioPage() {
       setRefreshing(false);
       setEnriching(false);
     }
-  }, [getToken]);
+  }, [getToken, coords]);
+
+  useEffect(() => {
+    if (!esTransportista) return;
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setGeoEstado("no-soportado");
+      return;
+    }
+    setGeoEstado("pidiendo");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoEstado("ok");
+      },
+      () => setGeoEstado("denegado"),
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 }
+    );
+  }, [esTransportista]);
 
   useEffect(() => {
     let cancelled = false;
@@ -590,6 +633,28 @@ export default function MatchAcopioPage() {
         <span>· Auto-refresh 60s</span>
       </div>
 
+      {esTransportista && (
+        <div style={styles.geoNote}>
+          <Navigation size={14} />
+          {geoEstado === "ok" && diagnostico?.seleccion_modo === "cercania" && (
+            <span>
+              Mostrando las necesidades <strong>más cercanas a ti</strong> (radio {diagnostico.radio_km ?? 40} km).
+            </span>
+          )}
+          {geoEstado === "ok" && diagnostico?.seleccion_modo === "variado" && (
+            <span>
+              No hay necesidades dentro de {diagnostico.radio_km ?? 40} km. Mostrando una <strong>selección variada</strong>.
+            </span>
+          )}
+          {geoEstado === "pidiendo" && <span>Solicitando tu ubicación para priorizar necesidades cercanas…</span>}
+          {(geoEstado === "denegado" || geoEstado === "no-soportado") && (
+            <span>
+              Ubicación no disponible. Mostrando una <strong>selección variada</strong>. Activa el permiso de ubicación para ver las más cercanas.
+            </span>
+          )}
+        </div>
+      )}
+
       {schemaHint && (
         <div style={{ ...styles.errorBox, background: "#fffbeb", color: "#92400e", borderColor: "#fde68a" }}>
           <AlertCircle size={18} /> {schemaHint}
@@ -601,6 +666,68 @@ export default function MatchAcopioPage() {
           <AlertCircle size={18} /> {error}
           {error.includes("TUIA911") && (
             <span> — Verifique TUIA911_API_KEY en el servidor.</span>
+          )}
+        </div>
+      )}
+
+      {!loading && diagnostico && (
+        <div style={styles.diagBox}>
+          <div style={styles.diagHeader}>
+            <Info size={16} />
+            <span>Diagnóstico de la consulta</span>
+          </div>
+          <div style={styles.diagGrid}>
+            <div style={styles.diagItem}>
+              <span style={styles.diagValue}>{diagnostico.aec_pendientes}</span>
+              <span style={styles.diagLabel}>AEC pendientes (estado_externo)</span>
+            </div>
+            <div style={styles.diagItem}>
+              <span style={styles.diagValue}>{diagnostico.ash_traslado}</span>
+              <span style={styles.diagLabel}>Ash + traslados en estado activo</span>
+            </div>
+            <div style={styles.diagItem}>
+              <span style={styles.diagValue}>{diagnostico.total_candidatos}</span>
+              <span style={styles.diagLabel}>Candidatos traídos</span>
+            </div>
+            <div style={styles.diagItem}>
+              <span style={{ ...styles.diagValue, color: diagnostico.descartados_con_transportista > 0 ? "#b45309" : undefined }}>
+                {diagnostico.descartados_con_transportista}
+              </span>
+              <span style={styles.diagLabel}>Descartados: ya tienen transportista</span>
+            </div>
+            <div style={styles.diagItem}>
+              <span style={{ ...styles.diagValue, color: diagnostico.descartados_sin_aec_api > 0 ? "#b45309" : undefined }}>
+                {diagnostico.descartados_sin_aec_api}
+              </span>
+              <span style={styles.diagLabel}>Descartados: sin datos en API AEC</span>
+            </div>
+            <div style={styles.diagItem}>
+              <span style={styles.diagValue}>{diagnostico.mostrados}</span>
+              <span style={styles.diagLabel}>Mostrados ({diagnostico.con_match_automatico} con match · {diagnostico.sin_match_automatico} sin match)</span>
+            </div>
+            <div style={styles.diagItem}>
+              <span style={{ ...styles.diagValue, color: diagnostico.insumos_tuia === 0 ? "#b91c1c" : undefined }}>
+                {diagnostico.insumos_tuia}
+              </span>
+              <span style={styles.diagLabel}>Insumos Tuia911</span>
+            </div>
+            <div style={styles.diagItem}>
+              <span style={{ ...styles.diagValue, color: diagnostico.centros_tuia === 0 ? "#b91c1c" : undefined }}>
+                {diagnostico.centros_tuia}
+              </span>
+              <span style={styles.diagLabel}>Centros Tuia911</span>
+            </div>
+          </div>
+          {items.length === 0 && (
+            <p style={styles.diagHint}>
+              {diagnostico.total_candidatos === 0
+                ? "No hay tickets en estados pendientes: AEC con estado_externo='pendiente', o Ash/traslado en 'en_validacion', 'aprobado' o 'asignado'."
+                : diagnostico.descartados_con_transportista > 0
+                ? "Todos los candidatos ya tienen transportista asignado sin un reclamo activo, por eso se ocultan."
+                : diagnostico.descartados_sin_aec_api > 0
+                ? "Los tickets AEC se descartaron porque su fuente_id no aparece en la API de Ayuda en Camino."
+                : "No se pudieron construir necesidades a partir de los candidatos."}
+            </p>
           )}
         </div>
       )}
@@ -631,6 +758,12 @@ export default function MatchAcopioPage() {
                   {item.reclamo && (
                     <span style={{ ...styles.badge, background: "#f0fdf4", color: "#16a34a", marginLeft: 6 }}>
                       {item.reclamo.estado === "confirmado" ? "Confirmado" : "Reclamado"}
+                    </span>
+                  )}
+                  {item.distancia_origen_km != null && (
+                    <span style={{ ...styles.badge, background: "#eef2ff", color: "#4338ca", marginLeft: 6 }}>
+                      <Navigation size={10} style={{ verticalAlign: "middle", marginRight: 3 }} />
+                      a {item.distancia_origen_km} km de ti
                     </span>
                   )}
                   <h3 style={styles.needTitle}>{item.need.articulo}</h3>
@@ -801,6 +934,32 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "13px", fontWeight: 600, cursor: "pointer",
   },
   infoBar: { fontSize: "11px", color: "var(--text-muted)", display: "flex", gap: "8px", flexWrap: "wrap" },
+  geoNote: {
+    display: "flex", alignItems: "center", gap: "8px", padding: "10px 14px",
+    borderRadius: "var(--radius-sm)", background: "#eef2ff", color: "#3730a3",
+    fontSize: "13px", border: "1px solid #c7d2fe",
+  },
+  diagBox: {
+    background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "var(--radius-sm)",
+    padding: "12px 14px", display: "flex", flexDirection: "column", gap: "10px",
+  },
+  diagHeader: {
+    display: "flex", alignItems: "center", gap: "6px", fontSize: "12px",
+    fontWeight: 800, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em",
+  },
+  diagGrid: {
+    display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "10px",
+  },
+  diagItem: {
+    display: "flex", flexDirection: "column", gap: "2px", padding: "8px 10px",
+    background: "#fff", borderRadius: "var(--radius-sm)", border: "1px solid #eef2f7",
+  },
+  diagValue: { fontSize: "20px", fontWeight: 800, color: "var(--text)", lineHeight: 1.1 },
+  diagLabel: { fontSize: "11px", color: "var(--text-muted)", lineHeight: 1.3 },
+  diagHint: {
+    margin: 0, fontSize: "12px", color: "#92400e", background: "#fffbeb",
+    border: "1px solid #fde68a", borderRadius: "var(--radius-sm)", padding: "8px 10px",
+  },
   errorBox: {
     display: "flex", alignItems: "center", gap: "8px", padding: "12px 16px",
     borderRadius: "var(--radius-sm)", background: "#fef2f2", color: "#b91c1c", fontSize: "13px",

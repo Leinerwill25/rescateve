@@ -15,7 +15,57 @@ import {
   type TicketOrigenMatch,
 } from "@/lib/match-acopio";
 import { AEC_NEEDS_URL, getAecApiHeaders } from "@/lib/aec-api";
-import { geocodificar, GeoPoint } from "@/lib/geo";
+import { distanciaKm, geocodificar, GeoPoint } from "@/lib/geo";
+
+/** Radio (km) para considerar una necesidad "cerca" del transportista. */
+const RADIO_CERCA_KM = 40;
+/** Máximo de necesidades cercanas a mostrar al transportista. */
+const MAX_CERCANOS = 20;
+/** Fallback cuando no hay ninguna necesidad cerca. */
+const MAX_VARIADOS = 10;
+
+type TicketMatchRow = {
+  id: string;
+  fuente: string;
+  fuente_id?: string | null;
+  descripcion: string;
+  cuando?: string | null;
+  destino_lat: number | null;
+  destino_lng: number | null;
+  origen_lat: number | null;
+  origen_lng: number | null;
+};
+
+/** Selección variada: intercala necesidades de distintos orígenes (AEC, Ash, traslado). */
+function seleccionVariada<T extends TicketMatchRow>(tickets: T[], max: number): T[] {
+  const grupos: Record<TicketOrigenMatch, T[]> = { aec: [], ash: [], traslado: [] };
+  for (const t of tickets) {
+    const origen = detectTicketOrigenMatch(t);
+    (grupos[origen] ?? grupos.aec).push(t);
+  }
+  const orden: TicketOrigenMatch[] = ["traslado", "ash", "aec"];
+  const resultado: T[] = [];
+  let quedan = true;
+  while (resultado.length < max && quedan) {
+    quedan = false;
+    for (const origen of orden) {
+      const grupo = grupos[origen];
+      if (grupo.length > 0) {
+        resultado.push(grupo.shift()!);
+        quedan = true;
+        if (resultado.length >= max) break;
+      }
+    }
+  }
+  return resultado;
+}
+
+function ticketCoords(t: TicketMatchRow): GeoPoint | null {
+  const lat = t.destino_lat ?? t.origen_lat;
+  const lng = t.destino_lng ?? t.origen_lng;
+  if (lat == null || lng == null) return null;
+  return { lat, lng };
+}
 
 const TICKET_COLS =
   "id,descripcion,estado,fuente,fuente_url,prioridad,fuente_id,ubicacion_externa,contacto_solicitante,categoria_externa,categoria_sugerida,categoria_final,cantidad,origen_ref,destino_ref,origen_lat,origen_lng,destino_lat,destino_lng,transporte_id";
@@ -173,9 +223,20 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
 
+    const esTransportista = session.rol === "transportista";
     const { searchParams } = new URL(req.url);
     const limitNeeds = Math.min(Number(searchParams.get("limit") || 20), 50);
     const geocode = searchParams.get("geocode") === "true";
+
+    const latParam = Number(searchParams.get("lat"));
+    const lngParam = Number(searchParams.get("lng"));
+    const origenTransportista: GeoPoint | null =
+      Number.isFinite(latParam) && Number.isFinite(lngParam)
+        ? { lat: latParam, lng: lngParam }
+        : null;
+
+    // El transportista rankea por cercanía sobre un pool más amplio de candidatos.
+    const fetchLimit = esTransportista ? 50 : limitNeeds;
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const supabaseAnonKey =
@@ -189,8 +250,8 @@ export async function GET(req: Request) {
     });
 
     const [ticketsPack, ashTrasladoTickets, reclamosPack, tuiaData, aecApi] = await Promise.all([
-      fetchTicketsAecPendientes(supabase, limitNeeds),
-      fetchTicketsAshTraslado(supabase, limitNeeds),
+      fetchTicketsAecPendientes(supabase, fetchLimit),
+      fetchTicketsAshTraslado(supabase, fetchLimit),
       fetchReclamosActivos(supabase),
       fetchTuiaData().catch(() => ({ centros: [] as never[], insumos: [] as never[] })),
       fetchAecNeedsEnriched(),
@@ -204,21 +265,64 @@ export async function GET(req: Request) {
     const insumos = tuiaData.insumos;
     const reclamosByTicket = new Map(reclamos.map((r) => [r.ticket_id, r]));
 
+    let descartadosConTransportista = 0;
+    let descartadosSinAecApi = 0;
+
     const ticketsFiltrados = ticketsPack.degraded
       ? (ticketsRes || []).filter((t) => {
           const origen = detectTicketOrigenMatch(t);
           if (origen === "ash" || origen === "traslado") return true;
-          return !t.fuente_id || aecMap.has(t.fuente_id);
+          const keep = !t.fuente_id || aecMap.has(t.fuente_id);
+          if (!keep) descartadosSinAecApi++;
+          return keep;
         })
       : (ticketsRes || []).filter((t) => {
-          if (t.transporte_id && !reclamosByTicket.has(t.id)) return false;
+          if (t.transporte_id && !reclamosByTicket.has(t.id)) {
+            descartadosConTransportista++;
+            return false;
+          }
           return true;
         });
+
+    // Ranking por cercanía para transportista:
+    //  - Con ubicación: hasta 20 necesidades dentro del radio, ordenadas por distancia.
+    //  - Sin ninguna cerca (o sin ubicación): 10 necesidades variadas.
+    const distanciaByTicket = new Map<string, number>();
+    let seleccionModo: "cercania" | "variado" | "todos" = "todos";
+    let ticketsParaMostrar = ticketsFiltrados;
+
+    if (esTransportista) {
+      if (origenTransportista) {
+        const conDistancia: Array<{ ticket: (typeof ticketsFiltrados)[number]; dist: number }> = [];
+        for (const t of ticketsFiltrados) {
+          const coords = ticketCoords(t);
+          if (!coords) continue;
+          const dist = distanciaKm(origenTransportista, coords);
+          distanciaByTicket.set(t.id, Math.round(dist * 10) / 10);
+          conDistancia.push({ ticket: t, dist });
+        }
+        const cercanos = conDistancia
+          .filter((c) => c.dist <= RADIO_CERCA_KM)
+          .sort((a, b) => a.dist - b.dist)
+          .slice(0, MAX_CERCANOS);
+
+        if (cercanos.length > 0) {
+          seleccionModo = "cercania";
+          ticketsParaMostrar = cercanos.map((c) => c.ticket);
+        } else {
+          seleccionModo = "variado";
+          ticketsParaMostrar = seleccionVariada(ticketsFiltrados, MAX_VARIADOS);
+        }
+      } else {
+        seleccionModo = "variado";
+        ticketsParaMostrar = seleccionVariada(ticketsFiltrados, MAX_VARIADOS);
+      }
+    }
 
     const needsByTicket = new Map<string, ReturnType<typeof parseAecFromApiItem>>();
     const origenByTicket = new Map<string, TicketOrigenMatch>();
 
-    for (const ticket of ticketsFiltrados) {
+    for (const ticket of ticketsParaMostrar) {
       const origen = detectTicketOrigenMatch(ticket);
       origenByTicket.set(ticket.id, origen);
 
@@ -265,7 +369,7 @@ export async function GET(req: Request) {
 
     const items = [];
 
-    for (const ticket of ticketsFiltrados) {
+    for (const ticket of ticketsParaMostrar) {
       const need = needsByTicket.get(ticket.id);
       if (!need) continue;
       const destino = geocode && need.ubicacion ? destinoCache.get(need.ubicacion) ?? null : null;
@@ -283,6 +387,7 @@ export async function GET(req: Request) {
           prioridad: ticket.prioridad,
         },
         origen: origenByTicket.get(ticket.id) || "aec",
+        distancia_origen_km: distanciaByTicket.get(ticket.id) ?? null,
         need,
         destino_lat: destino?.lat ?? ticketLat,
         destino_lng: destino?.lng ?? ticketLng,
@@ -291,11 +396,24 @@ export async function GET(req: Request) {
       });
     }
 
-    items.sort((a, b) => {
-      const scoreA = a.matches[0]?.score ?? 0;
-      const scoreB = b.matches[0]?.score ?? 0;
-      return scoreB - scoreA;
-    });
+    if (seleccionModo === "cercania") {
+      // Prioriza las necesidades más cercanas al transportista.
+      items.sort((a, b) => {
+        const da = a.distancia_origen_km ?? Number.POSITIVE_INFINITY;
+        const db = b.distancia_origen_km ?? Number.POSITIVE_INFINITY;
+        return da - db;
+      });
+    } else {
+      items.sort((a, b) => {
+        const scoreA = a.matches[0]?.score ?? 0;
+        const scoreB = b.matches[0]?.score ?? 0;
+        return scoreB - scoreA;
+      });
+    }
+
+    const conMatchAutomatico = items.filter((i) => i.matches.length > 0).length;
+    const aecPendientes = ticketsPack.data?.length ?? 0;
+    const ashTraslado = ashTrasladoTickets.length;
 
     return NextResponse.json({
       success: true,
@@ -307,6 +425,21 @@ export async function GET(req: Request) {
         : null,
       total: items.length,
       reclamos_activos: reclamos.length,
+      diagnostico: {
+        aec_pendientes: aecPendientes,
+        ash_traslado: ashTraslado,
+        total_candidatos: ticketsRes.length,
+        descartados_con_transportista: descartadosConTransportista,
+        descartados_sin_aec_api: descartadosSinAecApi,
+        con_match_automatico: conMatchAutomatico,
+        sin_match_automatico: items.length - conMatchAutomatico,
+        mostrados: items.length,
+        seleccion_modo: seleccionModo,
+        con_ubicacion: !!origenTransportista,
+        radio_km: RADIO_CERCA_KM,
+        insumos_tuia: insumos.length,
+        centros_tuia: centros.length,
+      },
       items,
     });
   } catch (err: unknown) {
