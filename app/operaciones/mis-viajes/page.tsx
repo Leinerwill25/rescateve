@@ -105,9 +105,9 @@ export default function MisViajesPage() {
       });
     });
   };
-  const cargarDatos = async () => {
+  const cargarDatos = async (silent = false) => {
     if (!perfil) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       // 1. Obtener la ficha del transporte de este usuario
       const { data: trData } = await supabase
@@ -170,14 +170,20 @@ export default function MisViajesPage() {
 
   useEffect(() => {
     cargarDatos();
-    // Realtime para actualizar cuando el admin reasigne o agregue
+    // Realtime: recarga SILENCIOSA (sin spinner) y con debounce para evitar
+    // que la vista parpadee en cada cambio de la tabla tickets.
+    let debounce: ReturnType<typeof setTimeout> | null = null;
     const ch = supabase
       .channel("mis_viajes")
       .on("postgres_changes", { event: "*", schema: "public", table: "tickets" }, () => {
-        cargarDatos();
+        if (debounce) clearTimeout(debounce);
+        debounce = setTimeout(() => cargarDatos(true), 1500);
       })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      if (debounce) clearTimeout(debounce);
+      supabase.removeChannel(ch);
+    };
   }, [perfil]);
 
   // Ubicación del transportista para trazar la ruta hacia el acopio

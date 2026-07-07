@@ -157,20 +157,29 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
           // Validar destinatario si no es admin
           if (perfil.rol === "admin" || newNotif.destinatario_id === perfil.id) {
             setNotificaciones(prev => [newNotif, ...prev.slice(0, 9)]);
-            // Alertar con un sonido o notificación nativa del navegador opcional
-            if (Notification.permission === "granted") {
-              new Notification("Nueva asignación logística", {
-                body: newNotif.mensaje || "Tienes una nueva solicitud logística asignada.",
-              });
+            // Alertar con notificación nativa del navegador (opcional).
+            // iOS Safari (pestaña normal) no expone `Notification`: hay que verificar que exista.
+            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+              try {
+                new Notification("Nueva asignación logística", {
+                  body: newNotif.mensaje || "Tienes una nueva solicitud logística asignada.",
+                });
+              } catch {
+                /* Algunos navegadores exigen SW para notificaciones; se ignora. */
+              }
             }
           }
         }
       )
       .subscribe();
 
-    // Solicitar permiso de notificación
-    if (typeof window !== "undefined" && Notification.permission === "default") {
-      Notification.requestPermission();
+    // Solicitar permiso de notificación (no soportado en Safari iOS en pestaña normal)
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      try {
+        Notification.requestPermission();
+      } catch {
+        /* Ignorar navegadores que no soportan requestPermission. */
+      }
     }
 
     return () => {
