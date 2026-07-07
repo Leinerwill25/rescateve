@@ -24,6 +24,7 @@ import {
   buildViajeMapUrl,
   type MatchAcopioViaje,
 } from "@/components/operaciones/ViajeTransportistaDetalle";
+import { RutaTrasladoAcopio } from "@/components/operaciones/RutaTrasladoAcopio";
 
 export default function MisViajesPage() {
   const { perfil } = useOperationsAuth();
@@ -59,6 +60,8 @@ export default function MisViajesPage() {
   const [rechazoTicketId, setRechazoTicketId] = useState<string | null>(null);
   const [rechazoNota, setRechazoNota] = useState("");
   const [rechazoLoading, setRechazoLoading] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [marcandoRecogido, setMarcandoRecogido] = useState<string | null>(null);
   // Modal de Alerta / Confirmación personalizado
   const [customModal, setCustomModal] = useState<{
     show: boolean;
@@ -138,7 +141,7 @@ export default function MisViajesPage() {
               .in("estado", ["pendiente", "pendiente_autorizacion"]),
             supabase
               .from("match_traslados_acopio")
-              .select("id,ticket_id,estado,tuia_centro_nombre,tuia_centro_tel,tuia_articulo")
+              .select("id,ticket_id,estado,tuia_centro_nombre,tuia_centro_tel,tuia_articulo,tuia_centro_lat,tuia_centro_lng,insumos_recogidos_at")
               .in("ticket_id", ids)
               .in("estado", ["reclamado", "confirmado", "en_camino"]),
           ]);
@@ -176,6 +179,29 @@ export default function MisViajesPage() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [perfil]);
+
+  // Ubicación del transportista para trazar la ruta hacia el acopio
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => setCoords(null),
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 }
+    );
+  }, []);
+
+  const marcarRecogido = async (matchId: string) => {
+    setMarcandoRecogido(matchId);
+    try {
+      const { error } = await supabase.rpc("marcar_insumos_recogidos", { p_match_id: matchId });
+      if (error) throw error;
+      await cargarDatos();
+    } catch (err: unknown) {
+      showCustomAlert(`Error al marcar la recogida: ${err instanceof Error ? err.message : "desconocido"}`);
+    } finally {
+      setMarcandoRecogido(null);
+    }
+  };
 
   const openGasolinaModal = (t: Ticket) => {
     if (!transporteFicha) return;
@@ -453,6 +479,16 @@ export default function MisViajesPage() {
                     match={match ?? null}
                     showContactHint={t.estado === "asignado" && match?.estado === "reclamado"}
                   />
+
+                  {match && t.estado !== "completado" && (
+                    <RutaTrasladoAcopio
+                      ticket={t}
+                      match={match}
+                      coords={coords}
+                      onRecogido={marcarRecogido}
+                      marcando={marcandoRecogido === match.id}
+                    />
+                  )}
 
                   {t.estado === "en_camino" && (
                     <div style={styles.fotoBanner}>

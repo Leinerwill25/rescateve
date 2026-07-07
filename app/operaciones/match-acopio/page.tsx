@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useOperationsAuth } from "../AuthContext";
 import type { MatchInsumoSugerido } from "@/lib/match-acopio";
@@ -413,6 +414,7 @@ const needStyles: Record<string, React.CSSProperties> = {
 };
 
 export default function MatchAcopioPage() {
+  const router = useRouter();
   const { perfil } = useOperationsAuth();
   const esAdmin = perfil?.rol === "admin";
   const esTransportista = perfil?.rol === "transportista";
@@ -432,6 +434,7 @@ export default function MatchAcopioPage() {
   const [rechazoModal, setRechazoModal] = useState<{ matchId: string; ticketId: string } | null>(null);
   const [rechazoNota, setRechazoNota] = useState("");
   const [schemaHint, setSchemaHint] = useState<string | null>(null);
+  const [reclamoExito, setReclamoExito] = useState<{ centro: string; articulo: string } | null>(null);
 
   const getToken = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -528,12 +531,13 @@ export default function MatchAcopioPage() {
           tuia_unidad: match.unidad,
           distancia_km: match.distancia_km,
           score_match: match.score,
+          tuia_centro_lat: match.centro_lat,
+          tuia_centro_lng: match.centro_lng,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      await cargar(true);
-      alert("Traslado reclamado. Contacte al acopio y al solicitante, luego confirme si hará el viaje.");
+      setReclamoExito({ centro: match.centro_nombre, articulo: match.articulo });
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Error al reclamar");
     } finally {
@@ -916,6 +920,42 @@ export default function MatchAcopioPage() {
           </div>
         </div>
       )}
+
+      {reclamoExito && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modalBox, textAlign: "center", maxWidth: 440 }}>
+            <div style={styles.exitoIcon}>
+              <CheckCircle2 size={44} strokeWidth={1.5} />
+            </div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800 }}>¡Traslado reclamado!</h3>
+            <p style={{ margin: "0 0 6px", fontSize: 14, color: "var(--text)" }}>
+              Te asignamos el traslado de <strong>{reclamoExito.articulo}</strong> desde{" "}
+              <strong>{reclamoExito.centro}</strong>.
+            </p>
+            <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
+              Ahora ve a <strong>Mis Viajes</strong>: primero sigue la ruta hasta el centro de acopio para
+              recoger los insumos y, cuando los tengas, activa la ruta hasta la persona que los necesita.
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                style={styles.btnRefresh}
+                onClick={() => { setReclamoExito(null); cargar(true); }}
+              >
+                Seguir viendo necesidades
+              </button>
+              <button
+                type="button"
+                style={{ ...styles.btnConfirm, marginTop: 0, background: "var(--brand)" }}
+                onClick={() => { setReclamoExito(null); router.push("/operaciones/mis-viajes"); }}
+              >
+                <Truck size={16} />
+                Ver mi viaje asignado
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1037,5 +1077,10 @@ const styles: Record<string, React.CSSProperties> = {
   textarea: {
     width: "100%", padding: 10, borderRadius: "var(--radius-sm)",
     border: "1px solid var(--border)", fontSize: 13, resize: "vertical", boxSizing: "border-box",
+  },
+  exitoIcon: {
+    width: 76, height: 76, borderRadius: "50%", margin: "0 auto 14px",
+    background: "#dcfce7", color: "#16a34a",
+    display: "flex", alignItems: "center", justifyContent: "center",
   },
 };

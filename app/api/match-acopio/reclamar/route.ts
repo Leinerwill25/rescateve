@@ -22,6 +22,8 @@ export async function POST(req: Request) {
       tuia_unidad,
       distancia_km,
       score_match,
+      tuia_centro_lat,
+      tuia_centro_lng,
     } = body;
 
     if (!ticket_id || !tuia_centro_id || !tuia_articulo) {
@@ -49,6 +51,8 @@ export async function POST(req: Request) {
       p_tuia_unidad: tuia_unidad || null,
       p_distancia_km: distancia_km ?? null,
       p_score_match: score_match ?? null,
+      p_tuia_centro_lat: tuia_centro_lat ?? null,
+      p_tuia_centro_lng: tuia_centro_lng ?? null,
     });
 
     if (error) throw error;

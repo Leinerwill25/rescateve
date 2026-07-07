@@ -11,6 +11,9 @@ export type MatchAcopioViaje = {
   tuia_centro_nombre: string | null;
   tuia_centro_tel: string | null;
   tuia_articulo: string;
+  tuia_centro_lat?: number | null;
+  tuia_centro_lng?: number | null;
+  insumos_recogidos_at?: string | null;
 };
 
 function esTicketAEC(t: Ticket): boolean {
