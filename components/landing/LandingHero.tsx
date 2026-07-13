@@ -148,7 +148,7 @@ export default function LandingHero({ stats, onSolicitarTraslado, onVerMapa }: L
         <div className="hero-panel">
           <div className="hero-panel__head">
             <span className="hero-panel__badge">Acción inmediata</span>
-            <h2 className="hero-panel__title">Solicita un traslado</h2>
+            <h2 className="hero-panel__title">SOLICITA UN TRASLADO</h2>
             <p className="hero-panel__lead">
               Insumos, medicamentos, personal o carga entre dos puntos. La red asigna un transportista verificado.
             </p>

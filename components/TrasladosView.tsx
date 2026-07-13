@@ -306,7 +306,12 @@ export default function TrasladosView() {
 
     setSaving(false);
     if (error) {
-      setErr("Error al solicitar el traslado. Intenta de nuevo.");
+      const msg = (error.message || "").toLowerCase();
+      if (msg.includes("timeout") || msg.includes("57014") || msg.includes("stack depth") || msg.includes("54001")) {
+        setErr("El servidor está saturado procesando el traslado. Espera unos segundos e intenta de nuevo. Si persiste, el administrador debe aplicar la migración de triggers.");
+      } else {
+        setErr(error.message || "Error al solicitar el traslado. Intenta de nuevo.");
+      }
     } else {
       setShowForm(false);
       // Reset form

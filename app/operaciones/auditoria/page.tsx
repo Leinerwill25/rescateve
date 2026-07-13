@@ -10,6 +10,7 @@ import {
 
 interface AuditEntry extends TicketHistorial {
   perfil: Perfil | null;
+  ticket_created_at?: string | null;
 }
 
 export default function AuditoriaLogisticaPage() {
@@ -53,6 +54,10 @@ export default function AuditoriaLogisticaPage() {
         ...new Set((histData || []).map((h) => h.actor).filter(Boolean)),
       ] as string[];
 
+      const ticketIds = [
+        ...new Set((histData || []).map((h) => h.ticket_id).filter(Boolean)),
+      ] as string[];
+
       let perfilMap = new Map<string, Perfil>();
       if (actorIds.length > 0) {
         const { data: perfiles, error: pErr } = await supabase
@@ -63,10 +68,23 @@ export default function AuditoriaLogisticaPage() {
         perfilMap = new Map((perfiles || []).map((p) => [p.id, p as Perfil]));
       }
 
+      let ticketCreatedMap = new Map<string, string>();
+      if (ticketIds.length > 0) {
+        const { data: tickets, error: tErr } = await supabase
+          .from("tickets")
+          .select("id, created_at")
+          .in("id", ticketIds);
+        if (tErr) throw tErr;
+        ticketCreatedMap = new Map(
+          (tickets || []).map((t) => [t.id, t.created_at as string])
+        );
+      }
+
       setHistorial(
         (histData || []).map((h) => ({
           ...h,
           perfil: h.actor ? perfilMap.get(h.actor) ?? null : null,
+          ticket_created_at: ticketCreatedMap.get(h.ticket_id) ?? null,
         })) as AuditEntry[]
       );
     } catch (err: any) {
@@ -252,9 +270,23 @@ export default function AuditoriaLogisticaPage() {
                   <div style={S.timelineCard}>
                     <div style={S.timelineTop}>
                       {getAccionBadge(e.accion, e.a_valor)}
-                      <div style={S.timelineDate}>
-                        <Clock size={11} color="var(--text-muted)" />
-                        <span>{new Date(e.created_at).toLocaleString("es-VE", { dateStyle: "short", timeStyle: "short" })}</span>
+                      <div style={S.timelineDates}>
+                        {e.ticket_created_at && (
+                          <div style={S.timelineDate} title="Fecha de creación del ticket">
+                            <Calendar size={11} color="var(--brand)" />
+                            <span>
+                              <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>Creado: </span>
+                              {new Date(e.ticket_created_at).toLocaleString("es-VE", { dateStyle: "short", timeStyle: "short" })}
+                            </span>
+                          </div>
+                        )}
+                        <div style={S.timelineDate} title="Fecha de esta acción">
+                          <Clock size={11} color="var(--text-muted)" />
+                          <span>
+                            <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>Acción: </span>
+                            {new Date(e.created_at).toLocaleString("es-VE", { dateStyle: "short", timeStyle: "short" })}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div style={S.timelineBody}>
@@ -349,6 +381,12 @@ export default function AuditoriaLogisticaPage() {
                       )}
 
                       <div style={S.caseContact}>
+                        {c.created_at && (
+                          <span style={S.contactChip} title="Fecha de creación">
+                            <Calendar size={11} />
+                            Creado: {new Date(c.created_at).toLocaleString("es-VE", { dateStyle: "short", timeStyle: "short" })}
+                          </span>
+                        )}
                         {c.contacto && (
                           <span style={S.contactChip}>
                             <Phone size={11} />
@@ -357,7 +395,7 @@ export default function AuditoriaLogisticaPage() {
                         )}
                         {c.cuando && (
                           <span style={S.contactChip}>
-                            <Calendar size={11} />
+                            <Clock size={11} />
                             {c.cuando}
                           </span>
                         )}
@@ -492,6 +530,12 @@ const S: Record<string, React.CSSProperties> = {
   },
   timelineTop: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 },
   timelineDate: { display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--text-muted)" },
+  timelineDates: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 4,
+  },
   timelineBody: { display: "flex", flexDirection: "column", gap: 6 },
   timelineActor: { display: "flex", alignItems: "center", gap: 6, fontSize: 13 },
   timelineMeta: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
