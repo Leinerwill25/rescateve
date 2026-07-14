@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { Ticket, Transporte } from "@/lib/types-operations";
 import { useOperationsAuth } from "../AuthContext";
-import { BANCOS_PAGO_MOVIL, costoEstimadoUSD, tipoVehiculoDesdeTransporte } from "@/lib/combustible-utils";
+import { BANCOS_PAGO_MOVIL, litrosDesdeMontoUSD, tipoVehiculoDesdeTransporte } from "@/lib/combustible-utils";
 import { uploadEntregaImage, validateImageFile } from "@/lib/image-utils";
 import { 
   Truck, 
@@ -40,7 +40,7 @@ export default function MisViajesPage() {
     cedula: "",
     telefono: "",
     banco: "0102",
-    litros: "",
+    monto: "",
     marca: "",
   });
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<Set<string>>(new Set());
@@ -217,7 +217,7 @@ export default function MisViajesPage() {
       cedula: "",
       telefono: "",
       banco: "0102",
-      litros: "",
+      monto: "",
       marca: transporteFicha.nombre,
     });
     setGasError("");
@@ -228,6 +228,13 @@ export default function MisViajesPage() {
     e.preventDefault();
     if (!gasTicket || !transporteFicha) return;
     setGasError("");
+
+    const montoNum = parseFloat(gasForm.monto);
+    if (isNaN(montoNum) || montoNum <= 0) {
+      setGasError("El monto debe ser un número válido mayor a 0.");
+      return;
+    }
+
     setGasLoading(true);
 
     try {
@@ -242,7 +249,13 @@ export default function MisViajesPage() {
         },
         body: JSON.stringify({
           ticketId: gasTicket.id,
-          ...gasForm,
+          nombre: gasForm.nombre,
+          apellido: gasForm.apellido,
+          cedula: gasForm.cedula,
+          telefono: gasForm.telefono,
+          banco: gasForm.banco,
+          marca: gasForm.marca,
+          litros: litrosDesdeMontoUSD(montoNum),
         }),
       });
 
@@ -757,11 +770,14 @@ export default function MisViajesPage() {
                 </div>
 
                 <div style={styles.formField}>
-                  <label style={styles.label}>Litros a cargar</label>
-                  <input type="number" style={styles.input} min="1" step="0.1" value={gasForm.litros} onChange={(e) => setGasForm({ ...gasForm, litros: e.target.value })} required />
-                  {gasForm.litros && !isNaN(parseFloat(gasForm.litros)) && (
+                  <label style={styles.label}>Monto en $</label>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <input type="number" style={styles.input} min="0.5" step="0.5" value={gasForm.monto} onChange={(e) => setGasForm({ ...gasForm, monto: e.target.value })} required />
+                    <span style={{ fontWeight: 600 }}>$</span>
+                  </div>
+                  {gasForm.monto && !isNaN(parseFloat(gasForm.monto)) && parseFloat(gasForm.monto) > 0 && (
                     <p style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "6px" }}>
-                      Costo estimado: <strong>${costoEstimadoUSD(parseFloat(gasForm.litros)).toFixed(2)} USD</strong>
+                      Equivale a: <strong>{litrosDesdeMontoUSD(parseFloat(gasForm.monto)).toFixed(1)} L</strong>
                     </p>
                   )}
                 </div>

@@ -58,7 +58,7 @@ export default function TrasladosView() {
     modelo: "",
     motivo: "",
     telefono: "",
-    litros: "",
+    monto: "",
     tipo_vehiculo: "carro",
     banco: "0102"
   });
@@ -124,7 +124,7 @@ export default function TrasladosView() {
       modelo: opData.modelo || "",
       motivo: `Combustible para traslado logístico #${t.id.slice(0, 8)}: ${t.descripcion || ""}`,
       telefono: opData.telefono || t.contacto || "",
-      litros: "",
+      monto: "",
       tipo_vehiculo: detectedType,
       banco: "0102"
     });
@@ -139,20 +139,22 @@ export default function TrasladosView() {
     setGasSuccess(false);
     setGasLoading(true);
 
-    const { nombre, apellido, cedula, placa, marca, modelo, motivo, telefono, litros, tipo_vehiculo, banco } = gasForm;
+    const { nombre, apellido, cedula, placa, marca, modelo, motivo, telefono, monto, tipo_vehiculo, banco } = gasForm;
 
-    if (!nombre || !apellido || !cedula || !placa || !marca || !modelo || !motivo || !telefono || !litros || !tipo_vehiculo || !banco) {
+    if (!nombre || !apellido || !cedula || !placa || !marca || !modelo || !motivo || !telefono || !monto || !tipo_vehiculo || !banco) {
       setGasError("Todos los campos son obligatorios.");
       setGasLoading(false);
       return;
     }
 
-    const litrosNum = parseFloat(litros);
-    if (isNaN(litrosNum) || litrosNum <= 0) {
-      setGasError("La cantidad de litros debe ser un número válido mayor a 0.");
+    const montoNum = parseFloat(monto);
+    if (isNaN(montoNum) || montoNum <= 0) {
+      setGasError("El monto debe ser un número válido mayor a 0.");
       setGasLoading(false);
       return;
     }
+    // Precio fijo: $0.50 USD por litro
+    const litrosNum = montoNum / 0.5;
 
     try {
       // Validar acumulados por cédula
@@ -653,6 +655,11 @@ export default function TrasladosView() {
 
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "var(--s2)" }}>
                         <div>
+                          {t.created_at && (
+                            <p className="card__time" style={{ marginBottom: "var(--s1)" }}>
+                              📅 Creado: {new Date(t.created_at).toLocaleString("es-VE", { dateStyle: "short", timeStyle: "short" })}
+                            </p>
+                          )}
                           <p className="card__meta">📞 {t.contacto} · 🕒 {t.cuando}</p>
                           {t.operador ? (
                             opData ? (
@@ -878,9 +885,9 @@ export default function TrasladosView() {
                 <div>
                   <label className="form__label">Tipo de Vehículo</label>
                   <select className="form__input" style={{ height: "40px" }} value={gasForm.tipo_vehiculo} onChange={e => setGasForm({...gasForm, tipo_vehiculo: e.target.value})} required>
-                    <option value="moto">🏍️ Moto (Límite 40L)</option>
-                    <option value="carro">🚗 Carro (Límite 60L)</option>
-                    <option value="autobus">🚌 Autobús (Límite 120L)</option>
+                    <option value="moto">🏍️ Moto (Límite $20)</option>
+                    <option value="carro">🚗 Carro (Límite $30)</option>
+                    <option value="autobus">🚌 Autobús (Límite $60)</option>
                   </select>
                 </div>
                 <div>
@@ -906,15 +913,15 @@ export default function TrasladosView() {
               </div>
 
               <div className="form__field" style={{ marginBottom: "var(--s4)" }}>
-                <label className="form__label">Litros a cargar</label>
+                <label className="form__label">Monto en $</label>
                 <div style={{ display: "flex", gap: "var(--s2)", alignItems: "center" }}>
-                  <input type="number" className="form__input" value={gasForm.litros} onChange={e => setGasForm({...gasForm, litros: e.target.value})} min="1" step="0.1" required />
-                  <span style={{ fontWeight: 600 }}>L</span>
+                  <input type="number" className="form__input" value={gasForm.monto} onChange={e => setGasForm({...gasForm, monto: e.target.value})} min="0.5" step="0.5" required />
+                  <span style={{ fontWeight: 600 }}>$</span>
                 </div>
-                {gasForm.litros && !isNaN(parseFloat(gasForm.litros)) && (
+                {gasForm.monto && !isNaN(parseFloat(gasForm.monto)) && parseFloat(gasForm.monto) > 0 && (
                   <div style={{ marginTop: "var(--s2)", fontSize: "var(--text-xs)", color: "var(--text)", background: "var(--brand-soft)", padding: "var(--s2)", borderRadius: "var(--radius-sm)" }}>
-                    Costo estimado: <strong>${(parseFloat(gasForm.litros) * 0.5).toFixed(2)} USD</strong> 
-                    {usdRate && <> / <strong style={{ color: "var(--brand)" }}>{(parseFloat(gasForm.litros) * 0.5 * usdRate).toFixed(2)} Bs</strong></>}
+                    Equivale a: <strong>{(parseFloat(gasForm.monto) / 0.5).toFixed(1)} L</strong>
+                    {usdRate && <> / <strong style={{ color: "var(--brand)" }}>{(parseFloat(gasForm.monto) * usdRate).toFixed(2)} Bs</strong></>}
                   </div>
                 )}
               </div>

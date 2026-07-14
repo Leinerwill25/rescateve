@@ -80,6 +80,9 @@ export function tipoVehiculoDesdeTransporte(t: Transporte): "moto" | "carro" | "
   return "carro";
 }
 
+/** Precio fijo del combustible en USD por litro. */
+export const PRECIO_LITRO_USD = 0.5;
+
 export function limiteLitros(tipo: "moto" | "carro" | "autobus"): number {
   if (tipo === "moto") return 40;
   if (tipo === "autobus") return 120;
@@ -87,5 +90,14 @@ export function limiteLitros(tipo: "moto" | "carro" | "autobus"): number {
 }
 
 export function costoEstimadoUSD(litros: number): number {
-  return litros * 0.5;
+  return litros * PRECIO_LITRO_USD;
+}
+
+/** Convierte monto en USD a litros (precio fijo). */
+export function litrosDesdeMontoUSD(montoUSD: number): number {
+  return montoUSD / PRECIO_LITRO_USD;
+}
+
+export function limiteMontoUSD(tipo: "moto" | "carro" | "autobus"): number {
+  return costoEstimadoUSD(limiteLitros(tipo));
 }

@@ -369,7 +369,10 @@ export default function Home() {
                           ))}
                         </div>
                       )}
-                      <p className="card__time">🕐 {timeAgo(s.created_at)}</p>
+                      <p className="card__time">
+                        📅 {new Date(s.created_at).toLocaleString("es-VE", { dateStyle: "short", timeStyle: "short" })}
+                        {" · "}🕐 {timeAgo(s.created_at)}
+                      </p>
                     </article>
                   );
                 })}

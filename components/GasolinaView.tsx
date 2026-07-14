@@ -18,7 +18,7 @@ export default function GasolinaView() {
   const [modelo, setModelo] = useState("");
   const [motivo, setMotivo] = useState("");
   const [telefono, setTelefono] = useState("");
-  const [litros, setLitros] = useState("");
+  const [monto, setMonto] = useState("");
   
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -75,18 +75,20 @@ export default function GasolinaView() {
     setSubmitSuccess(false);
     setLoading(true);
 
-    if (!nombre || !apellido || !cedula || !placa || !marca || !modelo || !motivo || !telefono || !litros) {
+    if (!nombre || !apellido || !cedula || !placa || !marca || !modelo || !motivo || !telefono || !monto) {
       setSubmitError("Todos los campos son obligatorios.");
       setLoading(false);
       return;
     }
 
-    const litrosNum = parseFloat(litros);
-    if (isNaN(litrosNum) || litrosNum <= 0) {
-      setSubmitError("La cantidad de litros debe ser un número válido mayor a 0.");
+    const montoNum = parseFloat(monto);
+    if (isNaN(montoNum) || montoNum <= 0) {
+      setSubmitError("El monto debe ser un número válido mayor a 0.");
       setLoading(false);
       return;
     }
+    // Precio fijo: $0.50 USD por litro
+    const litrosNum = montoNum / 0.5;
 
     try {
       const { error } = await supabase.from("solicitudes_gasolina").insert({
@@ -114,7 +116,7 @@ export default function GasolinaView() {
       setModelo("");
       setMotivo("");
       setTelefono("");
-      setLitros("");
+      setMonto("");
       
       // Cambiar a la vista de lista después de un segundo
       setTimeout(() => {
@@ -230,27 +232,27 @@ export default function GasolinaView() {
         </div>
 
         <div className="form__field" style={{ marginBottom: "var(--s6)" }}>
-          <label className="form__label form__label--required" htmlFor="litros">Cantidad de Litros a Cargar</label>
+          <label className="form__label form__label--required" htmlFor="monto">Monto en $</label>
           <div style={{ display: "flex", gap: "var(--s2)", alignItems: "center" }}>
             <input 
-              id="litros"
+              id="monto"
               className="form__input"
               type="number" 
-              value={litros} 
-              onChange={e => setLitros(e.target.value)} 
-              min="1"
-              step="0.1"
+              value={monto} 
+              onChange={e => setMonto(e.target.value)} 
+              min="0.5"
+              step="0.5"
               style={{ flex: 1 }}
               disabled={loading} 
               required 
             />
-            <span style={{ fontWeight: 600, padding: "0 var(--s2)" }}>L</span>
+            <span style={{ fontWeight: 600, padding: "0 var(--s2)" }}>$</span>
           </div>
-          {litros && !isNaN(parseFloat(litros)) && (
+          {monto && !isNaN(parseFloat(monto)) && parseFloat(monto) > 0 && (
             <div style={{ marginTop: "var(--s2)", fontSize: "var(--text-sm)", color: "var(--text)", background: "var(--brand-soft)", padding: "var(--s3)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(30,58,138,.15)" }}>
-              Costo estimado: <strong>${(parseFloat(litros) * 0.5).toFixed(2)} USD</strong> 
+              Equivale a: <strong>{(parseFloat(monto) / 0.5).toFixed(1)} L</strong>
               {usdRate && (
-                <> / <strong style={{ color: "var(--brand)" }}>{(parseFloat(litros) * 0.5 * usdRate).toFixed(2)} Bs</strong> <small style={{ color: "var(--text-muted)" }}>(Tasa: {usdRate} Bs)</small></>
+                <> / <strong style={{ color: "var(--brand)" }}>{(parseFloat(monto) * usdRate).toFixed(2)} Bs</strong> <small style={{ color: "var(--text-muted)" }}>(Tasa: {usdRate} Bs)</small></>
               )}
             </div>
           )}
